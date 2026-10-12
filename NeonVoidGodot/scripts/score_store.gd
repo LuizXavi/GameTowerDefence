@@ -6,7 +6,11 @@ var best := 0
 var muted := false
 var writable := true
 var pieces: Array[int] = [0, 0, 0, 0]
-var research: Array[int] = [0, 0, 0, 0, 0, 0, 0, 0]
+var research: Array[int] = [
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0
+]
 var enemy_stats: Dictionary = {}
 var highest_wave := 1
 var tower_modules: Dictionary = {"plasma": true, "cryo": false, "arc": false, "pulse": false, "laser": false, "vortex": false, "railgun": false}
@@ -19,8 +23,22 @@ var equipped_module: String:
 		if module_unlocked(value):
 			tower_loadout[0] = value
 
-const RESEARCH_MAX := [5, 5, 5, 3, 5, 5, 5, 3]
-const SCHEMA_VERSION := 8
+const RESEARCH_MAX := [
+	5, 5, 5, 3, 5, 5, 5, 3,
+	5, 5, 5, 5, 5, 5, 5, 5, 5, 3,
+	5, 5, 5, 5, 5, 5, 5
+]
+const RESEARCH_BASE_COSTS := [
+	5, 5, 4, 2, 8, 8, 7, 3,
+	6, 6, 7, 3, 5, 6, 5, 6, 6, 4,
+	6, 6, 7, 7, 3, 8, 4
+]
+const RESEARCH_PIECE_INDEX := [
+	0, 1, 2, 3, 0, 1, 2, 3,
+	0, 1, 0, 3, 1, 2, 2, 1, 2, 3,
+	0, 1, 0, 2, 3, 2, 3
+]
+const SCHEMA_VERSION := 9
 const SLOT_WAVES := [1, 3, 6, 10, 15, 22, 30]
 const SLOT_COSTS := [
 	{"piece_index": -1, "amount": 0},
@@ -51,7 +69,7 @@ func migrate(data: Dictionary) -> Dictionary:
 	if version == 1:
 		migrated["version"] = 2
 		migrated["pieces"] = [0, 0, 0, 0]
-		migrated["research"] = [0, 0, 0, 0, 0, 0, 0, 0]
+		migrated["research"] = [0, 0, 0, 0]
 		version = 2
 	if version == 2:
 		migrated["version"] = 3
@@ -92,11 +110,18 @@ func migrate(data: Dictionary) -> Dictionary:
 		migrated["tower_modules"] = current_modules_v6
 		version = 7
 	if version == 7:
-		migrated["version"] = SCHEMA_VERSION
+		migrated["version"] = 8
 		var cur_res: Array = migrated.get("research", [0, 0, 0, 0])
 		while cur_res.size() < 8:
 			cur_res.append(0)
 		migrated["research"] = cur_res
+		version = 8
+	if version == 8:
+		migrated["version"] = SCHEMA_VERSION
+		var cur_res8: Array = migrated.get("research", [])
+		while cur_res8.size() < RESEARCH_MAX.size():
+			cur_res8.append(0)
+		migrated["research"] = cur_res8
 	return migrated
 
 func valid(data: Variant) -> bool:
@@ -117,12 +142,12 @@ func valid(data: Variant) -> bool:
 	for value in data.get("pieces"):
 		if (not value is float and not value is int) or not is_finite(float(value)) or value < 0:
 			return false
-	if not data.get("research") is Array or data.get("research").size() != 8:
+	if not data.get("research") is Array or data.get("research").size() != RESEARCH_MAX.size():
 		return false
 	for value in data.get("research"):
 		if (not value is float and not value is int) or not is_finite(float(value)) or value < 0:
 			return false
-	for i in 8:
+	for i in RESEARCH_MAX.size():
 		if int(data.research[i]) > RESEARCH_MAX[i]:
 			return false
 	if not data.get("enemy_stats") is Dictionary:
@@ -177,7 +202,7 @@ func is_legacy_schema(data: Variant) -> bool:
 	if not data is Dictionary:
 		return false
 	var version: Variant = data.get("version")
-	return (version is int or version is float) and is_finite(float(version)) and float(version) == floor(float(version)) and int(version) in [1, 2, 3, 4, 5, 6, 7]
+	return (version is int or version is float) and is_finite(float(version)) and float(version) == floor(float(version)) and int(version) in [1, 2, 3, 4, 5, 6, 7, 8]
 
 func load_data() -> void:
 	var data: Variant = read_data(path)
@@ -240,16 +265,18 @@ func qualifies(value: int) -> bool:
 	return value > 0 and (scores.size() < 10 or value > scores[-1].score)
 
 func research_cost(index: int) -> int:
-	if index < 0 or index >= 8:
+	if index < 0 or index >= RESEARCH_MAX.size():
 		return 0
-	var base_costs: Array[int] = [5, 5, 4, 2, 8, 8, 7, 3]
-	return base_costs[index] + research[index] * base_costs[index]
+	var base: int = RESEARCH_BASE_COSTS[index]
+	return base + research[index] * base
 
 func piece_index_for_research(index: int) -> int:
-	return index % 4
+	if index < 0 or index >= RESEARCH_PIECE_INDEX.size():
+		return 0
+	return RESEARCH_PIECE_INDEX[index]
 
 func can_research(index: int) -> bool:
-	if index < 0 or index >= 8 or research[index] >= RESEARCH_MAX[index]:
+	if index < 0 or index >= RESEARCH_MAX.size() or research[index] >= RESEARCH_MAX[index]:
 		return false
 	var p_idx := piece_index_for_research(index)
 	return pieces[p_idx] >= research_cost(index)

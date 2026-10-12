@@ -16,11 +16,26 @@ const PIECE_NAMES = ["FRAGMENTO QUADRADO", "FRAGMENTO TRIANGULAR", "LIGA HEXAGON
 const PIECE_SHORT = ["■", "▲", "⬢", "✦"]
 const RESEARCH_NAMES = [
 	"Análise de Plasma", "Roteamento Autônomo", "Liga da Base", "Reator Nova",
-	"Foco Crítico", "Sincronia de Combate", "Extração Quântica", "Singularidade Nova"
+	"Foco Crítico", "Sincronia de Combate", "Extração Quântica", "Singularidade Nova",
+	"Perfuração Cinética", "Acelerador de Cadência", "Execução Implacável", "Caçador de Titãs",
+	"Estabilizador de Combo", "Blindagem Reativa", "Nanorreparo de Onda", "Cofre Quântico",
+	"Gerador de Emergência", "Magnetismo de Fragmentos",
+	"Superaquecimento de Plasma", "Zero Absoluto", "Condutores de Alta Tensão",
+	"Ressonância Tectônica", "Lente de Antimatéria", "Horizonte de Eventos", "Capacitores Hiperfônicos"
 ]
 const RESEARCH_DESCS = [
 	"+1 dano base por clique", "+8% DPS da torreta", "+10 vida máxima da base", "+0,3 carga/s da Nova",
-	"+2% chance e +0,2x dano crítico", "+0,8% bônus de dano/ouro por combo", "+8% ouro ganho por abate", "+25% dano destrutivo do Pulso Nova"
+	"+2% chance e +0,2x dano crítico", "+0,8% bônus de dano/ouro por combo", "+8% ouro ganho por abate", "+25% dano destrutivo do Pulso Nova",
+	"+12% dano contra inimigos blindados", "+5% cadência de tiro de todas as torretas", "+10% dano contra inimigos abaixo de 40% HP", "+12% dano contra Elites, Mini-Bosses e Bosses",
+	"+0,4s duração do combo e reduz perda ao errar", "-1 dano recebido na base por vazamento (mín. 1)", "+4 vida recuperada na base ao concluir cada wave", "+20 ouro inicial e -12% roubo de Ladrões",
+	"+10 carga inicial da Nova e +4 cura do Escudo", "+6% chance de drop de peças de inimigos",
+	"[Torre Plasma] +12% dano direto e +15% bônus de Choque Térmico",
+	"[Torre Criogênica] +10% dano e +0,25s duração de lentidão",
+	"[Torre de Arco] +10% dano e +18px alcance dos saltos elétricos",
+	"[Torre Sísmica] +12% dano radial e +6px força de empurrão",
+	"[Laser Antimatéria] +15% velocidade de rampa e +0,3x dano máximo",
+	"[Vórtice Gravitacional] +12% dano de implosão e +12px raio de atração",
+	"[Railgun Fotônico] +14% dano perfurante e recarga 4% mais rápida"
 ]
 const MODULE_IDS = ["plasma", "cryo", "arc", "pulse", "laser", "vortex", "railgun"]
 const MODULE_INFO = {
@@ -97,6 +112,7 @@ var research_content: VBoxContainer
 var modules_content: VBoxContainer
 var module_status := ""
 var modal_return_focus: Control
+var hide_completed_research := false
 
 func _ready() -> void:
 	get_window().min_size = Vector2i(640, 640)
@@ -528,15 +544,39 @@ func build_module_cards() -> void:
 	contain_modal_focus()
 	focus_first_modal_action()
 
+func append_hide_completed_button(parent: VBoxContainer) -> void:
+	var toggle_text := "✓ 👁  OCULTAR PESQUISAS CONCLUÍDAS: ATIVO" if hide_completed_research else "👁  OCULTAR PESQUISAS CONCLUÍDAS: INATIVO"
+	var toggle_btn := button(toggle_text, toggle_hide_completed_research, LIME if hide_completed_research else MUTED)
+	toggle_btn.name = "ToggleHideCompleted"
+	toggle_btn.custom_minimum_size.y = 40
+	parent.add_child(toggle_btn)
+
+func toggle_hide_completed_research() -> void:
+	hide_completed_research = not hide_completed_research
+	play_sound("click")
+	if phase == "research":
+		build_research_cards()
+	elif phase == "modules":
+		build_module_cards()
+	var toggle_btn := overlay.find_child("ToggleHideCompleted", true, false) as Button
+	if toggle_btn != null:
+		toggle_btn.grab_focus()
+
 func append_module_cards(parent: VBoxContainer) -> void:
 	center_label(parent, "⌖  PESQUISA DE MÓDULOS", 15, PINK, true)
+	if phase == "modules":
+		append_hide_completed_button(parent)
 	var undiscovered := false
+	var shown_count := 0
 	for module_id in MODULE_IDS:
 		if not store.module_visible(module_id):
 			undiscovered = true
 			continue
 		var info: Array = MODULE_INFO[module_id]
 		var unlocked: bool = store.module_unlocked(module_id)
+		if hide_completed_research and unlocked:
+			continue
+		shown_count += 1
 		var card := panel(parent, info[2])
 
 		var card_row := HBoxContainer.new()
@@ -576,6 +616,8 @@ func append_module_cards(parent: VBoxContainer) -> void:
 			action.disabled = not store.can_research_module(module_id)
 		action.name = "Module_" + module_id
 		card.add_child(action)
+	if shown_count == 0 and hide_completed_research:
+		center_label(parent, "✓ Todos os módulos descobertos já foram pesquisados.", 15, LIME)
 	if undiscovered:
 		var next_wave := 5
 		for mid in MODULE_IDS:
@@ -872,19 +914,39 @@ func build_research_cards() -> void:
 	dynamic.add_theme_constant_override("separation", 10)
 	research_content.add_child(dynamic)
 	center_label(dynamic, pieces_text(), 16, AMBER, true)
-	for i in 8:
+	append_hide_completed_button(dynamic)
+	center_label(dynamic, "⚔  PESQUISAS DE ATAQUE E DEFESA", 15, CYAN, true)
+	var combat_shown := 0
+	var tower_shown := 0
+	for i in RESEARCH_NAMES.size():
+		if i == 18:
+			if combat_shown == 0 and hide_completed_research:
+				center_label(dynamic, "✓ Todas as pesquisas de ataque e defesa foram concluídas.", 15, LIME)
+			center_label(dynamic, "⌖  ESPECIALIZAÇÃO DE TORRETAS", 15, PINK, true)
 		var level: int = store.research[i]
 		var maximum: int = store.RESEARCH_MAX[i]
+		if hide_completed_research and level >= maximum:
+			continue
+		if i < 18:
+			combat_shown += 1
+		else:
+			tower_shown += 1
 		var cost: int = store.research_cost(i)
 		var p_idx: int = store.piece_index_for_research(i)
 		var words := "%s  %s  •  Nv.%d/%d\n%s\n" % [PIECE_SHORT[p_idx], RESEARCH_NAMES[i], level, maximum, RESEARCH_DESCS[i]]
-		words += "PESQUISA CONCLUÍDA" if level >= maximum else "Custo: %d %s   •   Você tem: %d" % [cost, PIECE_SHORT[p_idx], store.pieces[p_idx]]
-		var research_button := button(words, func(): buy_research(i), COLORS[p_idx])
+		words += "✓ PESQUISA CONCLUÍDA" if level >= maximum else "Custo: %d %s   •   Você tem: %d" % [cost, PIECE_SHORT[p_idx], store.pieces[p_idx]]
+		var btn_color: Color = MODULE_INFO[MODULE_IDS[i - 18]][2] if i >= 18 else COLORS[p_idx]
+		var research_button := button(words, func(): buy_research(i), btn_color)
 		research_button.name = "Research%d" % (i + 1)
 		research_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		research_button.custom_minimum_size.y = 78
 		research_button.disabled = not store.can_research(i)
+		if i >= 18:
+			var tower_mod_id: String = MODULE_IDS[i - 18]
+			research_button.draw.connect(func(): draw_tower_module_icon(research_button, tower_mod_id, 13.0, Vector2(research_button.size.x - 36.0, research_button.size.y * 0.5)))
 		dynamic.add_child(research_button)
+	if tower_shown == 0 and hide_completed_research:
+		center_label(dynamic, "✓ Todas as especializações de torretas foram concluídas.", 15, LIME)
 	append_module_cards(dynamic)
 	append_slot_expansion(dynamic, true)
 	append_module_status(dynamic)

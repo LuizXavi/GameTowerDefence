@@ -63,8 +63,28 @@ func run() -> void:
 	app.show_research()
 	await process_frame
 	var research_button: Button = app.overlay.find_child("Research1", true, false)
+	assert(app.overlay.find_child("Research19", true, false) != null, "Tower specialization researches appear in laboratory")
+	app.ensure_modal_visible(research_button)
+	await process_frame
 	await click(research_button.get_global_rect().get_center())
 	assert(app.store.research[0] == 1 and app.store.pieces[0] == 0, "Research purchase consumes pieces")
+	app.store.research[0] = 5
+	app.build_research_cards()
+	await process_frame
+	var toggle_hide: Button = app.overlay.find_child("ToggleHideCompleted", true, false)
+	assert(toggle_hide != null, "Hide completed research button exists")
+	app.ensure_modal_visible(toggle_hide)
+	await process_frame
+	await click(toggle_hide.get_global_rect().get_center())
+	assert(app.hide_completed_research and app.overlay.find_child("Research1", true, false) == null, "Completed research is hidden when toggle is active")
+	toggle_hide = app.overlay.find_child("ToggleHideCompleted", true, false)
+	app.ensure_modal_visible(toggle_hide)
+	await process_frame
+	await click(toggle_hide.get_global_rect().get_center())
+	assert(not app.hide_completed_research and app.overlay.find_child("Research1", true, false) != null, "Completed research reappears when toggle is deactivated")
+	app.store.research[0] = 1
+	app.build_research_cards()
+	await process_frame
 	await capture("NeonVoid-pesquisas")
 	await key(KEY_ESCAPE)
 	assert(app.phase == "menu", "Escape closes research")

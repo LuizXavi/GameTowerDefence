@@ -43,13 +43,14 @@ const PULSE_KNOCKBACK_FORCE := 38.0
 var tower_module: String = "plasma"
 
 func interval_for_module(module_id: String) -> float:
+	var base := AUTO_INTERVAL
 	if module_id == "pulse":
-		return PULSE_INTERVAL
+		base = PULSE_INTERVAL
 	elif module_id == "vortex":
-		return 1.4
+		base = 1.4
 	elif module_id == "railgun":
-		return 1.6
-	return AUTO_INTERVAL
+		base = 1.6 * (1.0 - float(research[24]) * 0.04)
+	return base / (1.0 + float(research[9]) * 0.05)
 var tower_loadout: Array[String] = ["plasma"]
 var tower_slots: Array[Dictionary] = []
 var gold: int = 0
@@ -91,7 +92,11 @@ var beam_time: float:
 var beam_chain: Array[Vector2]:
 	get: return tower_slots[0].beam_chain
 	set(value): tower_slots[0].beam_chain = value
-var research: Array[int] = [0, 0, 0, 0, 0, 0, 0, 0]
+var research: Array[int] = [
+	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0
+]
 var run_pieces: Array[int] = [0, 0, 0, 0]
 
 func _init() -> void:
@@ -136,13 +141,17 @@ func tower_position(slot_index: int) -> Vector2:
 	return Vector2(bounds.x * (slot_index + 1.0) / (tower_slots.size() + 1.0), bounds.y - 40)
 
 func configure_research(levels: Array) -> void:
-	var max_res: Array[int] = [5, 5, 5, 3, 5, 5, 5, 3]
-	for i in 8:
+	var max_res: Array[int] = [
+		5, 5, 5, 3, 5, 5, 5, 3,
+		5, 5, 5, 5, 5, 5, 5, 5, 5, 3,
+		5, 5, 5, 5, 5, 5, 5
+	]
+	for i in max_res.size():
 		research[i] = clampi(int(levels[i]) if i < levels.size() else 0, 0, max_res[i])
 
 func reset() -> void:
-	gold = 0
-	total_gold = 0
+	gold = research[15] * 20
+	total_gold = gold
 	score = 0
 	kills = 0
 	wave = 1
@@ -155,7 +164,7 @@ func reset() -> void:
 	combo = 0
 	max_combo = 0
 	combo_timer = 0
-	charge = 20
+	charge = minf(100.0, 20.0 + float(research[16]) * 10.0)
 	play_time = 0
 	spawn_timer = 0.2
 	_reset_tower_slots()
@@ -194,13 +203,14 @@ func auto_attack(target: Dictionary, base_damage: float, module_id: String = "",
 		slot.pulse_ring = bounds.x * 0.75
 		effect.emit("burst", tower_position(slot_index), Color("b6ff2e"), "ONDA SÍSMICA")
 		sound.emit("pulse")
-		var pulse_damage := base_damage * 1.8
+		var pulse_damage := base_damage * 1.8 * (1.0 + float(research[21]) * 0.12)
+		var knockback := PULSE_KNOCKBACK_FORCE + float(research[21]) * 6.0
 		for enemy in enemies.duplicate():
 			if enemy.hp <= 0 or enemy.ghosted:
 				continue
 			var hit_dist := tower_position(slot_index).distance_to(enemy.p)
 			if hit_dist < slot.pulse_ring:
-				enemy.p.y = maxf(enemy.radius + 10, enemy.p.y - PULSE_KNOCKBACK_FORCE)
+				enemy.p.y = maxf(enemy.radius + 10, enemy.p.y - knockback)
 				enemy.static_timer = 2.5
 				damage_enemy(enemy, pulse_damage, false, "auto")
 		return
@@ -218,30 +228,33 @@ func auto_attack(target: Dictionary, base_damage: float, module_id: String = "",
 	var damage := base_damage
 
 	if active_module == "cryo":
-		damage *= 0.75
-		target.slow_timer = CRYO_SLOW_DURATION
+		damage *= 0.75 * (1.0 + float(research[19]) * 0.10)
+		target.slow_timer = CRYO_SLOW_DURATION + float(research[19]) * 0.25
 	elif active_module == "arc":
-		damage *= 0.65
+		damage *= 0.65 * (1.0 + float(research[20]) * 0.10)
 	elif active_module == "laser":
 		# Laser de Antimatéria: rampa de dano mantendo o foco
 		var target_key: String = str(target.get("enemy_id", "")) + "_" + str(target.get("age", 0.0))
+		var ramp_step: float = AUTO_INTERVAL * (1.0 + float(research[22]) * 0.15)
 		if slot.laser_target_id == target_key:
-			slot.laser_focus_time = minf(2.0, slot.laser_focus_time + AUTO_INTERVAL)
+			slot.laser_focus_time = minf(2.0, slot.laser_focus_time + ramp_step)
 		else:
 			slot.laser_target_id = target_key
 			slot.laser_focus_time = 0.0
-		# Multiplicador rampa de 0.5x até 3.5x
-		var ramp: float = 0.5 + (float(slot.laser_focus_time) / 2.0) * 3.0
-		damage *= ramp
+		# Multiplicador rampa de 0.5x até (3.5x + bônus de lente)
+		var max_ramp_add: float = 3.0 + float(research[22]) * 0.3
+		var ramp: float = 0.5 + (float(slot.laser_focus_time) / 2.0) * max_ramp_add
+		damage *= ramp * (1.0 + float(research[22]) * 0.08)
 		sound.emit("laser")
 		# Ponto de Ruptura: acelera em inimigos congelados
 		if target.get("slow_timer", 0.0) > 0:
 			damage *= 1.35
 			effect.emit("text", target.p - Vector2(0, target.radius + 18), Color("ff7799"), "RUPTURA!")
 	elif active_module == "plasma":
+		damage *= (1.0 + float(research[18]) * 0.12)
 		# Sinergia Choque Térmico: dano extra se alvo estiver desacelerado/congelado
 		if target.get("slow_timer", 0.0) > 0:
-			damage *= 1.45
+			damage *= (1.45 + float(research[18]) * 0.15)
 			effect.emit("text", target.p - Vector2(0, target.radius + 18), Color("ff55ff"), "CHOQUE TÉRMICO!")
 	elif active_module == "vortex":
 		# Vórtice Gravitacional: cria micro singularidade, puxa inimigos e causa implosão
@@ -251,7 +264,7 @@ func auto_attack(target: Dictionary, base_damage: float, module_id: String = "",
 		slot.beam_time = 0.22
 		sound.emit("vortex")
 		effect.emit("burst", target.p, Color("9933ff"), "VÓRTICE!")
-		var vortex_radius := 160.0
+		var vortex_radius := 160.0 + float(research[23]) * 12.0
 		for enemy in enemies.duplicate():
 			if enemy.hp <= 0 or enemy.ghosted:
 				continue
@@ -261,7 +274,7 @@ func auto_attack(target: Dictionary, base_damage: float, module_id: String = "",
 				if dist > 6.0:
 					enemy.p += diff.normalized() * minf(dist - 5.0, 48.0)
 				enemy.vortex_timer = 2.0
-				var v_dmg := base_damage * 1.25
+				var v_dmg := base_damage * 1.25 * (1.0 + float(research[23]) * 0.12)
 				if enemy.get("slow_timer", 0.0) > 0 or enemy.get("static_timer", 0.0) > 0:
 					v_dmg *= 1.5
 					effect.emit("text", enemy.p - Vector2(0, enemy.radius + 18), Color("9933ff"), "IMPLOSÃO!")
@@ -313,7 +326,7 @@ func auto_attack(target: Dictionary, base_damage: float, module_id: String = "",
 			if d1 < enemy.radius + 14.0 or d2 < enemy.radius + 14.0:
 				var tag := "PERFURADO!" if d1 < enemy.radius + 14.0 else "RICOCHETE!"
 				effect.emit("text", enemy.p - Vector2(0, enemy.radius + 16), Color("33ffcc"), tag)
-				damage_enemy(enemy, base_damage * 1.6, false, "auto")
+				damage_enemy(enemy, base_damage * 1.6 * (1.0 + float(research[24]) * 0.14), false, "auto")
 		return
 
 	var targets: Array[Dictionary] = [target]
@@ -322,7 +335,8 @@ func auto_attack(target: Dictionary, base_damage: float, module_id: String = "",
 		var max_hops := 4 if target.get("static_timer", 0.0) > 0 else 2
 		if target.get("static_timer", 0.0) > 0:
 			sound.emit("spark")
-		var chain_radius := ARC_CHAIN_RADIUS * 1.5 if target.get("static_timer", 0.0) > 0 else ARC_CHAIN_RADIUS
+		var base_arc_radius: float = ARC_CHAIN_RADIUS + float(research[20]) * 18.0
+		var chain_radius := base_arc_radius * 1.5 if target.get("static_timer", 0.0) > 0 else base_arc_radius
 		var origin: Vector2 = target.p
 		for hop in max_hops:
 			var next: Dictionary = {}
@@ -363,8 +377,8 @@ func buy(key: int) -> bool:
 	levels[key] += 1
 	if key == 3:
 		max_hp += 15
-		hp = mini(max_hp, hp + 30)
-		effect.emit("burst", Vector2(bounds.x / 2, bounds.y - 60), COLORS[1], "+30 ESCUDO")
+		hp = mini(max_hp, hp + 30 + research[16] * 4)
+		effect.emit("burst", Vector2(bounds.x / 2, bounds.y - 60), COLORS[1], "+%d ESCUDO" % (30 + research[16] * 4))
 	sound.emit("shield" if key == 3 else "buy")
 	return true
 
@@ -385,7 +399,7 @@ func tap(point: Vector2) -> void:
 		if not phased_target.is_empty():
 			effect.emit("text", phased_target.p - Vector2(0, phased_target.radius + 8), COLORS[1], "INTANGÍVEL")
 			return
-		combo = maxi(0, combo - 3)
+		combo = maxi(0, combo - maxi(1, 3 - research[12] / 2))
 		effect.emit("ring", point, Color(1, 1, 1, 0.35), "")
 		return
 	var critical := randf() < crit_chance()
@@ -394,7 +408,7 @@ func tap(point: Vector2) -> void:
 		var crit_mult: float = 3.0 + levels[2] * 0.25 + float(research[4]) * 0.20
 		damage *= crit_mult
 	combo += 1
-	combo_timer = 2.2
+	combo_timer = 2.2 + float(research[12]) * 0.4
 	max_combo = maxi(max_combo, combo)
 	target.p.y -= 10 if critical else 5
 	effect.emit("hit", point, COLORS[3] if critical else COLORS[1], "")
@@ -420,7 +434,11 @@ func damage_enemy(enemy: Dictionary, damage: float, critical := false, source :=
 	if enemy.hp <= 0 or enemy.ghosted:
 		return
 	if enemy.variant == "armored" or enemy.modifiers.has("armor"):
-		damage *= 1.75 if source == "auto" else (0.35 if source == "click" else 0.8)
+		damage *= (1.75 if source == "auto" else (0.35 if source == "click" else 0.8)) * (1.0 + float(research[8]) * 0.12)
+	if research[10] > 0 and enemy.hp < float(enemy.max_hp) * 0.40:
+		damage *= (1.0 + float(research[10]) * 0.10)
+	if research[11] > 0 and (enemy.elite or enemy.get("is_miniboss", false) or enemy.type == 3):
+		damage *= (1.0 + float(research[11]) * 0.12)
 	enemy.hp -= damage
 	enemy.hit = 0.09
 	enemy.since_hit = 0.0
@@ -480,6 +498,7 @@ func roll_piece_drop(enemy: Dictionary, forced_roll := -1.0) -> int:
 		piece_kind = 0 # Quadrado / Equilibrado
 		chance = 0.32
 
+	chance = minf(1.0, chance + float(research[17]) * 0.06)
 	if enemy.elite or enemy.get("is_miniboss", false):
 		chance = minf(1.0, chance * 2.0)
 	var roll := randf() if forced_roll < 0 else forced_roll
@@ -499,7 +518,7 @@ func next_wave() -> void:
 	gold += bonus
 	total_gold += bonus
 	score += wave * 250
-	hp = mini(max_hp, hp + 6)
+	hp = mini(max_hp, hp + 6 + research[14] * 4)
 	if wave % 5 == 0:
 		var boss_names := ["GUARDIÃO OCTOGONAL", "COLOSSO DECAGONAL", "DODECÁGONO PRIMORDIAL", "NEXUS CÓSMICO"]
 		var boss_idx: int = (wave / 5 - 1) % boss_names.size()
@@ -758,11 +777,13 @@ func tick(delta: float) -> void:
 			enemies.erase(enemy)
 			var stolen := 0
 			if enemy.variant == "thief":
-				stolen = mini(gold, maxi(10, roundi(gold * 0.15)))
+				var steal_factor: float = maxf(0.2, 1.0 - float(research[15]) * 0.12)
+				stolen = mini(gold, maxi(1, roundi(maxi(10, roundi(gold * 0.15)) * steal_factor)))
 				gold -= stolen
-			hp = maxi(0, hp - enemy.leak)
+			var leak_dmg: int = maxi(1, int(enemy.leak) - research[13])
+			hp = maxi(0, hp - leak_dmg)
 			combo = maxi(0, combo - 6)
-			effect.emit("leak", enemy.p, Color("ff3355"), ("-%d HP  -%d OURO" % [enemy.leak, stolen]) if stolen > 0 else "-%d" % enemy.leak)
+			effect.emit("leak", enemy.p, Color("ff3355"), ("-%d HP  -%d OURO" % [leak_dmg, stolen]) if stolen > 0 else "-%d" % leak_dmg)
 			sound.emit("leak")
 			if hp == 0:
 				running = false
