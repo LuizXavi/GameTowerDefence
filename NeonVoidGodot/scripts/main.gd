@@ -538,22 +538,38 @@ func append_module_cards(parent: VBoxContainer) -> void:
 		var info: Array = MODULE_INFO[module_id]
 		var unlocked: bool = store.module_unlocked(module_id)
 		var card := panel(parent, info[2])
+
+		var card_row := HBoxContainer.new()
+		card_row.add_theme_constant_override("separation", 14)
+		card.add_child(card_row)
+
+		var icon := Control.new()
+		icon.custom_minimum_size = Vector2(58, 58)
+		icon.draw.connect(func(): draw_tower_module_icon(icon, module_id))
+		card_row.add_child(icon)
+
+		var text_col := VBoxContainer.new()
+		text_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		text_col.add_theme_constant_override("separation", 3)
+		card_row.add_child(text_col)
+
 		var heading := label(info[0], 17, info[2], true)
 		heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		card.add_child(heading)
-		var desc := label(info[1], 18, Color("d4cee0"))
+		text_col.add_child(heading)
+		var desc := label(info[1], 16, Color("d4cee0"))
 		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		card.add_child(desc)
+		text_col.add_child(desc)
+
 		var action: Button
 		if unlocked:
-			var status := label("✓ PESQUISADO • disponível em todos os slots", 16, LIME)
+			var status := label("✓ PESQUISADO • disponível em todos os slots", 15, LIME)
 			status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			card.add_child(status)
 			continue
 		else:
 			var cost: Dictionary = store.module_cost(module_id)
 			var index: int = cost.piece_index
-			var costs := label("BLOQUEADO • Custo: %d %s • Você tem: %d" % [int(cost.amount), PIECE_SHORT[index], store.pieces[index]], 17, MUTED)
+			var costs := label("BLOQUEADO • Custo: %d %s • Você tem: %d" % [int(cost.amount), PIECE_SHORT[index], store.pieces[index]], 16, MUTED)
 			costs.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			card.add_child(costs)
 			action = button("PESQUISAR" if store.can_research_module(module_id) else "PESQUISAR • PEÇAS INSUFICIENTES", func(): buy_tower_module(module_id), info[2])
@@ -575,9 +591,20 @@ func append_tower_slots(parent: VBoxContainer) -> void:
 	for index in store.unlocked_tower_slots:
 		var selected: String = store.tower_loadout[index]
 		var card := panel(parent, MODULE_INFO[selected][2])
+
+		var head_row := HBoxContainer.new()
+		head_row.add_theme_constant_override("separation", 10)
+		card.add_child(head_row)
+
+		var slot_icon := Control.new()
+		slot_icon.custom_minimum_size = Vector2(36, 36)
+		slot_icon.draw.connect(func(): draw_tower_module_icon(slot_icon, selected, 12.0))
+		head_row.add_child(slot_icon)
+
 		var heading := label("SLOT %d  •  %s" % [index + 1, MODULE_INFO[selected][0]], 16, MODULE_INFO[selected][2], true)
 		heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		card.add_child(heading)
+		head_row.add_child(heading)
+
 		var choices := GridContainer.new()
 		choices.name = "SlotChoices%d" % index
 		choices.columns = 1 if size.x < 700 else 3
@@ -598,12 +625,93 @@ func append_tower_slots(parent: VBoxContainer) -> void:
 			}
 			var module_name: String = str(module_names.get(module_id, module_id.to_upper()))
 			var equipped: bool = selected == module_id
-			var action := button(("✓ " if equipped else "") + module_name, func(): equip_tower_module(index, module_id), MODULE_INFO[module_id][2])
+			var action := button("", func(): equip_tower_module(index, module_id), MODULE_INFO[module_id][2])
 			action.name = "Slot%d_%s" % [index, module_id]
 			action.tooltip_text = "Equipado neste slot" if equipped else "Equipar %s no slot %d" % [MODULE_INFO[module_id][0], index + 1]
 			action.disabled = equipped
 			action.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			action.custom_minimum_size = Vector2(0, 48)
+
+			var btn_content := HBoxContainer.new()
+			btn_content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			btn_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			btn_content.alignment = BoxContainer.ALIGNMENT_CENTER
+			btn_content.add_theme_constant_override("separation", 8)
+			action.add_child(btn_content)
+
+			if equipped:
+				var check := label("✓", 13, LIME, true)
+				check.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				btn_content.add_child(check)
+
+			var btn_icon := Control.new()
+			btn_icon.custom_minimum_size = Vector2(26, 26)
+			btn_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			btn_icon.draw.connect(func(): draw_tower_module_icon(btn_icon, module_id, 8.5))
+			btn_content.add_child(btn_icon)
+
+			var btn_label := label(module_name, 12, Color.WHITE if equipped else MODULE_INFO[module_id][2], true)
+			btn_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			btn_content.add_child(btn_label)
+
 			choices.add_child(action)
+
+func draw_tower_module_icon(control: Control, module_id: String, base_radius: float = 16.0, custom_center: Vector2 = Vector2(-1, -1)) -> void:
+	var center: Vector2 = custom_center if custom_center.x >= 0.0 else control.size * 0.5
+	var color: Color = MODULE_INFO.get(module_id, ["", "", PINK])[2]
+	var dir := Vector2.UP # Mirando para cima
+	var scale_factor: float = base_radius / 16.0
+
+	# Anel externo da torreta com fundo escuro
+	var outer_r: float = base_radius + 4.0 * scale_factor
+	control.draw_circle(center, outer_r, Color("0b061c"))
+	control.draw_arc(center, outer_r, 0.0, TAU, 24, Color(color, 0.35), maxf(1.0, 1.5 * scale_factor), true)
+	control.draw_circle(center, base_radius, Color("140933"))
+	control.draw_arc(center, base_radius, 0.0, TAU, 24, color, maxf(1.0, 2.0 * scale_factor), true)
+
+	# Silhuetas distintivas de cada arma
+	match module_id:
+		"plasma":
+			# Canhão principal de plasma frontal + núcleo brilhante
+			control.draw_line(center, center + dir * (base_radius + 9.0 * scale_factor), color, maxf(1.5, 4.0 * scale_factor), true)
+			control.draw_line(center, center + dir * (base_radius + 9.0 * scale_factor), Color.WHITE, maxf(1.0, 1.5 * scale_factor), true)
+			control.draw_circle(center, maxf(1.5, 4.0 * scale_factor), Color.WHITE)
+		"cryo":
+			# Canhão ciano com aletas refrigeradoras em cruz
+			control.draw_line(center, center + dir * (base_radius + 8.0 * scale_factor), color, maxf(1.5, 3.5 * scale_factor), true)
+			var wing: Vector2 = dir.orthogonal() * (7.0 * scale_factor)
+			control.draw_line(center + dir * (6.0 * scale_factor) - wing, center + dir * (6.0 * scale_factor) + wing, color, maxf(1.0, 2.0 * scale_factor), true)
+			control.draw_line(center + dir * (12.0 * scale_factor) - wing * 0.6, center + dir * (12.0 * scale_factor) + wing * 0.6, Color.WHITE, maxf(1.0, 1.5 * scale_factor), true)
+		"arc":
+			# Bobina tesla dupla para condutores de choque
+			for side in [-1, 1]:
+				var offset: Vector2 = dir.orthogonal() * (float(side) * 6.0 * scale_factor)
+				control.draw_line(center + offset, center + offset + dir * (base_radius + 8.0 * scale_factor), color, maxf(1.0, 2.5 * scale_factor), true)
+				control.draw_circle(center + offset + dir * (base_radius + 8.0 * scale_factor), maxf(1.2, 2.5 * scale_factor), Color.WHITE)
+			control.draw_line(center - dir.orthogonal() * (6.0 * scale_factor), center + dir.orthogonal() * (6.0 * scale_factor), Color(color, 0.7), maxf(1.0, 1.5 * scale_factor), true)
+		"pulse":
+			# Emissor sísmico com anéis concêntricos de choque
+			control.draw_arc(center, base_radius * 0.5, 0.0, TAU, 16, Color.WHITE, maxf(1.0, 2.0 * scale_factor), true)
+			control.draw_arc(center, base_radius + 7.0 * scale_factor, 0.0, TAU, 20, Color(color, 0.8), maxf(1.0, 2.0 * scale_factor), true)
+			control.draw_circle(center, maxf(1.5, 3.0 * scale_factor), color)
+		"laser":
+			# Projetor óptico com lentes convergentes pontiagudas
+			control.draw_line(center - dir.orthogonal() * (5.0 * scale_factor), center + dir * (base_radius + 10.0 * scale_factor), color, maxf(1.0, 2.5 * scale_factor), true)
+			control.draw_line(center + dir.orthogonal() * (5.0 * scale_factor), center + dir * (base_radius + 10.0 * scale_factor), color, maxf(1.0, 2.5 * scale_factor), true)
+			control.draw_line(center, center + dir * (base_radius + 10.0 * scale_factor), Color.WHITE, maxf(1.0, 2.0 * scale_factor), true)
+			control.draw_circle(center + dir * (base_radius + 10.0 * scale_factor), maxf(1.5, 3.0 * scale_factor), Color("ff88aa"))
+		"vortex":
+			# Singularidade giratória com anéis espirais duplos
+			control.draw_arc(center, base_radius * 0.6, 0.0, TAU * 0.8, 16, color, maxf(1.2, 2.5 * scale_factor), true)
+			control.draw_arc(center, base_radius + 6.0 * scale_factor, PI * 0.5, PI * 0.5 + TAU * 0.8, 20, Color(color, 0.8), maxf(1.0, 2.0 * scale_factor), true)
+			control.draw_circle(center, maxf(1.5, 4.0 * scale_factor), Color("050014"))
+		"railgun":
+			# Trilhos magnéticos paralelos com bobinas de aceleração
+			var rail_norm: Vector2 = dir.orthogonal() * (4.0 * scale_factor)
+			control.draw_line(center - rail_norm, center - rail_norm + dir * (base_radius + 11.0 * scale_factor), color, maxf(1.0, 2.0 * scale_factor), true)
+			control.draw_line(center + rail_norm, center + rail_norm + dir * (base_radius + 11.0 * scale_factor), color, maxf(1.0, 2.0 * scale_factor), true)
+			control.draw_line(center + dir * (5.0 * scale_factor) - rail_norm * 1.3, center + dir * (5.0 * scale_factor) + rail_norm * 1.3, Color.WHITE, maxf(1.0, 1.5 * scale_factor), true)
+			control.draw_line(center + dir * (11.0 * scale_factor) - rail_norm * 1.3, center + dir * (11.0 * scale_factor) + rail_norm * 1.3, Color.WHITE, maxf(1.0, 1.5 * scale_factor), true)
 
 func append_slot_expansion(parent: VBoxContainer, laboratory := false) -> void:
 	var index: int = store.unlocked_tower_slots
@@ -1032,6 +1140,7 @@ func modal() -> VBoxContainer:
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(overlay)
 	var scroll := ScrollContainer.new()
+	scroll.name = "ModalScroll"
 	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.follow_focus = true
@@ -1045,6 +1154,13 @@ func modal() -> VBoxContainer:
 	content.custom_minimum_size.x = 480
 	content.add_theme_constant_override("separation", 14)
 	return content
+
+func ensure_modal_visible(target: Control) -> void:
+	if not is_instance_valid(overlay) or not is_instance_valid(target):
+		return
+	var scroll := overlay.find_child("ModalScroll", true, false) as ScrollContainer
+	if scroll != null:
+		scroll.ensure_control_visible(target)
 
 func pause_game() -> void:
 	if phase == "paused":

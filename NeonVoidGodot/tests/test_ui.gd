@@ -48,9 +48,13 @@ func run() -> void:
 	await process_frame
 	var cryo_button: Button = app.overlay.find_child("Module_cryo", true, false)
 	assert(cryo_button != null and not cryo_button.disabled, "Cryo research appears after wave five")
+	app.ensure_modal_visible(cryo_button)
+	await process_frame
 	await click(cryo_button.get_global_rect().get_center())
 	cryo_button = app.overlay.find_child("Slot0_cryo", true, false)
 	assert(app.store.tower_modules.cryo and app.store.pieces[1] == 0 and cryo_button != null and not cryo_button.disabled, "Module research consumes pieces and enables equip")
+	app.ensure_modal_visible(cryo_button)
+	await process_frame
 	await click(cryo_button.get_global_rect().get_center())
 	assert(app.store.equipped_module == "cryo", "Researched tower module can be equipped")
 	await capture("NeonVoid-modulos")
