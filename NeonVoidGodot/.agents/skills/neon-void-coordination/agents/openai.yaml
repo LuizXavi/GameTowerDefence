@@ -1,0 +1,4 @@
+interface:
+  display_name: "Neon Void — Coordenação"
+  short_description: "Planeja e integra trabalho de agentes no Neon Void"
+  default_prompt: "Planeje, delegue e integre esta mudança no Neon Void respeitando a propriedade dos arquivos e os critérios de pronto do projeto."

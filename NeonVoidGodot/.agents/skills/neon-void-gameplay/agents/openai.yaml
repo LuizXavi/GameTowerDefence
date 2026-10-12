@@ -1,0 +1,4 @@
+interface:
+  display_name: "Neon Void Gameplay"
+  short_description: "Combate, waves e economia do Neon Void"
+  default_prompt: "Use $neon-void-gameplay para implementar e validar esta mudança de gameplay no Neon Void."

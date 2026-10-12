@@ -1,0 +1,4 @@
+interface:
+  display_name: "Neon Void Pesquisas"
+  short_description: "Pesquisas, missões, peças e Codex"
+  default_prompt: "Use $neon-void-research para implementar e validar esta metaprogressão no Neon Void."

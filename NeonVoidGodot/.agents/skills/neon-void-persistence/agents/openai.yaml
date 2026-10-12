@@ -1,0 +1,4 @@
+interface:
+  display_name: "Neon Void — Persistência"
+  short_description: "Mantém saves e metaprogressão compatíveis"
+  default_prompt: "Implemente esta mudança persistente no Neon Void com schema versionado, migração, validação, backup e testes em caminho temporário."

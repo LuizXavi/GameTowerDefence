@@ -1,0 +1,22 @@
+# Godot 4.x
+.godot/
+*.translation
+
+# Backup and temp files
+*.tmp
+*.bak
+user://*
+records_v1.json*
+test_ui_records.json*
+
+# Python
+__pycache__/
+*.pyc
+
+# Archives
+*.zip
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.import

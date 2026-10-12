@@ -1,0 +1,4 @@
+interface:
+  display_name: "Neon Void — UI e VFX"
+  short_description: "Interface e efeitos neon acessíveis e responsivos"
+  default_prompt: "Aprimore a interface ou os efeitos do Neon Void preservando identidade visual, acessibilidade e separação do estado."

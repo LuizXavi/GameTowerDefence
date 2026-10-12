@@ -1,0 +1,4 @@
+interface:
+  display_name: "Neon Void — QA"
+  short_description: "Validação lógica, gráfica e de saves do jogo"
+  default_prompt: "Valide esta mudança no Neon Void com importação, testes relevantes e inspeção visual."
