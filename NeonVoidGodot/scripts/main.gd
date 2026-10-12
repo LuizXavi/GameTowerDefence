@@ -372,9 +372,9 @@ func build_game() -> void:
 	shop_tabs_row.add_theme_constant_override("separation", 6)
 	shop.add_child(shop_tabs_row)
 	var tab_defs := [
-		["attack", "⚔ ATAQUE", PINK, "TabAttack"],
-		["towers", "⌖ TORRES", LIME, "TabTowers"],
-		["defense", "🛡 DEFESA", CYAN, "TabDefense"]
+		["attack", "   ATAQUE", PINK, "TabAttack"],
+		["towers", "   TORRES", LIME, "TabTowers"],
+		["defense", "   DEFESA", CYAN, "TabDefense"]
 	]
 	for tdef in tab_defs:
 		var tid: String = tdef[0]
@@ -386,6 +386,7 @@ func build_game() -> void:
 		tbtn.custom_minimum_size.y = 38
 		tbtn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tbtn.add_theme_font_size_override("font_size", 11)
+		tbtn.draw.connect(func(): draw_neon_ui_icon(tbtn, tid, 7.5, Vector2(18.0, tbtn.size.y * 0.5), Color.WHITE if shop_tab == tid else tcol))
 		shop_tabs_row.add_child(tbtn)
 	shop_scroll = ScrollContainer.new()
 	shop_scroll.name = "ShopScroll"
@@ -421,6 +422,7 @@ func select_shop_tab(tab_id: String) -> void:
 				var active := (tid == shop_tab)
 				child.add_theme_stylebox_override("normal", box(col, Color("3b1778") if active else Color("140b29"), 10))
 				child.add_theme_color_override("font_color", Color.WHITE if active else col)
+				child.queue_redraw()
 	rebuild_shop_cards()
 	refresh_hud()
 
@@ -473,6 +475,10 @@ func rebuild_shop_cards() -> void:
 		buy.add_theme_font_override("font", BODY)
 		buy.add_theme_font_size_override("font_size", 16)
 		buy.add_theme_color_override("font_color", ucol)
+		buy.draw.connect(func():
+			var is_locked_shield: bool = (upg_id in ["shield_cap", "shield_regen", "shield_pulse"] and not state.shield_unlocked())
+			draw_neon_ui_icon(buy, "lock" if is_locked_shield else str(upg_id), 12.5, Vector2(buy.size.x - 32.0, buy.size.y * 0.5), Color("756d83") if is_locked_shield else ucol)
+		)
 		shop_grid.add_child(buy)
 		upgrades.append(buy)
 		shop_items.append({"kind": "upgrade", "id": upg_id, "button": buy})
@@ -682,11 +688,30 @@ func build_module_cards() -> void:
 	contain_modal_focus()
 	focus_first_modal_action()
 
+func section_header_with_icon(parent: Node, title_text: String, icon_id: String, color: Color) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 8)
+	var icon_ctrl := Control.new()
+	icon_ctrl.custom_minimum_size = Vector2(24, 24)
+	icon_ctrl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon_ctrl.draw.connect(func(): draw_neon_ui_icon(icon_ctrl, icon_id, 8.5, icon_ctrl.size * 0.5, color))
+	row.add_child(icon_ctrl)
+	var lbl := label(title_text, 15, color, true)
+	row.add_child(lbl)
+	parent.add_child(row)
+	return row
+
 func append_hide_completed_button(parent: VBoxContainer) -> void:
-	var toggle_text := "✓ 👁  OCULTAR PESQUISAS CONCLUÍDAS: ATIVO" if hide_completed_research else "👁  OCULTAR PESQUISAS CONCLUÍDAS: INATIVO"
-	var toggle_btn := button(toggle_text, toggle_hide_completed_research, LIME if hide_completed_research else MUTED)
+	var toggle_text := "      OCULTAR PESQUISAS CONCLUÍDAS: ATIVO" if hide_completed_research else "      OCULTAR PESQUISAS CONCLUÍDAS: INATIVO"
+	var toggle_col := LIME if hide_completed_research else MUTED
+	var toggle_btn := button(toggle_text, toggle_hide_completed_research, toggle_col)
 	toggle_btn.name = "ToggleHideCompleted"
 	toggle_btn.custom_minimum_size.y = 40
+	toggle_btn.draw.connect(func():
+		var icon_x := maxf(24.0, toggle_btn.size.x * 0.5 - 190.0)
+		draw_neon_ui_icon(toggle_btn, "eye_on" if hide_completed_research else "eye_off", 8.5, Vector2(icon_x, toggle_btn.size.y * 0.5), LIME if hide_completed_research else CYAN)
+	)
 	parent.add_child(toggle_btn)
 
 func toggle_hide_completed_research() -> void:
@@ -701,7 +726,7 @@ func toggle_hide_completed_research() -> void:
 		toggle_btn.grab_focus()
 
 func append_module_cards(parent: VBoxContainer) -> void:
-	center_label(parent, "⌖  PESQUISA DE MÓDULOS", 15, PINK, true)
+	section_header_with_icon(parent, "PESQUISA DE MÓDULOS", "towers", PINK)
 	if phase == "modules":
 		append_hide_completed_button(parent)
 	var undiscovered := false
@@ -1053,7 +1078,7 @@ func build_research_cards() -> void:
 	research_content.add_child(dynamic)
 	center_label(dynamic, pieces_text(), 16, AMBER, true)
 	append_hide_completed_button(dynamic)
-	center_label(dynamic, "⚔  PESQUISAS DE ATAQUE E DEFESA", 15, CYAN, true)
+	section_header_with_icon(dynamic, "PESQUISAS DE ATAQUE E DEFESA", "attack", CYAN)
 	var combat_shown := 0
 	var tower_shown := 0
 	var shield_shown := 0
@@ -1061,11 +1086,11 @@ func build_research_cards() -> void:
 		if i == 18:
 			if combat_shown == 0 and hide_completed_research:
 				center_label(dynamic, "✓ Todas as pesquisas de ataque e defesa foram concluídas.", 15, LIME)
-			center_label(dynamic, "⌖  ESPECIALIZAÇÃO DE TORRETAS", 15, PINK, true)
+			section_header_with_icon(dynamic, "ESPECIALIZAÇÃO DE TORRETAS", "towers", PINK)
 		elif i == 25:
 			if tower_shown == 0 and hide_completed_research:
 				center_label(dynamic, "✓ Todas as especializações de torretas foram concluídas.", 15, LIME)
-			center_label(dynamic, "🛡  TECNOLOGIA DE ESCUDOS", 15, CYAN, true)
+			section_header_with_icon(dynamic, "TECNOLOGIA DE ESCUDOS", "defense", CYAN)
 		var level: int = store.research[i]
 		var maximum: int = store.RESEARCH_MAX[i]
 		if hide_completed_research and level >= maximum:
@@ -1089,6 +1114,9 @@ func build_research_cards() -> void:
 		if i >= 18 and i < 25:
 			var tower_mod_id: String = MODULE_IDS[i - 18]
 			research_button.draw.connect(func(): draw_tower_module_icon(research_button, tower_mod_id, 13.0, Vector2(research_button.size.x - 36.0, research_button.size.y * 0.5)))
+		else:
+			var r_icon := research_icon_id(i)
+			research_button.draw.connect(func(): draw_neon_ui_icon(research_button, r_icon, 13.0, Vector2(research_button.size.x - 36.0, research_button.size.y * 0.5), btn_color))
 		dynamic.add_child(research_button)
 	if shield_shown == 0 and hide_completed_research:
 		center_label(dynamic, "✓ Todas as pesquisas de tecnologia de escudos foram concluídas.", 15, LIME)
@@ -1100,6 +1128,218 @@ func build_research_cards() -> void:
 	dynamic.add_child(close)
 	contain_modal_focus()
 	focus_first_modal_action()
+
+func research_icon_id(index: int) -> String:
+	match index:
+		0, 8:
+			return "click_dmg"
+		1:
+			return "tower_haste"
+		2, 11:
+			return "base_hull"
+		3, 7, 17:
+			return "combo_drive"
+		4:
+			return "crit_chance"
+		5:
+			return "crit_mult"
+		6, 16:
+			return "nova_overdrive"
+		9:
+			return "tower_pierce"
+		10:
+			return "tower_synergy"
+		12:
+			return "nano_regen"
+		13, 14:
+			return "reactive_plating"
+		15:
+			return "hull_vitality"
+		25:
+			return "shield_cap"
+		26:
+			return "shield_regen"
+		27:
+			return "shield_pulse"
+	return "attack"
+
+func draw_neon_ui_icon(control: Control, icon_id: String, base_radius: float = 12.0, custom_center: Vector2 = Vector2(-1, -1), color: Color = CYAN) -> void:
+	var center: Vector2 = custom_center if custom_center.x >= 0.0 else control.size * 0.5
+	var s: float = base_radius / 12.0
+	var outer_r: float = base_radius + 3.5 * s
+	# Halo neon escuro e anel de moldura geométrica
+	control.draw_circle(center, outer_r, Color("0b061c"))
+	control.draw_arc(center, outer_r, 0.0, TAU, 24, Color(color, 0.32), maxf(1.0, 1.4 * s), true)
+	control.draw_circle(center, base_radius, Color("140933"))
+	control.draw_arc(center, base_radius, 0.0, TAU, 24, Color(color, 0.75), maxf(1.0, 1.6 * s), true)
+
+	match icon_id:
+		"attack", "click_dmg":
+			# Mira de plasma com losango energético central e 4 hastes
+			for k in 4:
+				var dir := Vector2.from_angle(k * PI * 0.5)
+				control.draw_line(center + dir * (4.0 * s), center + dir * (base_radius + 2.5 * s), color, maxf(1.2, 2.0 * s), true)
+			var diamond := PackedVector2Array([
+				center + Vector2(0, -4.5 * s),
+				center + Vector2(4.5 * s, 0),
+				center + Vector2(0, 4.5 * s),
+				center + Vector2(-4.5 * s, 0)
+			])
+			control.draw_colored_polygon(diamond, Color.WHITE)
+		"towers":
+			# Torreta dupla com base hexagonal e canhões gêmeos
+			for side in [-1.0, 1.0]:
+				var bx: float = side * 3.2 * s
+				control.draw_line(center + Vector2(bx, 2.0 * s), center + Vector2(bx, -base_radius - 1.5 * s), color, maxf(1.2, 2.2 * s), true)
+				control.draw_circle(center + Vector2(bx, -base_radius - 1.5 * s), maxf(1.2, 1.8 * s), Color.WHITE)
+			control.draw_arc(center + Vector2(0, 2.0 * s), 5.0 * s, 0.0, TAU, 16, Color.WHITE, maxf(1.0, 1.6 * s), true)
+		"defense", "shield_cap":
+			# Escudo hexagonal energético com núcleo brilhante
+			var pts := PackedVector2Array([
+				center + Vector2(0, -8.5 * s),
+				center + Vector2(7.0 * s, -4.0 * s),
+				center + Vector2(5.8 * s, 4.5 * s),
+				center + Vector2(0, 8.8 * s),
+				center + Vector2(-5.8 * s, 4.5 * s),
+				center + Vector2(-7.0 * s, -4.0 * s),
+				center + Vector2(0, -8.5 * s)
+			])
+			control.draw_colored_polygon(pts.slice(0, 6), Color(color, 0.25))
+			control.draw_polyline(pts, color, maxf(1.3, 2.0 * s), true)
+			control.draw_circle(center, maxf(1.5, 2.5 * s), Color.WHITE)
+		"eye_on", "eye_off":
+			# Visor cibernético neon (olho geométrico)
+			var top_arc := PackedVector2Array([
+				center + Vector2(-8.5 * s, 0),
+				center + Vector2(-3.5 * s, -5.0 * s),
+				center + Vector2(3.5 * s, -5.0 * s),
+				center + Vector2(8.5 * s, 0),
+				center + Vector2(3.5 * s, 5.0 * s),
+				center + Vector2(-3.5 * s, 5.0 * s),
+				center + Vector2(-8.5 * s, 0)
+			])
+			control.draw_polyline(top_arc, color, maxf(1.2, 1.8 * s), true)
+			control.draw_circle(center, maxf(1.5, 2.6 * s), Color.WHITE if icon_id == "eye_on" else color)
+			if icon_id == "eye_off":
+				control.draw_line(center + Vector2(-7.0 * s, 6.5 * s), center + Vector2(7.0 * s, -6.5 * s), PINK, maxf(1.4, 2.2 * s), true)
+		"lock":
+			# Cadeado holográfico geométrico
+			control.draw_arc(center + Vector2(0, -2.5 * s), 4.2 * s, PI, TAU, 16, color, maxf(1.2, 2.0 * s), true)
+			var rect := Rect2(center + Vector2(-5.5 * s, -2.0 * s), Vector2(11.0 * s, 8.5 * s))
+			control.draw_rect(rect, Color("0b061c"), true)
+			control.draw_rect(rect, color, false, maxf(1.2, 1.8 * s))
+			control.draw_circle(center + Vector2(0, 2.2 * s), maxf(1.2, 1.8 * s), Color.WHITE)
+		"crit_chance":
+			# Estrela crítica de 4 pontas
+			var star := PackedVector2Array()
+			for k in 8:
+				var ang: float = k * PI * 0.25 - PI * 0.5
+				var r: float = (8.5 * s) if (k % 2 == 0) else (3.0 * s)
+				star.append(center + Vector2.from_angle(ang) * r)
+			control.draw_colored_polygon(star, color)
+			control.draw_circle(center, maxf(1.4, 2.2 * s), Color.WHITE)
+		"crit_mult":
+			# Duplo chevron ascendente de potência letal
+			for idx in [-1, 1]:
+				var y_off: float = idx * 2.8 * s
+				var chev := PackedVector2Array([
+					center + Vector2(-5.5 * s, y_off + 2.5 * s),
+					center + Vector2(0, y_off - 3.0 * s),
+					center + Vector2(5.5 * s, y_off + 2.5 * s)
+				])
+				control.draw_polyline(chev, Color.WHITE if idx == -1 else color, maxf(1.3, 2.2 * s), true)
+		"combo_drive":
+			# Raio de corrente de combo
+			var bolt := PackedVector2Array([
+				center + Vector2(2.0 * s, -8.0 * s),
+				center + Vector2(-4.5 * s, -0.5 * s),
+				center + Vector2(1.5 * s, -0.5 * s),
+				center + Vector2(-2.0 * s, 8.0 * s)
+			])
+			control.draw_polyline(bolt, Color.WHITE, maxf(1.4, 2.2 * s), true)
+		"click_splash":
+			# Anéis concêntricos de impacto em área
+			control.draw_arc(center, 4.2 * s, 0.0, TAU, 16, Color.WHITE, maxf(1.2, 1.8 * s), true)
+			control.draw_arc(center, 8.0 * s, 0.0, TAU, 20, color, maxf(1.0, 1.6 * s), true)
+			control.draw_circle(center, maxf(1.4, 2.0 * s), color)
+		"nova_overdrive":
+			# Supernova de 8 raios
+			for k in 8:
+				var dir := Vector2.from_angle(k * PI * 0.25)
+				var len_r: float = (8.5 * s) if (k % 2 == 0) else (5.5 * s)
+				control.draw_line(center, center + dir * len_r, Color.WHITE if (k % 2 == 0) else color, maxf(1.2, 1.8 * s), true)
+			control.draw_circle(center, maxf(1.8, 2.8 * s), Color.WHITE)
+		"tower_haste":
+			# Setas duplas de cadência acelerada
+			for idx in [-1, 1]:
+				var x_off: float = idx * 2.6 * s
+				var arr := PackedVector2Array([
+					center + Vector2(x_off - 2.5 * s, -5.0 * s),
+					center + Vector2(x_off + 3.0 * s, 0),
+					center + Vector2(x_off - 2.5 * s, 5.0 * s)
+				])
+				control.draw_polyline(arr, Color.WHITE if idx == 1 else color, maxf(1.3, 2.0 * s), true)
+		"tower_range":
+			# Radar de longo alcance
+			control.draw_arc(center + Vector2(0, 3.0 * s), 5.0 * s, -PI * 0.85, -PI * 0.15, 14, color, maxf(1.2, 1.8 * s), true)
+			control.draw_arc(center + Vector2(0, 3.0 * s), 8.8 * s, -PI * 0.85, -PI * 0.15, 18, Color.WHITE, maxf(1.2, 1.8 * s), true)
+			control.draw_circle(center + Vector2(0, 3.5 * s), maxf(1.5, 2.4 * s), color)
+		"tower_pierce":
+			# Lança perfurante anti-titã
+			control.draw_line(center + Vector2(-7.0 * s, 7.0 * s), center + Vector2(7.0 * s, -7.0 * s), Color.WHITE, maxf(1.4, 2.2 * s), true)
+			var tip := PackedVector2Array([
+				center + Vector2(1.5 * s, -7.0 * s),
+				center + Vector2(7.0 * s, -7.0 * s),
+				center + Vector2(7.0 * s, -1.5 * s)
+			])
+			control.draw_polyline(tip, color, maxf(1.4, 2.2 * s), true)
+		"tower_synergy":
+			# Tríade sincronizada de nós de bateria
+			var nodes := PackedVector2Array()
+			for k in 3:
+				var p := center + Vector2.from_angle(k * TAU / 3.0 - PI * 0.5) * (6.2 * s)
+				nodes.append(p)
+			nodes.append(nodes[0])
+			control.draw_polyline(nodes, color, maxf(1.1, 1.6 * s), true)
+			for k in 3:
+				control.draw_circle(nodes[k], maxf(1.6, 2.4 * s), Color.WHITE)
+		"base_hull", "hull_vitality":
+			# Cruz de integridade estrutural de titânio
+			var arm: float = 6.5 * s
+			control.draw_line(center + Vector2(-arm, 0), center + Vector2(arm, 0), color, maxf(1.8, 3.2 * s), true)
+			control.draw_line(center + Vector2(0, -arm), center + Vector2(0, arm), color, maxf(1.8, 3.2 * s), true)
+			control.draw_circle(center, maxf(1.5, 2.2 * s), Color.WHITE)
+		"nano_regen":
+			# Órbita de nanorreparo
+			control.draw_line(center + Vector2(-4.5 * s, 0), center + Vector2(4.5 * s, 0), Color.WHITE, maxf(1.4, 2.2 * s), true)
+			control.draw_line(center + Vector2(0, -4.5 * s), center + Vector2(0, 4.5 * s), Color.WHITE, maxf(1.4, 2.2 * s), true)
+			for k in 3:
+				var orb := center + Vector2.from_angle(k * TAU / 3.0) * (7.5 * s)
+				control.draw_circle(orb, maxf(1.3, 2.0 * s), color)
+		"reactive_plating":
+			# Placas de blindagem reativa em losango duplo
+			for scale_r in [4.5, 8.0]:
+				var d := PackedVector2Array([
+					center + Vector2(0, -scale_r * s),
+					center + Vector2(scale_r * s, 0),
+					center + Vector2(0, scale_r * s),
+					center + Vector2(-scale_r * s, 0),
+					center + Vector2(0, -scale_r * s)
+				])
+				control.draw_polyline(d, Color.WHITE if scale_r < 6.0 else color, maxf(1.2, 1.8 * s), true)
+		"shield_regen":
+			# Anel de recarga harmônica de escudo
+			control.draw_arc(center, 6.5 * s, 0.3, PI - 0.3, 14, color, maxf(1.3, 2.0 * s), true)
+			control.draw_arc(center, 6.5 * s, PI + 0.3, TAU - 0.3, 14, Color.WHITE, maxf(1.3, 2.0 * s), true)
+			control.draw_circle(center, maxf(1.6, 2.5 * s), color)
+		"shield_pulse":
+			# Escudo com onda de repulsão externa
+			control.draw_arc(center, 4.5 * s, 0.0, TAU, 16, Color.WHITE, maxf(1.2, 1.8 * s), true)
+			control.draw_arc(center, 8.2 * s, -PI * 0.75, -PI * 0.25, 14, color, maxf(1.4, 2.2 * s), true)
+			control.draw_arc(center, 8.2 * s, PI * 0.25, PI * 0.75, 14, color, maxf(1.4, 2.2 * s), true)
+		_:
+			control.draw_circle(center, maxf(2.0, 3.5 * s), Color.WHITE)
+
 
 func buy_research(index: int) -> void:
 	var previous_pieces: Array[int] = store.pieces.duplicate()
@@ -1553,7 +1793,7 @@ func refresh_hud() -> void:
 	hud_gold.text = "◈ %s" % NumberFormat.format(float(state.gold), 1)
 	hud_pieces.text = pieces_text(state.run_pieces)
 	hud_wave.text = "WAVE %d\n%d/%d" % [state.wave, state.wave_kills, state.quota()]
-	hud_hp.text = "%d  🛡%d" % [state.hp, int(floor(state.shield))] if state.max_shield > 0 else str(state.hp)
+	hud_hp.text = "%d  +%d ESC" % [state.hp, int(floor(state.shield))] if state.max_shield > 0 else str(state.hp)
 	hp_bar.value = state.hp * 100.0 / state.max_hp
 	wave_bar.value = state.wave_kills * 100.0 / state.quota()
 	mini_stats.text = "%s abates   |   %s   |   %s dmg   |   %s/s" % [NumberFormat.format_int(state.kills), time_text(state.play_time), NumberFormat.format_int(state.click_damage()), NumberFormat.format_int(state.auto_dps())]
@@ -1581,6 +1821,7 @@ func refresh_hud() -> void:
 				NumberFormat.format(float(c), 1)
 			]
 			btn.disabled = state.gold < c
+			btn.queue_redraw()
 		else:
 			var upg_id: String = item["id"]
 			var uinfo: Array = IN_GAME_UPG_INFO[upg_id]
@@ -1591,7 +1832,7 @@ func refresh_hud() -> void:
 			if upg_id == "click_dmg":
 				detail = "%s dano/clique (+25%% a cada 5 nv)" % NumberFormat.format_int(state.click_damage())
 			if upg_id in ["shield_cap", "shield_regen", "shield_pulse"] and not state.shield_unlocked():
-				btn.text = "🔒 %s\nRequer pesquisa: Gerador de Escudo Quântico\nDesbloqueie no Laboratório" % uinfo[0]
+				btn.text = "%s  •  BLOQUEADO\nRequer pesquisa: Gerador de Escudo Quântico\nDesbloqueie no Laboratório" % uinfo[0]
 				btn.disabled = true
 			elif lvl >= max_lvl:
 				btn.text = "%s  •  Nv.%d (MÁX)\n%s\n✓ NÍVEL MÁXIMO ATINGIDO" % [uinfo[0], lvl, detail]
@@ -1606,6 +1847,7 @@ func refresh_hud() -> void:
 					NumberFormat.format(float(c), 1)
 				]
 				btn.disabled = not state.can_buy_upgrade(upg_id)
+			btn.queue_redraw()
 
 func _process(dt: float) -> void:
 	state.tick(dt)
