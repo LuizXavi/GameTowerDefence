@@ -299,6 +299,27 @@ func _init() -> void:
 	game.wave = 10
 	var colossus_boss := game.spawn(3)
 	check(colossus_boss.sides == 10, "Wave 10 boss has decagonal geometry (10 sides)")
+	# Testes dos 10 Novos Inimigos com Formas Geométricas
+	var octagon := game.spawn(6)
+	check(octagon.sides == 8 and octagon.enemy_id == "octagon", "Octagon spawns with 8 sides")
+	var nonagon := game.spawn(7)
+	check(nonagon.sides == 9 and nonagon.enemy_id == "nonagon", "Nonagon spawns with 9 sides")
+	var decagon := game.spawn(8)
+	check(decagon.sides == 10 and decagon.enemy_id == "decagon", "Decagon spawns with 10 sides")
+	var hendecagon := game.spawn(9)
+	check(hendecagon.sides == 11 and hendecagon.enemy_id == "hendecagon", "Hendecagon spawns with 11 sides")
+	var dodecagon := game.spawn(10)
+	check(dodecagon.sides == 12 and dodecagon.enemy_id == "dodecagon", "Dodecagon spawns with 12 sides")
+	var star4 := game.spawn(11)
+	check(star4.enemy_id == "star4" and star4.radius == 20.0, "Star4 spawns correctly")
+	var star5 := game.spawn(12)
+	check(star5.enemy_id == "star5" and star5.radius == 25.0, "Star5 spawns correctly")
+	var prism := game.spawn(13)
+	check(prism.enemy_id == "ring_prism" and prism.sides == 6, "Ring Prism spawns with prism properties")
+	var singularity := game.spawn(14)
+	check(singularity.enemy_id == "spiral_singularity" and singularity.hp > 90, "Spiral Singularity spawns with high density")
+	var titan := game.spawn(15)
+	check(titan.enemy_id == "titan_tetrahedron" and titan.sides == 4 and titan.hp > 130, "Titan Tetrahedron spawns with massive health")
 	for suffix in ["", ".bak", ".tmp"]:
 		if FileAccess.file_exists(store.path + suffix):
 			DirAccess.remove_absolute(store.path + suffix)

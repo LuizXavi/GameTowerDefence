@@ -213,26 +213,61 @@ func draw_enemy(enemy: Dictionary) -> void:
 	var visual_alpha := 0.24 if enemy.ghosted else 1.0
 	var points := PackedVector2Array()
 	var outer := PackedVector2Array()
-	for i in enemy.sides:
-		var direction := Vector2.from_angle(enemy.rot + i * TAU / enemy.sides)
-		points.append(enemy.p + direction * radius)
-		outer.append(enemy.p + direction * (radius + 7))
+
+	if enemy.type == 11:
+		# Estrela/Diamante de 4 pontas
+		for i in 8:
+			var angle: float = enemy.rot + i * PI / 4.0
+			var r: float = radius if (i % 2 == 0) else radius * 0.45
+			points.append(enemy.p + Vector2.from_angle(angle) * r)
+			outer.append(enemy.p + Vector2.from_angle(angle) * (r + 5))
+	elif enemy.type == 12:
+		# Estrela de 5 pontas
+		for i in 10:
+			var angle: float = enemy.rot + i * PI / 5.0
+			var r: float = radius if (i % 2 == 0) else radius * 0.48
+			points.append(enemy.p + Vector2.from_angle(angle) * r)
+			outer.append(enemy.p + Vector2.from_angle(angle) * (r + 5))
+	else:
+		# Polígonos Regulares
+		for i in enemy.sides:
+			var direction := Vector2.from_angle(enemy.rot + i * TAU / enemy.sides)
+			points.append(enemy.p + direction * radius)
+			outer.append(enemy.p + direction * (radius + 7))
+
 	draw_colored_polygon(outer, Color(color, 0.2 * visual_alpha))
 	var body_color: Color = Color.WHITE if enemy.hit > 0 else color.darkened(0.5)
 	body_color.a = visual_alpha
 	draw_colored_polygon(points, body_color)
-	# Radial facets match the original canvas's bright center and darker edges.
-	for i in enemy.sides:
+
+	# Facetas radiais
+	var num_pts: int = points.size()
+	for i in num_pts:
 		var core_color: Color = Color.WHITE if enemy.hit > 0 else color
 		core_color.a = visual_alpha
 		var edge_color := color.darkened(0.55)
 		edge_color.a = visual_alpha
-		draw_polygon(PackedVector2Array([enemy.p, points[i], points[(i + 1) % enemy.sides]]), PackedColorArray([core_color, edge_color, edge_color]))
-	points.append(points[0])
+		draw_polygon(PackedVector2Array([enemy.p, points[i], points[(i + 1) % num_pts]]), PackedColorArray([core_color, edge_color, edge_color]))
+
+	var loop := points.duplicate()
+	loop.append(points[0])
 	var line_color: Color = Color.WHITE if enemy.hit > 0 else color
 	line_color.a = visual_alpha
-	draw_polyline(points, line_color, 3 if enemy.type == 3 else 2.5, true)
+	draw_polyline(loop, line_color, 3 if (enemy.type == 3 or enemy.type >= 14) else 2.5, true)
 	draw_circle(enemy.p, maxf(2.5, radius * 0.22), Color(1, 1, 1, 0.9 * visual_alpha))
+
+	# Efeitos específicos por geometria
+	if enemy.type == 13:
+		# Prisma Anelar
+		draw_arc(enemy.p, radius + 8, clock * 3, clock * 3 + TAU * 0.75, 24, Color(color, visual_alpha * 0.7), 2.0, true)
+	elif enemy.type == 14:
+		# Singularidade Espiral
+		draw_arc(enemy.p, radius + 10, -clock * 5, -clock * 5 + TAU * 0.8, 32, Color(color, visual_alpha * 0.8), 2.5, true)
+		draw_circle(enemy.p, 5.0, Color("03000a"))
+	elif enemy.type == 15:
+		# Titã Tetraédrico
+		draw_arc(enemy.p, radius + 12, clock * 2, clock * 2 + TAU, 36, Color(color, visual_alpha * 0.9), 3.0, true)
+
 	if enemy.slow_timer > 0:
 		var frost_center: Vector2 = enemy.p + Vector2(radius + 9, 0)
 		for i in 3:
@@ -259,6 +294,26 @@ func draw_enemy(enemy: Dictionary) -> void:
 		text_at("PENTÁGONO", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[4], visual_alpha), 10)
 	elif enemy.type == 5:
 		text_at("HEPTÁGONO", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[5], visual_alpha), 10)
+	elif enemy.type == 6:
+		text_at("OCTÓGONO", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[6], visual_alpha), 10)
+	elif enemy.type == 7:
+		text_at("NONÁGONO", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[7], visual_alpha), 10)
+	elif enemy.type == 8:
+		text_at("DECÁGONO", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[8], visual_alpha), 10)
+	elif enemy.type == 9:
+		text_at("HENDECÁGONO", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[9], visual_alpha), 10)
+	elif enemy.type == 10:
+		text_at("DODECÁGONO", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[10], visual_alpha), 10)
+	elif enemy.type == 11:
+		text_at("DIAMANTE", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[11], visual_alpha), 10)
+	elif enemy.type == 12:
+		text_at("ESTRELA CADENTE", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[12], visual_alpha), 10)
+	elif enemy.type == 13:
+		text_at("PRISMA ANELAR", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[13], visual_alpha), 10)
+	elif enemy.type == 14:
+		text_at("SINGULARIDADE", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[14], visual_alpha), 10)
+	elif enemy.type == 15:
+		text_at("TITÃ TETRAÉDRICO", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[15], visual_alpha), 10)
 	elif enemy.variant == "ghost":
 		text_at("FANTASMA", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[1], visual_alpha), 10)
 	elif enemy.variant == "armored":

@@ -8,8 +8,29 @@ signal piece_dropped(kind: int, amount: int, position: Vector2, enemy_id: String
 signal enemy_discovered(enemy_id: String)
 signal enemy_defeated(enemy_id: String, at_wave: int)
 
-const COLORS = [Color("ff2bd6"), Color("22e6ff"), Color("b6ff2e"), Color("ffb02e"), Color("b43aff"), Color("38ef7d")]
-const FAMILY_IDS = ["square", "triangle", "hexagon", "boss", "pentagon", "heptagon"]
+const COLORS = [
+	Color("ff2bd6"), # 0: square (rosa)
+	Color("22e6ff"), # 1: triangle (ciano)
+	Color("b6ff2e"), # 2: hexagon (lima)
+	Color("ffb02e"), # 3: boss (dourado/âmbar)
+	Color("b43aff"), # 4: pentagon (roxo)
+	Color("38ef7d"), # 5: heptagon (esmeralda)
+	Color("ff3b30"), # 6: octagon (vermelho vivo)
+	Color("ff9500"), # 7: nonagon (laranja solar)
+	Color("00c7be"), # 8: decagon (turquesa)
+	Color("5856d6"), # 9: hendecagon (índigo cósmico)
+	Color("ff2d55"), # 10: dodecagon (carmesim estelar)
+	Color("af52de"), # 11: star4 (diamante/estrela 4 pontas violeta)
+	Color("ffd60a"), # 12: star5 (estrela cadente dourada)
+	Color("30d158"), # 13: ring_prism (prisma anelar verde elétrico)
+	Color("64d2ff"), # 14: spiral_singularity (singularidade ciano gelo)
+	Color("bf5af2")  # 15: titan_tetrahedron (titã tetraédrico)
+]
+const FAMILY_IDS = [
+	"square", "triangle", "hexagon", "boss", "pentagon", "heptagon",
+	"octagon", "nonagon", "decagon", "hendecagon", "dodecagon",
+	"star4", "star5", "ring_prism", "spiral_singularity", "titan_tetrahedron"
+]
 const ELITE_MODIFIERS = ["armor", "haste", "regen", "phase"]
 const TOWER_MODULE_IDS = ["plasma", "cryo", "arc", "pulse", "laser", "vortex", "railgun"]
 const MAX_TOWER_SLOTS := 7
@@ -409,7 +430,11 @@ func damage_enemy(enemy: Dictionary, damage: float, critical := false, source :=
 	gold += gain
 	total_gold += gain
 	score += roundi(enemy.score * (1 + wave * 0.15) * (1.5 if critical else 1.0))
-	var charge_gains: Array[float] = [3.5, 3.5, 6.0, 30.0, 4.0, 5.0]
+	var charge_gains: Array[float] = [
+		3.5, 3.5, 6.0, 30.0, 4.0, 5.0,
+		6.5, 4.5, 8.0, 7.5, 12.0,
+		4.0, 5.5, 9.0, 14.0, 20.0
+	]
 	charge = minf(100, charge + (charge_gains[enemy.type] if enemy.type < charge_gains.size() else 10.0))
 	var burst_color: Color = COLORS[enemy.type] if enemy.type < COLORS.size() else Color.WHITE
 	effect.emit("burst", enemy.p, burst_color, "+%d" % gain)
@@ -433,22 +458,21 @@ func roll_piece_drop(enemy: Dictionary, forced_roll := -1.0) -> int:
 		return 0
 	# Mapeia tipos expandidos para os 4 tipos de fragmentos fundamentais
 	# 0: Square, 1: Triangle, 2: Hexagon, 3: Boss
-	# 4 (Pentagon) dropa Triangle/Square (índice 1), 5 (Heptagon) dropa Hexagon (índice 2)
 	var enemy_type: int = int(enemy.type)
 	var piece_kind: int = 0
 	var chance: float = 0.30
-	if enemy_type == 3:
-		piece_kind = 3 # Boss core
-		chance = 1.0
-	elif enemy_type == 1 or enemy_type == 4:
-		piece_kind = 1 # Triângulo
-		chance = 0.25
-	elif enemy_type == 2 or enemy_type == 5:
-		piece_kind = 2 # Hexágono
-		chance = 0.40
+	if enemy_type == 3 or enemy_type == 14 or enemy_type == 15:
+		piece_kind = 3 # Boss core / Singularidade / Titã
+		chance = 1.0 if enemy_type == 3 else 0.65
+	elif enemy_type in [1, 4, 7, 11, 12]:
+		piece_kind = 1 # Família Triângulo / Ágil
+		chance = 0.28
+	elif enemy_type in [2, 5, 6, 8, 9, 10, 13]:
+		piece_kind = 2 # Família Hexágono / Pesada
+		chance = 0.42
 	else:
-		piece_kind = 0 # Quadrado
-		chance = 0.30
+		piece_kind = 0 # Quadrado / Equilibrado
+		chance = 0.32
 
 	if enemy.elite or enemy.get("is_miniboss", false):
 		chance = minf(1.0, chance * 2.0)
@@ -513,38 +537,74 @@ func id_for(kind: int, variant: String) -> String:
 
 func spawn(kind: int = -1, forced_variant := "", force_elite := false, allow_elite := true, is_miniboss := false) -> Dictionary:
 	if is_miniboss:
-		kind = 4 if randf() < 0.5 else 5
+		var mini_pool: Array[int] = [4, 5, 6, 8, 11, 13]
+		kind = mini_pool[randi() % mini_pool.size()]
 	elif kind < 0:
 		var roll := randf()
-		if wave >= 6 and roll < 0.14:
-			kind = 5 # Heptágono
-		elif wave >= 3 and roll < 0.28:
+		if wave >= 15 and roll < 0.12:
+			kind = [10, 14, 15][randi() % 3] # Dodecágono, Singularidade ou Titã
+		elif wave >= 10 and roll < 0.22:
+			kind = [8, 9, 12, 13][randi() % 4] # Decágono, Hendecágono, Estrela Cadente, Prisma
+		elif wave >= 6 and roll < 0.32:
+			kind = [5, 6, 7, 11][randi() % 4] # Heptágono, Octógono, Nonágono, Diamante
+		elif wave >= 3 and roll < 0.40:
 			kind = 4 # Pentágono
 		else:
 			var tank_p := minf(0.22, 0.06 + wave * 0.012)
 			kind = 2 if roll < tank_p else (1 if roll < tank_p + minf(0.4, 0.22 + wave * 0.01) else 0)
 
 	var scale_hp := 1 + (wave - 1) * 0.55 + pow(wave - 1, 1.55) * 0.09 + play_time * 0.008
-	# Base health por tipo: [square: 6, triangle: 4, hexagon: 22, boss: 160, pentagon: 14, heptagon: 35]
-	var base_hps: Array[float] = [6.0, 4.0, 22.0, 160.0 * (1.0 + wave * 0.06), 14.0, 35.0]
+	# Base health por tipo:
+	# 0: square(6), 1: tri(4), 2: hex(22), 3: boss(160), 4: penta(14), 5: hepta(35),
+	# 6: octa(48), 7: nona(26), 8: deca(60), 9: hendeca(55), 10: dodeca(80),
+	# 11: star4(18), 12: star5(32), 13: ring_prism(70), 14: singularity(95), 15: titan(140)
+	var base_hps: Array[float] = [
+		6.0, 4.0, 22.0, 160.0 * (1.0 + wave * 0.06), 14.0, 35.0,
+		48.0, 26.0, 60.0, 55.0, 80.0,
+		18.0, 32.0, 70.0, 95.0, 140.0
+	]
 	var health := roundi(base_hps[kind] * scale_hp)
-	var speed_mults: Array[float] = [1.0, 1.65, 0.62, 1.0, 1.25, 0.55]
+	var speed_mults: Array[float] = [
+		1.0, 1.65, 0.62, 1.0, 1.25, 0.55,
+		0.75, 1.45, 0.50, 0.85, 0.45,
+		1.80, 1.35, 0.60, 0.70, 0.40
+	]
 	var speed: float = (bounds.y * 0.085 + wave * 2.4) * speed_mults[kind]
 	if kind == 3:
 		speed = bounds.y * 0.045
 
 	var variant := forced_variant if not forced_variant.is_empty() else variant_for(kind)
-	var radii: Array[float] = [20.0, 15.0, 27.0, 44.0, 22.0, 32.0]
-	var sides_list: Array[int] = [4, 3, 6, 8, 5, 7]
+	var radii: Array[float] = [
+		20.0, 15.0, 27.0, 44.0, 22.0, 32.0,
+		30.0, 24.0, 34.0, 31.0, 36.0,
+		20.0, 25.0, 33.0, 35.0, 42.0
+	]
+	var sides_list: Array[int] = [
+		4, 3, 6, 8, 5, 7,
+		8, 9, 10, 11, 12,
+		4, 5, 6, 12, 4
+	]
 	# Se for Boss (tipo 3), o número de lados rota conforme a onda (8, 10, 12, 16)
 	if kind == 3:
 		var boss_sides_rot: Array[int] = [8, 10, 12, 16]
 		var b_idx: int = (wave / 5 - 1) % boss_sides_rot.size()
 		sides_list[3] = boss_sides_rot[b_idx]
 
-	var golds: Array[int] = [4 + wave, 3 + wave, 12 + wave * 2, 100 + wave * 12, 8 + wave * 2, 20 + wave * 3]
-	var leaks: Array[int] = [8, 5, 14, 40, 10, 18]
-	var scores: Array[int] = [10, 12, 30, 300, 20, 50]
+	var golds: Array[int] = [
+		4 + wave, 3 + wave, 12 + wave * 2, 100 + wave * 12, 8 + wave * 2, 20 + wave * 3,
+		24 + wave * 3, 16 + wave * 2, 35 + wave * 4, 32 + wave * 4, 45 + wave * 5,
+		15 + wave * 2, 25 + wave * 3, 40 + wave * 4, 55 + wave * 6, 75 + wave * 8
+	]
+	var leaks: Array[int] = [
+		8, 5, 14, 40, 10, 18,
+		19, 12, 22, 20, 28,
+		11, 15, 24, 30, 38
+	]
+	var scores: Array[int] = [
+		10, 12, 30, 300, 20, 50,
+		60, 40, 90, 85, 130,
+		35, 55, 110, 150, 220
+	]
 
 	var enemy := {
 		"type": kind,
@@ -570,7 +630,7 @@ func spawn(kind: int = -1, forced_variant := "", force_elite := false, allow_eli
 		"sides": sides_list[kind],
 		"wob": randf() * TAU,
 		"wob_speed": 1.2 if kind == 3 else randf_range(1, 3),
-		"wob_amp": 60 if kind == 3 else (randf_range(20, 45) if kind == 1 else randf_range(4, 14)),
+		"wob_amp": 60 if kind == 3 else (randf_range(20, 45) if (kind == 1 or kind == 11) else randf_range(4, 14)),
 		"hit": 0.0,
 		"age": 0.0
 	}

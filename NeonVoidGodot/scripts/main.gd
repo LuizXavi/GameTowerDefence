@@ -26,7 +26,12 @@ const MODULE_INFO = {
 	"vortex": ["Vórtice Gravitacional", "Atrai inimigos em 160px • Implosão com choque", Color("9933ff")],
 	"railgun": ["Railgun Fotônico", "Feixe ultra-sônico • perfura e ricocheteia", Color("33ffcc")]
 }
-const CODEX_ORDER = ["square", "armored_square", "splitter", "triangle", "ghost_triangle", "thief", "pentagon", "hexagon", "regen_hexagon", "heptagon", "elite", "miniboss", "boss"]
+const CODEX_ORDER = [
+	"square", "armored_square", "splitter", "triangle", "ghost_triangle", "thief",
+	"pentagon", "hexagon", "regen_hexagon", "heptagon", "octagon", "nonagon",
+	"decagon", "hendecagon", "dodecagon", "star4", "star5", "ring_prism",
+	"spiral_singularity", "titan_tetrahedron", "elite", "miniboss", "boss"
+]
 const ENEMY_INFO = {
 	"square": ["QUADRADO", "30%", "Dano direto", "Blindado e Duplicador", "Análise de Plasma"],
 	"armored_square": ["QUADRADO BLINDADO", "30%", "Torreta automática", "Reduz clique a 35%", "Análise de Plasma"],
@@ -38,6 +43,16 @@ const ENEMY_INFO = {
 	"hexagon": ["HEXÁGONO", "40%", "Dano sustentado", "Regenerador", "Liga da Base"],
 	"regen_hexagon": ["HEXÁGONO REGENERADOR", "40%", "Não interromper ataques", "Regenera após 1,5s", "Liga da Base"],
 	"heptagon": ["HEPTÁGONO", "35%", "Blindagem pesada", "Escudo natural", "Liga da Base"],
+	"octagon": ["OCTÓGONO BASTIÃO", "45%", "Laser Antimatéria", "Barreira fortificada pesada", "Liga da Base"],
+	"nonagon": ["NONÁGONO VÓRTICE", "28%", "Torre Criogênica", "Avanço supersônico em rajada", "Roteamento Autônomo"],
+	"decagon": ["DECÁGONO COLOSSAL", "50%", "Railgun Fotônico", "Massa cósmica de alta densidade", "Liga da Base"],
+	"hendecagon": ["HENDECÁGONO SOMBRIO", "45%", "Vórtice Gravitacional", "Geometria assimétrica instável", "Liga da Base"],
+	"dodecagon": ["DODECÁGONO PRIMORDIAL", "60%", "Nova concentrada", "Câmara de doze faces blindadas", "Reator Nova"],
+	"star4": ["DIAMANTE DE CRISTAL", "25%", "Clique preciso", "Velocidade estelar extrema", "Análise de Plasma"],
+	"star5": ["ESTRELA CADENTE", "30%", "Torre de Arco", "Vórtice de fragmentos cintilantes", "Roteamento Autônomo"],
+	"ring_prism": ["PRISMA ANELAR", "55%", "Pulso Sísmico", "Resiste a ataques frontais", "Liga da Base"],
+	"spiral_singularity": ["SINGULARIDADE DO VAZIO", "70%", "Choque Térmico + Railgun", "Atrai tiros e distorce espaço", "Reator Nova"],
+	"titan_tetrahedron": ["TITÃ TETRAÉDRICO", "85%", "Sobrecarga total", "Construção de quatro eixos maciços", "Reator Nova"],
 	"elite": ["ELITE", "Chance dobrada", "Depende dos modificadores", "Recebe dois modificadores", "Todas as linhas"],
 	"miniboss": ["MINI-BOSS", "75% • 1 núcleo", "Foco das torretas", "Surge nas waves 3, 8, 13...", "Reator Nova"],
 	"boss": ["BOSS SUPREMO", "100% • 2 núcleos", "Nova e dano concentrado", "Octógono/Dodecágono a cada 5 waves", "Reator Nova"]
@@ -868,6 +883,26 @@ func draw_codex_enemy_icon(control: Control, enemy_id: String) -> void:
 			sides = 6; color = VoidState.COLORS[2]; variant = "regen"
 		"heptagon":
 			sides = 7; color = VoidState.COLORS[5]
+		"octagon":
+			sides = 8; color = VoidState.COLORS[6]
+		"nonagon":
+			sides = 9; color = VoidState.COLORS[7]
+		"decagon":
+			sides = 10; color = VoidState.COLORS[8]
+		"hendecagon":
+			sides = 11; color = VoidState.COLORS[9]
+		"dodecagon":
+			sides = 12; color = VoidState.COLORS[10]
+		"star4":
+			sides = 4; color = VoidState.COLORS[11]
+		"star5":
+			sides = 5; color = VoidState.COLORS[12]
+		"ring_prism":
+			sides = 6; color = VoidState.COLORS[13]
+		"spiral_singularity":
+			sides = 12; color = VoidState.COLORS[14]
+		"titan_tetrahedron":
+			sides = 4; color = VoidState.COLORS[15]
 		"elite":
 			sides = 5; color = AMBER; is_elite = true
 		"miniboss":
@@ -878,25 +913,50 @@ func draw_codex_enemy_icon(control: Control, enemy_id: String) -> void:
 	var rot: float = -PI / 2.0 if sides == 3 else 0.0
 	var points := PackedVector2Array()
 	var outer := PackedVector2Array()
-	for i in sides:
-		var dir := Vector2.from_angle(rot + i * TAU / sides)
-		points.append(center + dir * radius)
-		outer.append(center + dir * (radius + 5))
+
+	if enemy_id == "star4":
+		for i in 8:
+			var angle: float = rot + i * PI / 4.0
+			var r: float = radius if (i % 2 == 0) else radius * 0.45
+			points.append(center + Vector2.from_angle(angle) * r)
+			outer.append(center + Vector2.from_angle(angle) * (r + 4))
+	elif enemy_id == "star5":
+		for i in 10:
+			var angle: float = rot + i * PI / 5.0
+			var r: float = radius if (i % 2 == 0) else radius * 0.48
+			points.append(center + Vector2.from_angle(angle) * r)
+			outer.append(center + Vector2.from_angle(angle) * (r + 4))
+	else:
+		for i in sides:
+			var dir := Vector2.from_angle(rot + i * TAU / sides)
+			points.append(center + dir * radius)
+			outer.append(center + dir * (radius + 5))
 
 	control.draw_colored_polygon(outer, Color(color, 0.2))
 	var body_color := color.darkened(0.5)
 	control.draw_colored_polygon(points, body_color)
 
-	for i in sides:
+	var num_pts: int = points.size()
+	for i in num_pts:
 		var edge_color := color.darkened(0.55)
 		control.draw_polygon(
-			PackedVector2Array([center, points[i], points[(i + 1) % sides]]),
+			PackedVector2Array([center, points[i], points[(i + 1) % num_pts]]),
 			PackedColorArray([color, edge_color, edge_color])
 		)
 
-	points.append(points[0])
-	control.draw_polyline(points, color, 2.5, true)
+	var loop := points.duplicate()
+	loop.append(points[0])
+	control.draw_polyline(loop, color, 2.5, true)
 	control.draw_circle(center, maxf(2.5, radius * 0.22), Color(1, 1, 1, 0.9))
+
+	# Acessórios específicos
+	if enemy_id == "ring_prism":
+		control.draw_arc(center, radius + 7, 0, TAU, 24, Color(color, 0.7), 2.0, true)
+	elif enemy_id == "spiral_singularity":
+		control.draw_arc(center, radius + 8, 0, TAU * 0.8, 28, Color(color, 0.8), 2.5, true)
+		control.draw_circle(center, 4.0, Color("050014"))
+	elif enemy_id == "titan_tetrahedron":
+		control.draw_arc(center, radius + 9, 0, TAU, 32, Color(color, 0.85), 2.5, true)
 
 	# Acessórios de variantes
 	if variant == "armored":
