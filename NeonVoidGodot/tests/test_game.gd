@@ -305,12 +305,12 @@ func _init() -> void:
 	check(pentagon.sides == 5 and pentagon.enemy_id == "pentagon", "Pentagon spawns with 5 geometric sides")
 	var heptagon := game.spawn(5)
 	check(heptagon.sides == 7 and heptagon.enemy_id == "heptagon", "Heptagon spawns with 7 geometric sides")
-	# Testes de Mini-Bosses e Rotação de Bosses
-	var miniboss := game.spawn(-1, "", false, true, true)
-	check(miniboss.is_miniboss and miniboss.hp > 30, "Mini-boss spawns with elevated stats")
+	# Testes de Comandantes de Elite (substituindo antigos Mini-Bosses) e Rotação de Bosses
+	var elite_commander := game.spawn(-1, "", false, true, true)
+	check(elite_commander.elite and not elite_commander.get("is_miniboss", false) and not str(elite_commander.get("elite_type", "")).is_empty(), "Legacy miniboss flag converts into a specialized Elite Commander")
 	game.wave = 10
 	var colossus_boss := game.spawn(3)
-	check(colossus_boss.sides == 10, "Wave 10 boss has decagonal geometry (10 sides)")
+	check(colossus_boss.sides == 10 and colossus_boss.boss_id == "boss_colossus", "Wave 10 boss has decagonal geometry (10 sides) and boss_colossus archetype")
 	# Testes dos 10 Novos Inimigos com Formas Geométricas
 	var octagon := game.spawn(6)
 	check(octagon.sides == 8 and octagon.enemy_id == "octagon", "Octagon spawns with 8 sides")
@@ -332,6 +332,41 @@ func _init() -> void:
 	check(singularity.enemy_id == "spiral_singularity" and singularity.hp > 90, "Spiral Singularity spawns with high density")
 	var titan := game.spawn(15)
 	check(titan.enemy_id == "titan_tetrahedron" and titan.sides == 4 and titan.hp > 130, "Titan Tetrahedron spawns with massive health")
+	# Testes de Inimigos que Atiram, Teleportam e Invocam Lacaios + Novos Bosses e Elites
+	game.reset()
+	game.spawn_timer = 100.0
+	var shooter := game.spawn(16, "", false, false)
+	shooter.p = Vector2(300, 180)
+	shooter.shoot_timer = 0.01
+	game.tick(0.02)
+	check(shooter.enemy_id == "void_shooter" and game.enemy_projectiles.size() == 1, "Void Shooter fires projectile toward player base")
+	var proj_pos: Vector2 = game.enemy_projectiles[0].p
+	game.tap(proj_pos)
+	check(game.enemy_projectiles.is_empty() and game.combo == 1, "Tapping an enemy projectile intercepts it and grants combo")
+	var artillery := game.spawn(19, "", false, false)
+	artillery.p = Vector2(400, 180)
+	artillery.shoot_timer = 0.01
+	game.tick(0.02)
+	check(artillery.enemy_id == "plasma_artillery" and game.enemy_projectiles.size() == 2, "Plasma Artillery fires dual projectiles")
+	var teleporter := game.spawn(17, "", false, false)
+	teleporter.p = Vector2(200, 150)
+	var old_tp_pos: Vector2 = teleporter.p
+	teleporter.teleport_timer = 0.01
+	game.tick(0.02)
+	check(teleporter.enemy_id == "quantum_teleporter" and absf(teleporter.p.x - old_tp_pos.x) > 40.0 and teleporter.p.y > old_tp_pos.y + 20.0, "Quantum Teleporter warps horizontally and advances")
+	var summoner := game.spawn(18, "", false, false)
+	summoner.p = Vector2(500, 160)
+	var enemies_before_summon := game.enemies.size()
+	summoner.summon_timer = 0.01
+	game.tick(0.02)
+	var summoned_minions := game.enemies.filter(func(e): return e.get("is_minion", false)).size()
+	check(summoner.enemy_id == "hive_summoner" and game.enemies.size() == enemies_before_summon + 2 and summoned_minions >= 2, "Hive Summoner spawns two minion drones")
+	var weaver := game.spawn(20, "", false, false)
+	check(weaver.enemy_id == "rift_weaver" and weaver.can_teleport and weaver.can_summon, "Rift Weaver combines teleportation and summoning")
+	var elite_storm := game.spawn(0, "elite_storm", true, true)
+	check(elite_storm.elite and elite_storm.elite_type == "elite_storm" and elite_storm.can_shoot and elite_storm.can_teleport, "Elite Storm archetype has teleport and shoot abilities")
+	var omega_boss := game.spawn(3, "boss_omega")
+	check(omega_boss.boss_id == "boss_omega" and omega_boss.sides == 20 and omega_boss.can_shoot and omega_boss.can_teleport and omega_boss.can_summon, "Omega Architect boss combines all supreme abilities")
 	# Teste de Migração Schema 8 para Schema 9 e novas pesquisas de ataque/defesa/torres
 	var schema_eight_path := "user://test_schema8_%d.json" % Time.get_ticks_usec()
 	file = FileAccess.open(schema_eight_path, FileAccess.WRITE)

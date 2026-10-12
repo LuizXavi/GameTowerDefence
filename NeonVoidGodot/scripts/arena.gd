@@ -185,6 +185,8 @@ func _draw() -> void:
 				draw_line(turret, slot.beam_target, Color.WHITE, 1.0, true)
 	for enemy in state.enemies:
 		draw_enemy(enemy)
+	for proj in state.enemy_projectiles:
+		draw_enemy_projectile(proj)
 	for p in particles:
 		draw_rect(Rect2(p.p, Vector2.ONE * p.s), Color(p.color, minf(1, p.life * 2)))
 	for ring in rings:
@@ -207,12 +209,26 @@ func _draw() -> void:
 	for y in range(0, int(size.y), 3):
 		draw_line(Vector2(0, y), Vector2(size.x, y), Color(1, 1, 1, 0.018))
 
+func draw_enemy_projectile(proj: Dictionary) -> void:
+	var p_pos: Vector2 = proj.p
+	var p_vel: Vector2 = proj.v
+	var p_col: Color = proj.color
+	var p_rad: float = float(proj.get("radius", 5.0))
+	var dir: Vector2 = p_vel.normalized() if p_vel.length_squared() > 0.01 else Vector2.DOWN
+	var tail_pos: Vector2 = p_pos - dir * (p_rad * 3.6)
+	glow_line(tail_pos, p_pos, Color(p_col, 0.85), p_rad * 1.1)
+	draw_circle(p_pos, p_rad + 2.5, Color(p_col, 0.45))
+	draw_circle(p_pos, p_rad, p_col)
+	draw_circle(p_pos, p_rad * 0.48, Color.WHITE)
+	draw_arc(p_pos, p_rad + 4.0 + sin(clock * 18.0) * 1.2, 0, TAU, 16, Color(p_col, 0.7), 1.5, true)
+
 func draw_enemy(enemy: Dictionary) -> void:
 	var radius: float = enemy.radius * minf(1, 0.4 + enemy.age * 2)
-	var color: Color = VoidState.COLORS[enemy.type]
+	var color: Color = enemy.get("boss_color", VoidState.COLORS[3]) if enemy.type == 3 else VoidState.COLORS[enemy.type]
 	var visual_alpha := 0.24 if enemy.ghosted else 1.0
 	var points := PackedVector2Array()
 	var outer := PackedVector2Array()
+	var b_id: String = str(enemy.get("boss_id", ""))
 
 	if enemy.type == 11:
 		# Estrela/Diamante de 4 pontas
@@ -228,6 +244,28 @@ func draw_enemy(enemy: Dictionary) -> void:
 			var r: float = radius if (i % 2 == 0) else radius * 0.48
 			points.append(enemy.p + Vector2.from_angle(angle) * r)
 			outer.append(enemy.p + Vector2.from_angle(angle) * (r + 5))
+	elif enemy.type == 17:
+		# Teleportador Quântico: Estrela de 6 pontas (MerKaba)
+		for i in 12:
+			var angle: float = enemy.rot + i * PI / 6.0
+			var r: float = radius if (i % 2 == 0) else radius * 0.46
+			points.append(enemy.p + Vector2.from_angle(angle) * r)
+			outer.append(enemy.p + Vector2.from_angle(angle) * (r + 5))
+	elif enemy.type == 20:
+		# Tecelão de Fendas: Estrela de 7 pontas dimensional
+		for i in 14:
+			var angle: float = enemy.rot + i * PI / 7.0
+			var r: float = radius if (i % 2 == 0) else radius * 0.44
+			points.append(enemy.p + Vector2.from_angle(angle) * r)
+			outer.append(enemy.p + Vector2.from_angle(angle) * (r + 5))
+	elif enemy.type == 3 and b_id in ["boss_nexus", "boss_omega"]:
+		# Bosses Estelares (Nexus Cósmico 8 pontas / Arquiteto Ômega 10 pontas)
+		var star_pts: int = 20 if b_id == "boss_omega" else 16
+		for i in star_pts:
+			var angle: float = enemy.rot + i * TAU / float(star_pts)
+			var r: float = radius if (i % 2 == 0) else radius * 0.56
+			points.append(enemy.p + Vector2.from_angle(angle) * r)
+			outer.append(enemy.p + Vector2.from_angle(angle) * (r + 7))
 	else:
 		# Polígonos Regulares
 		for i in enemy.sides:
@@ -256,7 +294,7 @@ func draw_enemy(enemy: Dictionary) -> void:
 	draw_polyline(loop, line_color, 3 if (enemy.type == 3 or enemy.type >= 14) else 2.5, true)
 	draw_circle(enemy.p, maxf(2.5, radius * 0.22), Color(1, 1, 1, 0.9 * visual_alpha))
 
-	# Efeitos específicos por geometria
+	# Efeitos específicos por geometria e habilidades
 	if enemy.type == 13:
 		# Prisma Anelar
 		draw_arc(enemy.p, radius + 8, clock * 3, clock * 3 + TAU * 0.75, 24, Color(color, visual_alpha * 0.7), 2.0, true)
@@ -267,6 +305,30 @@ func draw_enemy(enemy: Dictionary) -> void:
 	elif enemy.type == 15:
 		# Titã Tetraédrico
 		draw_arc(enemy.p, radius + 12, clock * 2, clock * 2 + TAU, 36, Color(color, visual_alpha * 0.9), 3.0, true)
+
+	# Assinaturas visuais de Atiradores, Teleportadores e Invocadores
+	if enemy.get("can_shoot", false):
+		var cannon_col := Color(color, visual_alpha)
+		if enemy.type == 19 or enemy.type == 3:
+			for s in [-1.0, 1.0]:
+				var barrel_start: Vector2 = enemy.p + Vector2(s * radius * 0.42, radius * 0.55)
+				var barrel_end: Vector2 = barrel_start + Vector2(0, 11.0)
+				glow_line(barrel_start, barrel_end, cannon_col, 3.0)
+				draw_circle(barrel_end, 2.5, Color.WHITE)
+		else:
+			var b_start: Vector2 = enemy.p + Vector2(0, radius * 0.6)
+			var b_end: Vector2 = enemy.p + Vector2(0, radius + 10.0)
+			glow_line(b_start, b_end, cannon_col, 3.5)
+			draw_circle(b_end, 3.0, Color.WHITE)
+	if enemy.get("can_teleport", false):
+		draw_arc(enemy.p, radius + 7, clock * 6.0, clock * 6.0 + PI * 0.7, 16, Color("00f5d4", visual_alpha * 0.85), 2.0, true)
+		draw_arc(enemy.p, radius + 7, clock * 6.0 + PI, clock * 6.0 + PI * 1.7, 16, Color("00f5d4", visual_alpha * 0.85), 2.0, true)
+	if enemy.get("can_summon", false):
+		for k in 3:
+			var orb_ang: float = clock * 3.6 + float(k) * TAU / 3.0
+			var orb_pos: Vector2 = enemy.p + Vector2.from_angle(orb_ang) * (radius + 9.0)
+			draw_circle(orb_pos, 3.5, Color(color, visual_alpha))
+			draw_circle(orb_pos, 1.6, Color.WHITE)
 
 	if enemy.slow_timer > 0:
 		var frost_center: Vector2 = enemy.p + Vector2(radius + 9, 0)
@@ -279,17 +341,21 @@ func draw_enemy(enemy: Dictionary) -> void:
 		draw_arc(enemy.p, radius + 11, 0, TAU, 8, Color(0.8, 0.85, 1, 0.8 * visual_alpha), 3, true)
 	if enemy.variant == "regen" or enemy.modifiers.has("regen"):
 		draw_arc(enemy.p, radius + 8, -PI / 2, -PI / 2 + TAU * (0.55 + sin(clock * 3) * 0.15), 32, Color(0.71, 1, 0.18, 0.85 * visual_alpha), 2, true)
+	if enemy.modifiers.has("berserk"):
+		draw_arc(enemy.p, radius + 13, -clock * 5, -clock * 5 + TAU * 0.65, 24, Color("ff4d4d", 0.85 * visual_alpha), 2.5, true)
 	if enemy.variant == "splitter":
 		draw_circle(enemy.p + Vector2(-radius * 0.38, 0), 3, Color.WHITE)
 		draw_circle(enemy.p + Vector2(radius * 0.38, 0), 3, Color.WHITE)
 	if enemy.variant == "thief":
 		text_at("$", enemy.p + Vector2(0, 5), Color("ffb02e"), 12)
-	if enemy.get("is_miniboss", false):
-		draw_arc(enemy.p, radius + 12, clock * 4, clock * 4 + TAU * 0.8, 36, Color("ffb02e", visual_alpha), 3.0, true)
-		text_at("★ MINI-BOSS ★", enemy.p - Vector2(0, radius + 26), Color("ffcf66", visual_alpha), 11)
-	elif enemy.elite:
-		draw_arc(enemy.p, radius + 16, clock, clock + TAU * 0.72, 40, Color("ffb02e"), 3, true)
-		text_at("ELITE • " + "+".join(PackedStringArray(enemy.modifiers)).to_upper(), enemy.p - Vector2(0, radius + 28), Color("ffcf66"), 10)
+	if enemy.elite:
+		var e_col: Color = enemy.get("elite_color", Color("ffb02e"))
+		draw_arc(enemy.p, radius + 15, clock * 1.8, clock * 1.8 + TAU * 0.72, 40, Color(e_col, visual_alpha), 3.0, true)
+		draw_arc(enemy.p, radius + 19, -clock * 2.4, -clock * 2.4 + TAU * 0.45, 32, Color(e_col.lightened(0.25), visual_alpha * 0.75), 2.0, true)
+		var e_title: String = str(enemy.get("elite_name", "ELITE"))
+		text_at(e_title + " • " + "+".join(PackedStringArray(enemy.modifiers)).to_upper(), enemy.p - Vector2(0, radius + 28), e_col.lightened(0.2), 10)
+	elif enemy.get("is_minion", false):
+		text_at("LACAIO", enemy.p - Vector2(0, radius + 16), Color(color, visual_alpha * 0.85), 9)
 	elif enemy.type == 4:
 		text_at("PENTÁGONO", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[4], visual_alpha), 10)
 	elif enemy.type == 5:
@@ -314,6 +380,16 @@ func draw_enemy(enemy: Dictionary) -> void:
 		text_at("SINGULARIDADE", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[14], visual_alpha), 10)
 	elif enemy.type == 15:
 		text_at("TITÃ TETRAÉDRICO", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[15], visual_alpha), 10)
+	elif enemy.type == 16:
+		text_at("ATIRADOR DO VAZIO", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[16], visual_alpha), 10)
+	elif enemy.type == 17:
+		text_at("TELEPORTADOR", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[17], visual_alpha), 10)
+	elif enemy.type == 18:
+		text_at("INVOCADOR", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[18], visual_alpha), 10)
+	elif enemy.type == 19:
+		text_at("ARTILHEIRO", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[19], visual_alpha), 10)
+	elif enemy.type == 20:
+		text_at("TECELÃO DE FENDAS", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[20], visual_alpha), 10)
 	elif enemy.variant == "ghost":
 		text_at("FANTASMA", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[1], visual_alpha), 10)
 	elif enemy.variant == "armored":
@@ -331,8 +407,10 @@ func draw_enemy(enemy: Dictionary) -> void:
 		rect.size.x *= maxf(0, enemy.hp / enemy.max_hp)
 		draw_rect(rect, color)
 	if enemy.type == 3:
-		draw_arc(enemy.p, radius + 18, -clock * 2, -clock * 2 + TAU, 48, Color(color, 0.6 * visual_alpha), 2.5, true)
-		text_at("— BOSS SUPREMO —", enemy.p - Vector2(0, radius + 22), color, 13)
+		draw_arc(enemy.p, radius + 16, -clock * 2, -clock * 2 + TAU * 0.85, 48, Color(color, 0.7 * visual_alpha), 2.5, true)
+		draw_arc(enemy.p, radius + 21, clock * 1.5, clock * 1.5 + TAU * 0.6, 40, Color(color.lightened(0.25), 0.5 * visual_alpha), 2.0, true)
+		var boss_title: String = str(enemy.get("boss_name", "BOSS SUPREMO"))
+		text_at("— " + boss_title + " —", enemy.p - Vector2(0, radius + 24), color, 13)
 
 func _draw_plasma_attack(from: Vector2, to: Vector2, alpha: float) -> void:
 	var dist := from.distance_to(to)

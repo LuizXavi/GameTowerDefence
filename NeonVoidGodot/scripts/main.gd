@@ -26,7 +26,7 @@ const RESEARCH_NAMES = [
 const RESEARCH_DESCS = [
 	"+1 dano base por clique", "+8% DPS da torreta", "+10 vida máxima da base", "+0,3 carga/s da Nova",
 	"+2% chance e +0,2x dano crítico", "+0,8% bônus de dano/ouro por combo", "+8% ouro ganho por abate", "+25% dano destrutivo do Pulso Nova",
-	"+12% dano contra inimigos blindados", "+5% cadência de tiro de todas as torretas", "+10% dano contra inimigos abaixo de 40% HP", "+12% dano contra Elites, Mini-Bosses e Bosses",
+	"+12% dano contra inimigos blindados", "+5% cadência de tiro de todas as torretas", "+10% dano contra inimigos abaixo de 40% HP", "+12% dano contra Elites e Bosses",
 	"+0,4s duração do combo e reduz perda ao errar", "-1 dano recebido na base por vazamento (mín. 1)", "+4 vida recuperada na base ao concluir cada wave", "+20 ouro inicial e -12% roubo de Ladrões",
 	"+10 carga inicial da Nova e +4 cura do Escudo", "+6% chance de drop de peças de inimigos",
 	"[Torre Plasma] +12% dano direto e +15% bônus de Choque Térmico",
@@ -51,7 +51,10 @@ const CODEX_ORDER = [
 	"square", "armored_square", "splitter", "triangle", "ghost_triangle", "thief",
 	"pentagon", "hexagon", "regen_hexagon", "heptagon", "octagon", "nonagon",
 	"decagon", "hendecagon", "dodecagon", "star4", "star5", "ring_prism",
-	"spiral_singularity", "titan_tetrahedron", "elite", "miniboss", "boss"
+	"spiral_singularity", "titan_tetrahedron",
+	"void_shooter", "quantum_teleporter", "hive_summoner", "plasma_artillery", "rift_weaver",
+	"elite", "elite_vanguard", "elite_phantom", "elite_artillery", "elite_overlord", "elite_berserker", "elite_storm",
+	"boss", "boss_colossus", "boss_primordial", "boss_nexus", "boss_leviathan", "boss_omega"
 ]
 const ENEMY_INFO = {
 	"square": ["QUADRADO", "30%", "Dano direto", "Blindado e Duplicador", "Análise de Plasma"],
@@ -74,9 +77,24 @@ const ENEMY_INFO = {
 	"ring_prism": ["PRISMA ANELAR", "55%", "Pulso Sísmico", "Resiste a ataques frontais", "Liga da Base"],
 	"spiral_singularity": ["SINGULARIDADE DO VAZIO", "70%", "Choque Térmico + Railgun", "Atrai tiros e distorce espaço", "Reator Nova"],
 	"titan_tetrahedron": ["TITÃ TETRAÉDRICO", "85%", "Sobrecarga total", "Construção de quatro eixos maciços", "Reator Nova"],
-	"elite": ["ELITE", "Chance dobrada", "Depende dos modificadores", "Recebe dois modificadores", "Todas as linhas"],
-	"miniboss": ["MINI-BOSS", "75% • 1 núcleo", "Foco das torretas", "Surge nas waves 3, 8, 13...", "Reator Nova"],
-	"boss": ["BOSS SUPREMO", "100% • 2 núcleos", "Nova e dano concentrado", "Octógono/Dodecágono a cada 5 waves", "Reator Nova"]
+	"void_shooter": ["ATIRADOR DO VAZIO", "30%", "Clique nos tiros / Pulso", "Dispara plasma contra a base", "Blindagem Reativa"],
+	"quantum_teleporter": ["TELEPORTADOR QUÂNTICO", "30%", "Torre Criogênica / Arco", "Salta horizontalmente pela arena", "Roteamento Autônomo"],
+	"hive_summoner": ["INVOCADOR DA COLMEIA", "42%", "Torre Sísmica / Vórtice", "Invoca pares de lacaios velozes", "Liga da Base"],
+	"plasma_artillery": ["ARTILHEIRO DE ANTIMATÉRIA", "42%", "Laser + Interceptação", "Dispara rajadas duplas de cerco", "Blindagem Reativa"],
+	"rift_weaver": ["TECELÃO DE FENDAS", "65%", "Foco imediato + Nova", "Teleporta e deixa lacaios na fenda", "Caçador de Titãs"],
+	"elite": ["COMANDANTE DE ELITE", "Chance dobrada", "Caçador de Titãs", "Lidera assaltos nas waves 3, 8, 13...", "Todas as linhas"],
+	"elite_vanguard": ["ELITE VANGUARDA", "Chance dobrada", "Torreta Automática", "Blindagem pesada + Regeneração", "Perfuração Cinética"],
+	"elite_phantom": ["ELITE ESPECTRAL", "Chance dobrada", "Ataque na fase visível", "Fase intangível + Teleporte Quântico", "Caçador de Titãs"],
+	"elite_artillery": ["ELITE ARTILHEIRO", "Chance dobrada", "Interceptar projéteis", "Canhão de Plasma + Blindagem", "Blindagem Reativa"],
+	"elite_overlord": ["ELITE INVOCADOR", "Chance dobrada", "Dano em área (Vórtice/Pulso)", "Invoca enxames de lacaios + Regen", "Caçador de Titãs"],
+	"elite_berserker": ["ELITE FRENÉTICO", "Chance dobrada", "Torre Criogênica + Execução", "Acelera drasticamente com HP baixo", "Execução Implacável"],
+	"elite_storm": ["ELITE TEMPESTADE", "Chance dobrada", "Railgun + Clique rápido", "Teleporta atirando contra o núcleo", "Caçador de Titãs"],
+	"boss": ["BOSS — GUARDIÃO OCTOGONAL", "100% • 2 núcleos", "Nova + Interceptar tiros", "Wave 5 • Dispara barragem tripla", "Caçador de Titãs"],
+	"boss_colossus": ["BOSS — COLOSSO DECAGONAL", "100% • 2 núcleos", "Laser + Dano em área", "Wave 10 • Invoca lacaios e regenera", "Caçador de Titãs"],
+	"boss_primordial": ["BOSS — DODECÁGONO PRIMORDIAL", "100% • 2 núcleos", "Foco rápido pós-salto", "Wave 15 • Teleporta e dispara plasma", "Caçador de Titãs"],
+	"boss_nexus": ["BOSS — NEXUS CÓSMICO", "100% • 2 núcleos", "Atacar fora da fase", "Wave 20 • Fase quântica, lacaios e tiros", "Singularidade Nova"],
+	"boss_leviathan": ["BOSS — LEVIATÃ ABISSAL", "100% • 2 núcleos", "Choque Térmico + Laser", "Wave 25 • Artilharia pesada e regeneração", "Caçador de Titãs"],
+	"boss_omega": ["BOSS — ARQUITETO ÔMEGA", "100% • 2 núcleos", "Sobrecarga total + Nova", "Wave 30+ • Teleporte, enxame e barragem", "Singularidade Nova"]
 }
 var state := VoidState.new()
 var store = Store.new()
@@ -991,7 +1009,8 @@ func show_codex() -> void:
 			continue
 		var info: Array = ENEMY_INFO[enemy_id]
 		var stats: Dictionary = store.enemy_stats[enemy_id]
-		var border_color: Color = AMBER if enemy_id in ["elite", "boss", "miniboss"] else CYAN
+		var is_special_card: bool = enemy_id.begins_with("elite") or enemy_id.begins_with("boss")
+		var border_color: Color = AMBER if is_special_card else CYAN
 
 		var card_frame := PanelContainer.new()
 		card_frame.add_theme_stylebox_override("panel", box(border_color, Color("140b29"), 12))
@@ -1038,8 +1057,12 @@ func draw_codex_enemy_icon(control: Control, enemy_id: String) -> void:
 	var sides := 4
 	var color := VoidState.COLORS[0]
 	var variant := ""
-	var is_miniboss := false
 	var is_elite := false
+	var is_boss := false
+	var has_cannon := false
+	var has_dual_cannon := false
+	var has_teleport := false
+	var has_summon := false
 
 	match enemy_id:
 		"square":
@@ -1082,12 +1105,42 @@ func draw_codex_enemy_icon(control: Control, enemy_id: String) -> void:
 			sides = 12; color = VoidState.COLORS[14]
 		"titan_tetrahedron":
 			sides = 4; color = VoidState.COLORS[15]
+		"void_shooter":
+			sides = 6; color = VoidState.COLORS[16]; has_cannon = true
+		"quantum_teleporter":
+			sides = 6; color = VoidState.COLORS[17]; has_teleport = true
+		"hive_summoner":
+			sides = 8; color = VoidState.COLORS[18]; has_summon = true
+		"plasma_artillery":
+			sides = 10; color = VoidState.COLORS[19]; has_dual_cannon = true
+		"rift_weaver":
+			sides = 7; color = VoidState.COLORS[20]; has_teleport = true; has_summon = true
 		"elite":
 			sides = 5; color = AMBER; is_elite = true
-		"miniboss":
-			sides = 6; color = AMBER; is_miniboss = true
+		"elite_vanguard":
+			sides = 6; color = Color("ffb02e"); is_elite = true; variant = "armored"
+		"elite_phantom":
+			sides = 5; color = Color("00f5d4"); is_elite = true; has_teleport = true
+		"elite_artillery":
+			sides = 6; color = Color("ff4d6d"); is_elite = true; has_cannon = true
+		"elite_overlord":
+			sides = 8; color = Color("e056fd"); is_elite = true; has_summon = true
+		"elite_berserker":
+			sides = 7; color = Color("ff7f50"); is_elite = true
+		"elite_storm":
+			sides = 6; color = Color("fee440"); is_elite = true; has_cannon = true; has_teleport = true
 		"boss":
-			sides = 8; color = VoidState.COLORS[3]
+			sides = 8; color = Color("ffb02e"); is_boss = true; has_dual_cannon = true
+		"boss_colossus":
+			sides = 10; color = Color("ff3b30"); is_boss = true; has_summon = true; variant = "regen"
+		"boss_primordial":
+			sides = 12; color = Color("00f2fe"); is_boss = true; has_teleport = true; has_dual_cannon = true
+		"boss_nexus":
+			sides = 8; color = Color("c471ed"); is_boss = true; has_summon = true
+		"boss_leviathan":
+			sides = 16; color = Color("00ff87"); is_boss = true; has_dual_cannon = true; variant = "armored"
+		"boss_omega":
+			sides = 10; color = Color("ff007f"); is_boss = true; has_teleport = true; has_summon = true; has_dual_cannon = true
 
 	var rot: float = -PI / 2.0 if sides == 3 else 0.0
 	var points := PackedVector2Array()
@@ -1105,6 +1158,25 @@ func draw_codex_enemy_icon(control: Control, enemy_id: String) -> void:
 			var r: float = radius if (i % 2 == 0) else radius * 0.48
 			points.append(center + Vector2.from_angle(angle) * r)
 			outer.append(center + Vector2.from_angle(angle) * (r + 4))
+	elif enemy_id == "quantum_teleporter":
+		for i in 12:
+			var angle: float = rot + i * PI / 6.0
+			var r: float = radius if (i % 2 == 0) else radius * 0.46
+			points.append(center + Vector2.from_angle(angle) * r)
+			outer.append(center + Vector2.from_angle(angle) * (r + 4))
+	elif enemy_id == "rift_weaver":
+		for i in 14:
+			var angle: float = rot + i * PI / 7.0
+			var r: float = radius if (i % 2 == 0) else radius * 0.44
+			points.append(center + Vector2.from_angle(angle) * r)
+			outer.append(center + Vector2.from_angle(angle) * (r + 4))
+	elif enemy_id in ["boss_nexus", "boss_omega"]:
+		var star_pts: int = 20 if enemy_id == "boss_omega" else 16
+		for i in star_pts:
+			var angle: float = rot + i * TAU / float(star_pts)
+			var r: float = radius if (i % 2 == 0) else radius * 0.56
+			points.append(center + Vector2.from_angle(angle) * r)
+			outer.append(center + Vector2.from_angle(angle) * (r + 5))
 	else:
 		for i in sides:
 			var dir := Vector2.from_angle(rot + i * TAU / sides)
@@ -1137,6 +1209,27 @@ func draw_codex_enemy_icon(control: Control, enemy_id: String) -> void:
 	elif enemy_id == "titan_tetrahedron":
 		control.draw_arc(center, radius + 9, 0, TAU, 32, Color(color, 0.85), 2.5, true)
 
+	if has_cannon:
+		var b_start: Vector2 = center + Vector2(0, radius * 0.55)
+		var b_end: Vector2 = center + Vector2(0, radius + 8.0)
+		control.draw_line(b_start, b_end, color, 3.0, true)
+		control.draw_circle(b_end, 2.5, Color.WHITE)
+	if has_dual_cannon:
+		for s in [-1.0, 1.0]:
+			var bs: Vector2 = center + Vector2(s * radius * 0.4, radius * 0.5)
+			var be: Vector2 = bs + Vector2(0, 8.0)
+			control.draw_line(bs, be, color, 2.5, true)
+			control.draw_circle(be, 2.0, Color.WHITE)
+	if has_teleport:
+		control.draw_arc(center, radius + 5, 0.2, PI - 0.2, 14, Color("00f5d4", 0.9), 2.0, true)
+		control.draw_arc(center, radius + 5, PI + 0.2, TAU - 0.2, 14, Color("00f5d4", 0.9), 2.0, true)
+	if has_summon:
+		for k in 3:
+			var orb_ang: float = float(k) * TAU / 3.0 - PI / 2.0
+			var orb_pos: Vector2 = center + Vector2.from_angle(orb_ang) * (radius + 7.5)
+			control.draw_circle(orb_pos, 3.0, color)
+			control.draw_circle(orb_pos, 1.4, Color.WHITE)
+
 	# Acessórios de variantes
 	if variant == "armored":
 		control.draw_arc(center, radius + 7, 0, TAU, 16, Color(0.8, 0.85, 1, 0.8), 2.5, true)
@@ -1150,12 +1243,11 @@ func draw_codex_enemy_icon(control: Control, enemy_id: String) -> void:
 	elif variant == "thief":
 		var font: Font = DISPLAY
 		control.draw_string(font, center + Vector2(-4, 5), "$", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color("ffb02e"))
-	elif is_miniboss:
-		control.draw_arc(center, radius + 8, 0, TAU, 28, Color("ffb02e", 0.9), 2.5, true)
-	elif is_elite:
-		control.draw_arc(center, radius + 9, 0, TAU * 0.75, 28, Color("ffcf66"), 2.5, true)
-	elif enemy_id == "boss":
-		control.draw_arc(center, radius + 9, 0, TAU, 32, Color(color, 0.7), 2.0, true)
+	if is_elite:
+		control.draw_arc(center, radius + 9, 0, TAU * 0.75, 28, color.lightened(0.2), 2.5, true)
+	elif is_boss:
+		control.draw_arc(center, radius + 9, 0, TAU, 32, Color(color, 0.75), 2.2, true)
+		control.draw_arc(center, radius + 12, 0, TAU * 0.65, 24, Color(color.lightened(0.3), 0.55), 1.5, true)
 
 func close_codex() -> void:
 	phase = "menu"
