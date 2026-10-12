@@ -797,16 +797,126 @@ func show_codex() -> void:
 			continue
 		var info: Array = ENEMY_INFO[enemy_id]
 		var stats: Dictionary = store.enemy_stats[enemy_id]
-		var words := "%s\nAbates: %d   •   Peças: %d   •   Maior wave: %d\nDrop: %s   •   Fraqueza: %s\n%s   •   Pesquisa: %s" % [info[0], stats.kills, stats.pieces, stats.max_wave, info[1], info[2], info[3], info[4]]
-		var card := button(words, func(): pass, AMBER if enemy_id in ["elite", "boss"] else CYAN)
-		card.disabled = true
-		card.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		card.custom_minimum_size.y = 92
-		content.add_child(card)
+		var border_color: Color = AMBER if enemy_id in ["elite", "boss", "miniboss"] else CYAN
+
+		var card_frame := PanelContainer.new()
+		card_frame.add_theme_stylebox_override("panel", box(border_color, Color("140b29"), 12))
+		card_frame.custom_minimum_size.y = 96
+		content.add_child(card_frame)
+
+		var card_row := HBoxContainer.new()
+		card_row.add_theme_constant_override("separation", 16)
+		card_frame.add_child(card_row)
+
+		var icon := Control.new()
+		icon.custom_minimum_size = Vector2(76, 76)
+		icon.draw.connect(func(): draw_codex_enemy_icon(icon, enemy_id))
+		card_row.add_child(icon)
+
+		var text_col := VBoxContainer.new()
+		text_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		text_col.add_theme_constant_override("separation", 2)
+		card_row.add_child(text_col)
+
+		var title_lbl := label(info[0], 18, border_color, true)
+		text_col.add_child(title_lbl)
+
+		var line1 := "Abates: %d   •   Peças: %d   •   Maior wave: %d" % [stats.kills, stats.pieces, stats.max_wave]
+		var lbl1 := label(line1, 15, Color.WHITE)
+		text_col.add_child(lbl1)
+
+		var line2 := "Drop: %s   •   Fraqueza: %s" % [info[1], info[2]]
+		var lbl2 := label(line2, 14, MUTED)
+		text_col.add_child(lbl2)
+
+		var line3 := "%s   •   Pesquisa: %s" % [info[3], info[4]]
+		var lbl3 := label(line3, 14, MUTED)
+		text_col.add_child(lbl3)
+
 	var close := button("VOLTAR AO MENU", close_codex, AMBER)
 	close.name = "CloseCodex"
 	content.add_child(close)
 	close.grab_focus()
+
+func draw_codex_enemy_icon(control: Control, enemy_id: String) -> void:
+	var center := control.size * 0.5
+	var radius := 24.0
+	var sides := 4
+	var color := VoidState.COLORS[0]
+	var variant := ""
+	var is_miniboss := false
+	var is_elite := false
+
+	match enemy_id:
+		"square":
+			sides = 4; color = VoidState.COLORS[0]
+		"armored_square":
+			sides = 4; color = VoidState.COLORS[0]; variant = "armored"
+		"splitter":
+			sides = 4; color = VoidState.COLORS[0]; variant = "splitter"
+		"triangle":
+			sides = 3; color = VoidState.COLORS[1]
+		"ghost_triangle":
+			sides = 3; color = VoidState.COLORS[1]; variant = "ghost"
+		"thief":
+			sides = 3; color = VoidState.COLORS[1]; variant = "thief"
+		"pentagon":
+			sides = 5; color = VoidState.COLORS[4]
+		"hexagon":
+			sides = 6; color = VoidState.COLORS[2]
+		"regen_hexagon":
+			sides = 6; color = VoidState.COLORS[2]; variant = "regen"
+		"heptagon":
+			sides = 7; color = VoidState.COLORS[5]
+		"elite":
+			sides = 5; color = AMBER; is_elite = true
+		"miniboss":
+			sides = 6; color = AMBER; is_miniboss = true
+		"boss":
+			sides = 8; color = VoidState.COLORS[3]
+
+	var rot: float = -PI / 2.0 if sides == 3 else 0.0
+	var points := PackedVector2Array()
+	var outer := PackedVector2Array()
+	for i in sides:
+		var dir := Vector2.from_angle(rot + i * TAU / sides)
+		points.append(center + dir * radius)
+		outer.append(center + dir * (radius + 5))
+
+	control.draw_colored_polygon(outer, Color(color, 0.2))
+	var body_color := color.darkened(0.5)
+	control.draw_colored_polygon(points, body_color)
+
+	for i in sides:
+		var edge_color := color.darkened(0.55)
+		control.draw_polygon(
+			PackedVector2Array([center, points[i], points[(i + 1) % sides]]),
+			PackedColorArray([color, edge_color, edge_color])
+		)
+
+	points.append(points[0])
+	control.draw_polyline(points, color, 2.5, true)
+	control.draw_circle(center, maxf(2.5, radius * 0.22), Color(1, 1, 1, 0.9))
+
+	# Acessórios de variantes
+	if variant == "armored":
+		control.draw_arc(center, radius + 7, 0, TAU, 16, Color(0.8, 0.85, 1, 0.8), 2.5, true)
+	elif variant == "regen":
+		control.draw_arc(center, radius + 6, -PI / 2, -PI / 2 + TAU * 0.75, 24, Color(0.71, 1, 0.18, 0.85), 2.0, true)
+	elif variant == "ghost":
+		control.draw_arc(center, radius + 5, 0, TAU, 16, Color(VoidState.COLORS[1], 0.4), 1.5, true)
+	elif variant == "splitter":
+		control.draw_circle(center + Vector2(-radius * 0.4, 0), 2.5, Color.WHITE)
+		control.draw_circle(center + Vector2(radius * 0.4, 0), 2.5, Color.WHITE)
+	elif variant == "thief":
+		var font: Font = DISPLAY
+		control.draw_string(font, center + Vector2(-4, 5), "$", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color("ffb02e"))
+	elif is_miniboss:
+		control.draw_arc(center, radius + 8, 0, TAU, 28, Color("ffb02e", 0.9), 2.5, true)
+	elif is_elite:
+		control.draw_arc(center, radius + 9, 0, TAU * 0.75, 28, Color("ffcf66"), 2.5, true)
+	elif enemy_id == "boss":
+		control.draw_arc(center, radius + 9, 0, TAU, 32, Color(color, 0.7), 2.0, true)
 
 func close_codex() -> void:
 	phase = "menu"
