@@ -2,248 +2,430 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Antigravity // Neon Void Agent Matrix</title>
+  <title>Neon Void // Virtual Agent Studio</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    @keyframes pulse-dot {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.3); opacity: 0.6; }
+    @keyframes glow {
+      0%, 100% { filter: drop-shadow(0 0 4px rgba(34, 230, 255, 0.4)); }
+      50% { filter: drop-shadow(0 0 10px rgba(34, 230, 255, 0.8)); }
     }
-    .status-pulse { animation: pulse-dot 2s infinite ease-in-out; }
-    .glass-panel {
-      background: rgba(14, 8, 32, 0.9);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(139, 92, 246, 0.3);
-    }
-    .glass-panel:hover {
-      border-color: rgba(34, 230, 255, 0.5);
+    .neon-border {
+      border: 1px solid rgba(139, 92, 246, 0.4);
+      box-shadow: 0 0 12px rgba(139, 92, 246, 0.15);
     }
   </style>
 </head>
-<body class="bg-[#0b0420] text-gray-100 antialiased p-6 select-none min-h-screen">
-  <div class="glass-panel rounded-2xl p-6 shadow-2xl border border-purple-800/40 max-w-5xl mx-auto space-y-5">
-    <!-- Header com dados reais do Antigravity -->
-    <div class="flex flex-wrap items-center justify-between border-b border-purple-900/60 pb-4 gap-3">
-      <div class="flex items-center gap-3">
-        <div class="w-3.5 h-3.5 rounded-full bg-cyan-400 status-pulse shadow-[0_0_10px_#22e6ff]"></div>
+<body class="bg-[#070214] text-gray-100 antialiased p-6 select-none font-sans min-h-screen">
+  <div class="bg-[#0b051d] rounded-2xl p-5 border border-purple-800/40 shadow-2xl max-w-5xl mx-auto space-y-4">
+    <!-- Top Bar -->
+    <div class="flex flex-wrap items-center justify-between border-b border-purple-900/60 pb-3 gap-2">
+      <div class="flex items-center gap-2.5">
+        <span class="w-3 h-3 rounded-full bg-cyan-400 animate-ping"></span>
         <div>
-          <div class="flex items-center gap-2">
-            <span class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
-              ANTIGRAVITY RUNTIME
-            </span>
-            <span class="text-xs font-mono text-purple-400">Session ID: b4f5cd46-d7ca-47b0-9a6e-b192e779d415</span>
-          </div>
-          <h1 class="text-xl font-black tracking-wider text-white font-mono mt-0.5">
-            PAINEL DE AGENTES & SUBAGENTES ATIVOS
+          <h1 class="text-base font-black tracking-widest text-cyan-400 font-mono uppercase">
+            NEON VOID // VIRTUAL AGENT STUDIO
           </h1>
-        </div>
-      </div>
-      <div class="flex items-center gap-2 font-mono text-xs">
-        <span class="px-2.5 py-1 rounded-md bg-purple-950/80 text-emerald-400 border border-emerald-500/30 font-semibold">
-          ● GitHub: LuizXavi/GameTowerDefence
-        </span>
-        <span class="px-2.5 py-1 rounded-md bg-purple-950/80 text-cyan-300 border border-cyan-500/30">
-          62/62 Testes PASS
-        </span>
-      </div>
-    </div>
-
-    <!-- Parent Agent Card -->
-    <div class="p-4 rounded-xl bg-purple-950/40 border border-purple-600/40 flex flex-wrap items-center justify-between gap-3">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-800 flex items-center justify-center text-white font-black font-mono text-base shadow-lg">
-          AGY
-        </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <h2 class="font-mono font-black text-sm text-cyan-300">Antigravity Orchestrator (Parent Agent)</h2>
-            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-900 text-purple-200 border border-purple-700">
-              Modelo: Gemini 3.1 Pro (Low)
-            </span>
-            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-700">
-              ● Ativo (No Controle)
-            </span>
-          </div>
-          <p class="text-xs text-purple-300 font-mono mt-1">
-            Coordenação geral, orquestração de subagentes via <code class="text-pink-400">invoke_subagent</code>, git sync e execução de ferramentas de ambiente.
+          <p class="text-xs text-purple-300 font-mono">
+            Escritório Animado: Estação de Desenvolvimento & Cyber Lounge
           </p>
         </div>
       </div>
-      <div class="text-right font-mono text-xs text-purple-300">
-        <div>Workspace: <span class="text-white">c:\Users\hultr\...\Game Tower Defence</span></div>
-        <div class="text-[11px] text-purple-400">Ferramentas: write, replace, view, run_command, subagents</div>
+      <div class="flex items-center gap-2">
+        <button onclick="setAllMode('work')" class="px-3 py-1.5 rounded-lg bg-pink-950/80 hover:bg-pink-900 border border-pink-500/50 text-pink-300 text-xs font-mono font-bold transition-all shadow-md">
+          ⚡ Sprint Geral (Todos Trabalhando)
+        </button>
+        <button onclick="setAllMode('leisure')" class="px-3 py-1.5 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-300 text-xs font-mono font-bold transition-all shadow-md">
+          ☕ Coffee Break (Todos no Lazer)
+        </button>
       </div>
     </div>
 
-    <!-- Subagents Grid -->
-    <div>
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-purple-300 flex items-center gap-2">
-          <span>Subagentes Disponíveis no Antigravity</span>
-          <span class="text-[10px] text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800">
-            6 Tipos Registrados (2 Nativos + 4 Especializados)
-          </span>
-        </h3>
-        <span class="text-[11px] font-mono text-purple-400">
-          Invocação sob demanda via <code class="text-pink-300">invoke_subagent</code>
-        </span>
+    <!-- Canvas do Escritório Animado -->
+    <div class="relative rounded-xl overflow-hidden border border-purple-900/80 bg-[#070214] shadow-inner">
+      <canvas id="officeCanvas" width="900" height="340" class="w-full h-auto block cursor-pointer"></canvas>
+      
+      <!-- Legenda das Zonas -->
+      <div class="absolute top-3 left-4 pointer-events-none font-mono text-xs text-cyan-400 font-bold tracking-wider bg-black/70 px-2.5 py-1 rounded border border-cyan-500/30">
+        [SALA DE DESENVOLVIMENTO // DEV LAB]
       </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" id="subagents-list">
-        <!-- Rendered via JavaScript -->
+      <div class="absolute top-3 right-4 pointer-events-none font-mono text-xs text-pink-400 font-bold tracking-wider bg-black/70 px-2.5 py-1 rounded border border-pink-500/30">
+        [CYBER LOUNGE & CAFÉ // LAZER]
       </div>
     </div>
 
-    <!-- Feed de Operações do Antigravity -->
-    <div class="pt-4 border-t border-purple-900/60">
-      <div class="flex items-center justify-between mb-2">
-        <span class="text-xs font-mono font-bold uppercase text-purple-300 flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 status-pulse"></span>
-          Terminal de Eventos & Execuções Antigravity
-        </span>
-        <span class="text-[11px] font-mono text-purple-400">Logs da Sessão Atual</span>
+    <!-- Controles Rápidos dos Agentes -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5" id="agent-buttons">
+      <!-- Injetado por JS -->
+    </div>
+
+    <!-- Detalhes do Agente Selecionado -->
+    <div id="agent-details" class="p-3 rounded-xl bg-purple-950/40 border border-purple-800/40 flex items-center justify-between font-mono text-xs text-purple-200">
+      <div class="flex items-center gap-2.5">
+        <span class="text-cyan-300 font-bold text-sm" id="detail-name">Antigravity Orchestrator</span>
+        <span class="text-xs px-2.5 py-0.5 rounded bg-purple-900 text-purple-300 border border-purple-700" id="detail-model">Gemini 3.1 Pro</span>
       </div>
-      <div id="antigravity-logs" class="bg-black/75 border border-purple-950 rounded-xl p-3.5 h-32 overflow-y-auto font-mono text-xs space-y-1.5 scrollbar-thin text-purple-200">
-        <!-- Logs populated dynamically -->
+      <div class="text-right text-xs text-purple-400" id="detail-task">
+        Clique em um agente para alternar seu estado entre Trabalho e Lazer.
       </div>
     </div>
   </div>
 
   <script>
-    const SUBAGENTS = [
+    const canvas = document.getElementById("officeCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const AGENTS = [
       {
-        type: "neon_gameplay_expert",
-        name: "Gameplay & Balanço",
-        category: "Especialista Customizado",
+        id: "orchestrator",
+        name: "Antigravity (Lead)",
+        role: "Coordenação",
+        model: "Gemini 3.1 Pro",
+        color: "#b026ff",
+        glow: "rgba(176, 38, 255, 0.8)",
+        state: "work",
+        workPos: { x: 100, y: 180 },
+        leisurePos: { x: 570, y: 240 },
+        pos: { x: 100, y: 180 },
+        desk: { x: 70, y: 195, w: 65, h: 45 },
+        task: "Supervisionando arquitetura e git sync",
+        leisureActivity: "Tomando espresso na bancada"
+      },
+      {
+        id: "gameplay",
+        name: "Gameplay Expert",
+        role: "Combate & Balanço",
         model: "Pro",
-        scope: "scripts/game_state.gd",
-        tools: "Write + Read + Exec",
-        color: "text-pink-400",
-        border: "border-pink-500/40",
-        badge: "bg-pink-950/60 text-pink-300 border-pink-700",
-        desc: "Combate, dano de clique, DPS de torretas, escalas de wave, inimigos especiais e bosses."
+        color: "#ff2bd6",
+        glow: "rgba(255, 43, 214, 0.8)",
+        state: "work",
+        workPos: { x: 215, y: 180 },
+        leisurePos: { x: 770, y: 240 },
+        pos: { x: 215, y: 180 },
+        desk: { x: 185, y: 195, w: 65, h: 45 },
+        task: "Ajustando fórmulas em game_state.gd",
+        leisureActivity: "Jogando no arcade Neon Void"
       },
       {
-        type: "neon_meta_persistence",
-        name: "Metaprogressão & Save",
-        category: "Especialista Customizado",
+        id: "persistence",
+        name: "Meta Persistence",
+        role: "Save & Schemas",
         model: "Pro",
-        scope: "scripts/score_store.gd",
-        tools: "Write + Read + Exec",
-        color: "text-cyan-400",
-        border: "border-cyan-500/40",
-        badge: "bg-cyan-950/60 text-cyan-300 border-cyan-700",
-        desc: "Schemas versionados (Schema 5), migrações seguras, backups, pesquisas e Codex."
+        color: "#22e6ff",
+        glow: "rgba(34, 230, 255, 0.8)",
+        state: "leisure",
+        workPos: { x: 330, y: 180 },
+        leisurePos: { x: 640, y: 240 },
+        pos: { x: 640, y: 240 },
+        desk: { x: 300, y: 195, w: 65, h: 45 },
+        task: "Validando Schema 5 e migrações",
+        leisureActivity: "Relaxando no sofá neon"
       },
       {
-        type: "neon_ui_vfx_specialist",
-        name: "UI, VFX & Shaders",
-        category: "Especialista Customizado",
-        model: "Flash / Pro",
-        scope: "scripts/main.gd, arena.gd",
-        tools: "Write + Read + Exec",
-        color: "text-emerald-400",
-        border: "border-emerald-500/40",
-        badge: "bg-emerald-950/60 text-emerald-300 border-emerald-700",
-        desc: "Containers responsivos (1280x800 a 640x640), foco de teclado, partículas neon e áudio."
-      },
-      {
-        type: "neon_qa_validator",
-        name: "QA & Validação Headless",
-        category: "Especialista Customizado",
-        model: "Pro",
-        scope: "tests/test_game.gd, test_ui.gd",
-        tools: "Write + Read + Exec",
-        color: "text-amber-400",
-        border: "border-amber-500/40",
-        badge: "bg-amber-950/60 text-amber-300 border-amber-700",
-        desc: "Execução automatizada do Godot 4.7, testes determinísticos e prevenção de regressão."
-      },
-      {
-        type: "self",
-        name: "Self Subagent",
-        category: "Nativo Antigravity",
-        model: "Inherit (Gemini 3.1 Pro)",
-        scope: "Todo o Workspace",
-        tools: "Herdadas do Agente Pai",
-        color: "text-indigo-400",
-        border: "border-indigo-500/40",
-        badge: "bg-indigo-950/60 text-indigo-300 border-indigo-700",
-        desc: "Subagente idêntico ao pai para tarefas paralelas e isoladas no mesmo workspace."
-      },
-      {
-        type: "research",
-        name: "Code & Web Researcher",
-        category: "Nativo Antigravity",
+        id: "ui_vfx",
+        name: "UI & VFX Dev",
+        role: "Interface & Shaders",
         model: "Flash",
-        scope: "Read-only / Web Search",
-        tools: "Read-Only + Web",
-        color: "text-purple-300",
-        border: "border-purple-500/40",
-        badge: "bg-purple-950/60 text-purple-300 border-purple-700",
-        desc: "Pesquisas profundas na base de código, referências de documentação e busca na internet."
+        color: "#b6ff2e",
+        glow: "rgba(182, 255, 46, 0.8)",
+        state: "work",
+        workPos: { x: 145, y: 265 },
+        leisurePos: { x: 705, y: 240 },
+        pos: { x: 145, y: 265 },
+        desk: { x: 115, y: 280, w: 65, h: 40 },
+        task: "Desenhando layout e partículas",
+        leisureActivity: "Ouvindo sintetizador no fone"
+      },
+      {
+        id: "qa",
+        name: "QA Validator",
+        role: "Testes & Headless",
+        model: "Pro",
+        color: "#ffb02e",
+        glow: "rgba(255, 176, 46, 0.8)",
+        state: "leisure",
+        workPos: { x: 285, y: 265 },
+        leisurePos: { x: 840, y: 240 },
+        pos: { x: 840, y: 240 },
+        desk: { x: 255, y: 280, w: 65, h: 40 },
+        task: "Executando suíte com 62 testes",
+        leisureActivity: "Comemorando 100% PASS com donuts"
       }
     ];
 
-    function renderSubagents() {
-      const el = document.getElementById("subagents-list");
-      el.innerHTML = SUBAGENTS.map(agent => `
-        <div class="p-3.5 rounded-xl bg-purple-950/30 border ${agent.border} hover:bg-purple-900/30 transition-all flex flex-col justify-between">
-          <div>
-            <div class="flex items-start justify-between gap-1 mb-2">
-              <div>
-                <h4 class="font-mono font-bold text-xs ${agent.color}">${agent.name}</h4>
-                <div class="text-[10px] text-purple-400 font-mono">${agent.type}</div>
-              </div>
-              <span class="text-[10px] font-mono px-2 py-0.5 rounded border ${agent.badge}">
-                ${agent.model}
-              </span>
-            </div>
-            <p class="text-[11px] text-purple-300 leading-snug mb-2 font-sans">${agent.desc}</p>
+    let selectedAgent = AGENTS[0];
+    let tick = 0;
+
+    function setAllMode(mode) {
+      AGENTS.forEach(a => a.state = mode);
+      renderButtons();
+      updateDetails();
+    }
+
+    function toggleAgent(id) {
+      const a = AGENTS.find(x => x.id === id);
+      if (a) {
+        a.state = a.state === "work" ? "leisure" : "work";
+        selectedAgent = a;
+        renderButtons();
+        updateDetails();
+      }
+    }
+
+    function updateDetails() {
+      document.getElementById("detail-name").innerText = selectedAgent.name;
+      document.getElementById("detail-model").innerText = `${selectedAgent.model} // ${selectedAgent.state === 'work' ? 'TRABALHANDO' : 'NO LAZER'}`;
+      document.getElementById("detail-task").innerText = selectedAgent.state === "work" ? `Status: ${selectedAgent.task}` : `Status: ${selectedAgent.leisureActivity}`;
+    }
+
+    function renderButtons() {
+      const bar = document.getElementById("agent-buttons");
+      bar.innerHTML = AGENTS.map(a => `
+        <button onclick="toggleAgent('${a.id}')" class="p-2 rounded-lg border text-left font-mono transition-all ${
+          a.state === 'work' 
+            ? 'bg-pink-950/40 border-pink-500/50 hover:bg-pink-900/50' 
+            : 'bg-emerald-950/40 border-emerald-500/50 hover:bg-emerald-900/50'
+        }">
+          <div class="flex items-center justify-between text-xs font-bold text-white">
+            <span class="truncate">${a.name.split(' ')[0]}</span>
+            <span class="text-[10px] px-1.5 py-0.2 rounded font-semibold ${a.state === 'work' ? 'bg-pink-500/20 text-pink-300' : 'bg-emerald-500/20 text-emerald-300'}">
+              ${a.state === 'work' ? 'DEV' : 'CAFÉ'}
+            </span>
           </div>
-          <div class="border-t border-purple-900/50 pt-2 space-y-1 text-[10px] font-mono text-purple-400">
-            <div class="flex justify-between">
-              <span>Alvo:</span>
-              <span class="text-cyan-300 truncate max-w-[150px]">${agent.scope}</span>
-            </div>
-            <div class="flex justify-between">
-              <span>Ferramentas:</span>
-              <span class="text-white">${agent.tools}</span>
-            </div>
-            <div class="flex justify-between text-emerald-400 font-semibold pt-0.5">
-              <span>Status:</span>
-              <span>● Registrado no Runtime</span>
-            </div>
-          </div>
-        </div>
+          <div class="text-[10px] text-purple-300 truncate mt-0.5">${a.role}</div>
+        </button>
       `).join("");
     }
 
-    const sessionLogs = [
-      { time: "19:28", source: "define_subagent", text: "Subagente 'neon_gameplay_expert' registrado com write_tools=true." },
-      { time: "19:30", source: "define_subagent", text: "Subagente 'neon_meta_persistence' registrado com write_tools=true." },
-      { time: "19:30", source: "define_subagent", text: "Subagentes 'neon_ui_vfx_specialist' e 'neon_qa_validator' registrados com write_tools=true." },
-      { time: "19:34", source: "Godot Headless", text: "Validação executada: 62/62 testes de lógica aprovados em test_game.gd." },
-      { time: "19:44", source: "Git / Antigravity", text: "Repositório local sincronizado com https://github.com/LuizXavi/GameTowerDefence.git" },
-      { time: "19:45", source: "Git Push", text: "Push inicial com 82 arquivos enviado com sucesso para a branch main." },
-      { time: "19:58", source: "Task-147", text: "Background task concluída com código 0: dashboard adicionado ao GitHub." },
-      { time: "20:00", source: "Antigravity Runtime", text: "Matriz operacional ativa. Todos os subagentes prontos para invoke_subagent." }
-    ];
+    function animate() {
+      tick += 0.05;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const logsContainer = document.getElementById("antigravity-logs");
-    function renderLogs() {
-      logsContainer.innerHTML = sessionLogs.map(l => `
-        <div class="flex items-start gap-2 leading-relaxed">
-          <span class="text-purple-500 select-none">[${l.time}]</span>
-          <span class="text-cyan-400 font-bold">[${l.source}]</span>
-          <span class="text-purple-200">${l.text}</span>
-        </div>
-      `).join("");
-      logsContainer.scrollTop = logsContainer.scrollHeight;
+      // --- Cenário de Fundo ---
+      // Piso do Dev Lab (Esquerda)
+      const gradLab = ctx.createLinearGradient(0, 0, 480, 340);
+      gradLab.addColorStop(0, "#0c0522");
+      gradLab.addColorStop(1, "#150933");
+      ctx.fillStyle = gradLab;
+      ctx.fillRect(0, 0, 480, 340);
+
+      // Grade do laboratório
+      ctx.strokeStyle = "rgba(139, 92, 246, 0.12)";
+      ctx.lineWidth = 1;
+      for (let x = 25; x < 480; x += 35) {
+        ctx.beginPath();
+        ctx.moveTo(x, 80);
+        ctx.lineTo(x, 340);
+        ctx.stroke();
+      }
+      for (let y = 90; y < 340; y += 30) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(480, y);
+        ctx.stroke();
+      }
+
+      // Piso do Lounge (Direita)
+      const gradLounge = ctx.createLinearGradient(480, 0, 900, 340);
+      gradLounge.addColorStop(0, "#081026");
+      gradLounge.addColorStop(1, "#0d1b38");
+      ctx.fillStyle = gradLounge;
+      ctx.fillRect(480, 0, 420, 340);
+
+      for (let x = 505; x < 900; x += 35) {
+        ctx.beginPath();
+        ctx.moveTo(x, 80);
+        ctx.lineTo(x, 340);
+        ctx.stroke();
+      }
+      for (let y = 90; y < 340; y += 30) {
+        ctx.beginPath();
+        ctx.moveTo(480, y);
+        ctx.lineTo(900, y);
+        ctx.stroke();
+      }
+
+      // Vidro neon divisório
+      ctx.strokeStyle = "#22e6ff";
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = "#22e6ff";
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.moveTo(480, 25);
+      ctx.lineTo(480, 330);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // --- Objetos do Cenário (Lounge) ---
+      // Máquina de Café
+      ctx.fillStyle = "#1e103d";
+      ctx.fillRect(535, 170, 50, 68);
+      ctx.fillStyle = "#ff2bd6";
+      ctx.fillRect(544, 182, 32, 16);
+      ctx.fillStyle = "#fff";
+      ctx.font = "9px monospace";
+      ctx.fillText("COFFEE", 546, 194);
+      // Xícara
+      ctx.fillStyle = "#22e6ff";
+      ctx.fillRect(554, 210, 14, 11);
+      ctx.strokeStyle = "rgba(255,255,255,0.6)";
+      ctx.beginPath();
+      ctx.moveTo(559, 206);
+      ctx.quadraticCurveTo(563 + Math.sin(tick * 2) * 3, 198, 560, 192);
+      ctx.stroke();
+
+      // Sofá Neon
+      ctx.fillStyle = "#20134a";
+      ctx.fillRect(620, 215, 90, 35);
+      ctx.strokeStyle = "#b026ff";
+      ctx.strokeRect(620, 215, 90, 35);
+      ctx.fillStyle = "#3c1d88";
+      ctx.fillRect(626, 206, 36, 14);
+      ctx.fillRect(668, 206, 36, 14);
+
+      // Arcade "NEON VOID"
+      ctx.fillStyle = "#160730";
+      ctx.fillRect(755, 145, 52, 95);
+      ctx.strokeStyle = "#ff2bd6";
+      ctx.strokeRect(755, 145, 52, 95);
+      ctx.fillStyle = (Math.sin(tick * 4) > 0) ? "#22e6ff" : "#ff2bd6";
+      ctx.fillRect(763, 158, 36, 28);
+      ctx.fillStyle = "#fff";
+      ctx.font = "8px monospace";
+      ctx.fillText("VOID", 770, 175);
+
+      // Planta Neon
+      ctx.fillStyle = "#331852";
+      ctx.fillRect(855, 215, 24, 30);
+      ctx.fillStyle = "#b6ff2e";
+      ctx.beginPath();
+      ctx.arc(867, 206 + Math.sin(tick) * 2, 16, 0, Math.PI * 2);
+      ctx.fill();
+
+      // --- Objetos do Cenário (Dev Lab) ---
+      // Servidor Rack
+      ctx.fillStyle = "#12092b";
+      ctx.fillRect(25, 80, 35, 90);
+      ctx.strokeStyle = "#8b5cf6";
+      ctx.strokeRect(25, 80, 35, 90);
+      for (let i = 0; i < 4; i++) {
+        ctx.fillStyle = (Math.sin(tick * 3 + i) > 0) ? "#22e6ff" : "#b6ff2e";
+        ctx.fillRect(32, 92 + i * 18, 6, 6);
+      }
+
+      // Mesas
+      AGENTS.forEach(a => {
+        ctx.fillStyle = "#180d38";
+        ctx.fillRect(a.desk.x, a.desk.y, a.desk.w, a.desk.h);
+        ctx.strokeStyle = "rgba(139, 92, 246, 0.4)";
+        ctx.strokeRect(a.desk.x, a.desk.y, a.desk.w, a.desk.h);
+
+        // Monitor
+        const monColor = (a.state === "work") ? a.color : "#423265";
+        ctx.fillStyle = "#0c041c";
+        ctx.fillRect(a.desk.x + 16, a.desk.y - 23, 34, 23);
+        ctx.strokeStyle = monColor;
+        ctx.lineWidth = 1.5;
+        ctx.shadowColor = monColor;
+        ctx.shadowBlur = a.state === "work" ? 8 : 0;
+        ctx.strokeRect(a.desk.x + 16, a.desk.y - 23, 34, 23);
+        ctx.shadowBlur = 0;
+
+        if (a.state === "work") {
+          ctx.fillStyle = a.color;
+          ctx.fillRect(a.desk.x + 20, a.desk.y - 18, 14, 2);
+          ctx.fillRect(a.desk.x + 20, a.desk.y - 12, 24, 2);
+          ctx.fillRect(a.desk.x + 20, a.desk.y - 6, 18, 2);
+        }
+      });
+
+      // --- Desenho dos Agentes ---
+      AGENTS.forEach((a, idx) => {
+        const target = (a.state === "work") ? a.workPos : a.leisurePos;
+        a.pos.x += (target.x - a.pos.x) * 0.08;
+        a.pos.y += (target.y - a.pos.y) * 0.08;
+
+        const isMoving = Math.abs(target.x - a.pos.x) > 2;
+        const bob = isMoving ? Math.sin(tick * 10) * 4 : Math.sin(tick * 3 + idx) * 1.5;
+
+        const x = a.pos.x;
+        const y = a.pos.y + bob;
+
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.beginPath();
+        ctx.ellipse(x, a.pos.y + 16, 14, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = a.color;
+        ctx.shadowColor = a.glow;
+        ctx.shadowBlur = (a.state === "work") ? 10 : 3;
+        
+        ctx.beginPath();
+        ctx.arc(x, y - 11, 11, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(x - 7, y - 14, 14, 4);
+
+        ctx.fillStyle = "#1e103d";
+        ctx.fillRect(x - 8, y - 1, 16, 17);
+        ctx.fillStyle = a.color;
+        ctx.fillRect(x - 6, y + 1, 12, 9);
+        ctx.shadowBlur = 0;
+
+        if (a.state === "work" && !isMoving) {
+          const handWob = Math.sin(tick * 12 + idx) * 2;
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(x - 10, y + 9 + handWob, 4, 4);
+          ctx.fillRect(x + 6, y + 9 - handWob, 4, 4);
+        } else if (a.state === "leisure" && !isMoving) {
+          ctx.fillStyle = "#22e6ff";
+          ctx.fillRect(x + 6, y + 4, 6, 7);
+        }
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 10px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(a.name.split(' ')[0], x, y - 28);
+
+        ctx.font = "14px sans-serif";
+        if (isMoving) {
+          ctx.fillText("🚶", x, y - 40);
+        } else if (a.state === "work") {
+          ctx.fillText((idx % 2 === 0) ? "💻" : "⚙️", x, y - 40);
+        } else {
+          ctx.fillText(idx === 1 ? "🕹️" : (idx === 4 ? "🍩" : "☕"), x, y - 40);
+        }
+      });
+
+      requestAnimationFrame(animate);
     }
 
-    renderSubagents();
-    renderLogs();
+    canvas.addEventListener("click", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const clickX = (e.clientX - rect.left) * scaleX;
+      const clickY = (e.clientY - rect.top) * scaleY;
+
+      let closest = null;
+      let minDist = 50;
+
+      AGENTS.forEach(a => {
+        const d = Math.hypot(a.pos.x - clickX, a.pos.y - clickY);
+        if (d < minDist) {
+          minDist = d;
+          closest = a;
+        }
+      });
+
+      if (closest) {
+        toggleAgent(closest.id);
+      }
+    });
+
+    renderButtons();
+    updateDetails();
+    animate();
   </script>
 </body>
 </html>
