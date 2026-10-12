@@ -11,12 +11,14 @@ signal enemy_defeated(enemy_id: String, at_wave: int)
 const COLORS = [Color("ff2bd6"), Color("22e6ff"), Color("b6ff2e"), Color("ffb02e")]
 const FAMILY_IDS = ["square", "triangle", "hexagon", "boss"]
 const ELITE_MODIFIERS = ["armor", "haste", "regen", "phase"]
-const TOWER_MODULE_IDS = ["plasma", "cryo", "arc"]
+const TOWER_MODULE_IDS = ["plasma", "cryo", "arc", "pulse", "laser"]
 const MAX_TOWER_SLOTS := 7
 const AUTO_INTERVAL := 0.28
 const ARC_CHAIN_RADIUS := 160.0
 const CRYO_SLOW_DURATION := 1.5
 const CRYO_SLOW_STRENGTH := 0.35
+const PULSE_INTERVAL := 2.5
+const PULSE_KNOCKBACK_FORCE := 38.0
 var tower_module: String = "plasma"
 var tower_loadout: Array[String] = ["plasma"]
 var tower_slots: Array[Dictionary] = []
@@ -82,7 +84,19 @@ func _reset_tower_slots() -> void:
 	tower_slots.clear()
 	for i in tower_loadout.size():
 		var chain: Array[Vector2] = []
-		tower_slots.append({"module_id": tower_loadout[i], "auto_timer": AUTO_INTERVAL * i / tower_loadout.size(), "turret_angle": -PI / 2, "turret_target": -PI / 2, "beam_target": Vector2.ZERO, "beam_time": 0.0, "beam_chain": chain})
+		tower_slots.append({
+			"module_id": tower_loadout[i],
+			"auto_timer": AUTO_INTERVAL * i / tower_loadout.size(),
+			"turret_angle": -PI / 2,
+			"turret_target": -PI / 2,
+			"beam_target": Vector2.ZERO,
+			"beam_time": 0.0,
+			"beam_chain": chain,
+			"pulse_time": 0.0,
+			"pulse_ring": 0.0,
+			"laser_focus_time": 0.0,
+			"laser_target_id": ""
+		})
 
 func tower_position(slot_index: int) -> Vector2:
 	return Vector2(bounds.x * (slot_index + 1.0) / (tower_slots.size() + 1.0), bounds.y - 40)
@@ -129,7 +143,7 @@ func auto_dps() -> int:
 	return roundi(level * (5 + wave * 1.4 + level * 1.6) * (1 + research[1] * 0.08))
 
 func auto_attack(target: Dictionary, base_damage: float, module_id: String = "", slot_index: int = 0) -> void:
-	if not running or paused or target.is_empty() or target.hp <= 0 or target.ghosted or not enemies.has(target):
+	if not running or paused:
 		return
 	if slot_index < 0 or slot_index >= tower_slots.size():
 		return
@@ -137,23 +151,71 @@ func auto_attack(target: Dictionary, base_damage: float, module_id: String = "",
 	var active_module: String = slot.module_id if module_id.is_empty() else module_id
 	if active_module not in TOWER_MODULE_IDS:
 		active_module = "plasma"
+
+	if active_module == "pulse":
+		# Onda Sísmica: dano radial, empurra inimigos e eletriza para tempestade estática
+		slot.pulse_time = 0.4
+		slot.pulse_ring = bounds.x * 0.75
+		effect.emit("burst", tower_position(slot_index), Color("b6ff2e"), "ONDA SÍSMICA")
+		sound.emit("bomb")
+		var pulse_damage := base_damage * 1.8
+		for enemy in enemies.duplicate():
+			if enemy.hp <= 0 or enemy.ghosted:
+				continue
+			var hit_dist := tower_position(slot_index).distance_to(enemy.p)
+			if hit_dist < slot.pulse_ring:
+				enemy.p.y = maxf(enemy.radius + 10, enemy.p.y - PULSE_KNOCKBACK_FORCE)
+				enemy.static_timer = 2.5
+				damage_enemy(enemy, pulse_damage, false, "auto")
+		return
+
+	if target.is_empty() or target.hp <= 0 or target.ghosted or not enemies.has(target):
+		slot.laser_target_id = ""
+		slot.laser_focus_time = 0.0
+		return
+
 	slot.beam_target = target.p
 	slot.beam_time = 0.16
 	slot.beam_chain.clear()
 	slot.turret_target = (Vector2(slot.beam_target) - tower_position(slot_index)).angle()
+
 	var damage := base_damage
+
 	if active_module == "cryo":
 		damage *= 0.75
 		target.slow_timer = CRYO_SLOW_DURATION
 	elif active_module == "arc":
 		damage *= 0.65
-	# Select the whole chain before deaths can spawn children or a new boss.
+	elif active_module == "laser":
+		# Laser de Antimatéria: rampa de dano mantendo o foco
+		var target_key: String = str(target.get("enemy_id", "")) + "_" + str(target.get("age", 0.0))
+		if slot.laser_target_id == target_key:
+			slot.laser_focus_time = minf(2.0, slot.laser_focus_time + AUTO_INTERVAL)
+		else:
+			slot.laser_target_id = target_key
+			slot.laser_focus_time = 0.0
+		# Multiplicador rampa de 0.5x até 3.5x
+		var ramp: float = 0.5 + (float(slot.laser_focus_time) / 2.0) * 3.0
+		damage *= ramp
+		# Ponto de Ruptura: acelera em inimigos congelados
+		if target.get("slow_timer", 0.0) > 0:
+			damage *= 1.35
+			effect.emit("text", target.p - Vector2(0, target.radius + 18), Color("ff7799"), "RUPTURA!")
+	elif active_module == "plasma":
+		# Sinergia Choque Térmico: dano extra se alvo estiver desacelerado/congelado
+		if target.get("slow_timer", 0.0) > 0:
+			damage *= 1.45
+			effect.emit("text", target.p - Vector2(0, target.radius + 18), Color("ff55ff"), "CHOQUE TÉRMICO!")
+
 	var targets: Array[Dictionary] = [target]
 	if active_module == "arc":
+		# Sinergia Tempestade Estática: se alvo foi eletrizado por sísmica, raio salta até 4 vezes e com maior alcance
+		var max_hops := 4 if target.get("static_timer", 0.0) > 0 else 2
+		var chain_radius := ARC_CHAIN_RADIUS * 1.5 if target.get("static_timer", 0.0) > 0 else ARC_CHAIN_RADIUS
 		var origin: Vector2 = target.p
-		for hop in 2:
+		for hop in max_hops:
 			var next: Dictionary = {}
-			var closest := ARC_CHAIN_RADIUS * ARC_CHAIN_RADIUS
+			var closest := chain_radius * chain_radius
 			for enemy in enemies:
 				if enemy.hp <= 0 or enemy.ghosted or targets.has(enemy):
 					continue
@@ -339,6 +401,7 @@ func spawn(kind: int = -1, forced_variant := "", force_elite := false, allow_eli
 	var variant := forced_variant if not forced_variant.is_empty() else variant_for(kind)
 	var enemy := {"type": kind, "enemy_id": id_for(kind, variant), "variant": variant, "modifiers": [], "elite": false, "ghosted": false, "since_hit": 99.0, "drop_allowed": true, "split_depth": 0, "p": Vector2(bounds.x / 2 if kind == 3 else randf_range(30, bounds.x - 30), -50 if kind == 3 else -30), "hp": float(health), "max_hp": health, "radius": [20, 15, 27, 44][kind], "speed": speed, "gold": [4 + wave, 3 + wave, 12 + wave * 2, 100 + wave * 12][kind], "leak": [8, 5, 14, 40][kind], "score": [10, 12, 30, 300][kind], "rot": randf() * TAU, "rot_speed": 0.5 if kind == 3 else randf_range(-1.6, 1.6), "sides": [4, 3, 6, 8][kind], "wob": randf() * TAU, "wob_speed": 1.2 if kind == 3 else randf_range(1, 3), "wob_amp": 60 if kind == 3 else (randf_range(20, 45) if kind == 1 else randf_range(4, 14)), "hit": 0.0, "age": 0.0}
 	enemy.slow_timer = 0.0
+	enemy.static_timer = 0.0
 	if variant == "armored":
 		enemy.max_hp = roundi(enemy.max_hp * 1.6)
 		enemy.hp = float(enemy.max_hp)
@@ -396,6 +459,7 @@ func tick(delta: float) -> void:
 	banner_time = maxf(0, banner_time - dt)
 	for slot in tower_slots:
 		slot.beam_time = maxf(0, slot.beam_time - dt)
+		slot.pulse_time = maxf(0, slot.pulse_time - dt)
 	combo_timer -= dt
 	if combo_timer <= 0:
 		combo = 0
@@ -436,6 +500,7 @@ func tick(delta: float) -> void:
 		enemy.wob += enemy.wob_speed * dt
 		var movement_dt := dt - CRYO_SLOW_STRENGTH * minf(dt, enemy.slow_timer)
 		enemy.slow_timer = maxf(0, enemy.slow_timer - dt)
+		enemy.static_timer = maxf(0, enemy.get("static_timer", 0.0) - dt)
 		enemy.p.y += enemy.speed * (1 + play_time * 0.0012) * movement_dt * (0.4 if enemy.age < 0.5 else 1.0)
 		enemy.p.x = clampf(enemy.p.x + cos(enemy.wob) * enemy.wob_amp * movement_dt, enemy.radius * 0.6, bounds.x - enemy.radius * 0.6)
 		if enemy.p.y >= bounds.y - 36:

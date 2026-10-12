@@ -12,15 +12,23 @@
 
 | ID | Torre | Descoberta | Pesquisa | Efeito |
 |---|---|---:|---:|---|
-| `plasma` | Torre Plasma | Inicial | Gratuita | 100% do dano automático em um alvo. |
+| `plasma` | Torre Plasma | Inicial | Gratuita | 100% do dano automático em um alvo. Ativa Choque Térmico (+45% dano) em alvos desacelerados. |
 | `cryo` | Torre Criogênica | Wave 5 | 8 fragmentos triangulares | 75% do dano e reduz o movimento do alvo em 35% por 1,5 segundo. |
-| `arc` | Torre de Arco | Wave 10 | 12 fragmentos quadrados | 65% do dano no alvo e até dois saltos; cada salto causa 45% do tiro de Arco. |
+| `arc` | Torre de Arco | Wave 10 | 12 fragmentos quadrados | 65% do dano no alvo e até dois saltos (até 4 saltos e 1.5x alcance se alvo estiver eletrizado). |
+| `pulse` | Torre Sísmica | Wave 15 | 14 ligas hexagonais | Onda radial expansiva com knockback vertical (empurra inimigos) e aplica carga estática. |
+| `laser` | Laser Antimatéria | Wave 20 | 4 núcleos de boss | Feixe contínuo que rampa de 50% até 350% de dano enquanto focado no alvo. |
 
-O Arco procura o próximo alvo em até 160 pixels. Fantasmas intangíveis não podem ser alvejados nem receber saltos. Resistências continuam sendo calculadas pelo gameplay.
+O Arco procura o próximo alvo em até 160 pixels (240 pixels em tempestade estática). Fantasmas intangíveis não podem ser alvejados nem receber saltos. Resistências continuam sendo calculadas pelo gameplay.
+
+## Sinergias elementais (Reações em Cadeia)
+
+- **Choque Térmico (Criogênica + Plasma):** Inimigos desacelerados por gelo recebem +45% de dano adicional de tiros de Plasma.
+- **Tempestade Estática (Sísmica + Arco):** Inimigos atingidos pela onda sísmica ficam eletrizados; arcos elétricos saltam para até 4 alvos com 50% mais alcance.
+- **Ponto de Ruptura (Criogênica + Laser):** O Laser Antimatéria ganha +35% de dano extra em alvos congelados.
 
 ## Persistência
 
-O schema 4 acrescenta:
+O schema 6 acrescenta suporte aos novos módulos mantendo compatibilidade com schemas 1 a 5:
 
 ```json
 {
@@ -28,13 +36,14 @@ O schema 4 acrescenta:
   "tower_modules": {
     "plasma": true,
     "cryo": false,
-    "arc": false
+    "arc": false,
+    "pulse": false,
+    "laser": false
   },
-  "equipped_module": "plasma"
+  "unlocked_tower_slots": 1,
+  "tower_loadout": ["plasma", "plasma", "plasma", "plasma", "plasma", "plasma", "plasma"]
 }
 ```
-
-A migração do schema 3 calcula `highest_wave` usando o maior resultado salvo, mantém Plasma desbloqueada e começa com ela equipada. Módulos usam IDs estáveis; nomes visíveis não fazem parte do contrato do save.
 
 ## Extensão
 

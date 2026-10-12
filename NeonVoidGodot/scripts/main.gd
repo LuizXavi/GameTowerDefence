@@ -16,11 +16,13 @@ const PIECE_NAMES = ["FRAGMENTO QUADRADO", "FRAGMENTO TRIANGULAR", "LIGA HEXAGON
 const PIECE_SHORT = ["■", "▲", "⬢", "✦"]
 const RESEARCH_NAMES = ["Análise de Plasma", "Roteamento Autônomo", "Liga da Base", "Reator Nova"]
 const RESEARCH_DESCS = ["+1 dano base por clique", "+8% DPS da torreta", "+10 vida máxima da base", "+0,3 carga/s da Nova"]
-const MODULE_IDS = ["plasma", "cryo", "arc"]
+const MODULE_IDS = ["plasma", "cryo", "arc", "pulse", "laser"]
 const MODULE_INFO = {
-	"plasma": ["Torre Plasma", "100% dano • disparo direto", PINK],
+	"plasma": ["Torre Plasma", "100% dano • disparo direto • Choque Térmico", PINK],
 	"cryo": ["Torre Criogênica", "75% dano • desacelera 35% por 1,5s", CYAN],
-	"arc": ["Torre de Arco", "65% dano • salta para até 2 alvos com 45%", AMBER]
+	"arc": ["Torre de Arco", "65% dano • salta até 2 alvos (4 em estática)", AMBER],
+	"pulse": ["Torre Sísmica", "Onda radial • empurra inimigos • eletriza", LIME],
+	"laser": ["Laser Antimatéria", "Feixe contínuo • rampa até 350% de dano", Color("ff3355")]
 }
 const CODEX_ORDER = ["square", "armored_square", "splitter", "triangle", "ghost_triangle", "thief", "hexagon", "regen_hexagon", "elite", "boss"]
 const ENEMY_INFO = {
@@ -527,7 +529,11 @@ func append_module_cards(parent: VBoxContainer) -> void:
 		action.name = "Module_" + module_id
 		card.add_child(action)
 	if undiscovered:
-		var next_wave := 5 if store.highest_wave < 5 else 10
+		var next_wave := 5
+		for mid in MODULE_IDS:
+			if not store.module_visible(mid):
+				next_wave = int(store.MODULE_WAVES[mid])
+				break
 		var hint := label("◇  Novo módulo: alcance a wave %d para descobrir." % next_wave, 18, MUTED)
 		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		parent.add_child(hint)
@@ -549,7 +555,7 @@ func append_tower_slots(parent: VBoxContainer) -> void:
 		for module_id in MODULE_IDS:
 			if not store.module_unlocked(module_id):
 				continue
-			var module_name: String = {"plasma": "PLASMA", "cryo": "CRIOGÊNICA", "arc": "ARCO"}[module_id]
+			var module_name: String = {"plasma": "PLASMA", "cryo": "CRIOGÊNICA", "arc": "ARCO", "pulse": "SÍSMICA", "laser": "LASER"}[module_id]
 			var equipped: bool = selected == module_id
 			var action := button(("✓ " if equipped else "") + module_name, func(): equip_tower_module(index, module_id), MODULE_INFO[module_id][2])
 			action.name = "Slot%d_%s" % [index, module_id]
@@ -683,8 +689,10 @@ func record_wave_progress() -> void:
 		return
 	var previous: int = store.highest_wave
 	store.record_wave_reached(state.wave)
-	if (previous < 5 and store.highest_wave >= 5) or (previous < 10 and store.highest_wave >= 10):
-		arena.fx("piece", arena.size * Vector2(0.5, 0.25), CYAN, "NOVO MÓDULO NO MENU")
+	for mid in store.MODULE_WAVES:
+		var target_wave: int = store.MODULE_WAVES[mid]
+		if previous < target_wave and store.highest_wave >= target_wave:
+			arena.fx("piece", arena.size * Vector2(0.5, 0.25), CYAN, "NOVO MÓDULO NO MENU: %s" % MODULE_INFO[mid][0].to_upper())
 	for index in range(1, store.SLOT_WAVES.size()):
 		var discovered_wave: int = store.SLOT_WAVES[index]
 		if previous < discovered_wave and store.highest_wave >= discovered_wave:

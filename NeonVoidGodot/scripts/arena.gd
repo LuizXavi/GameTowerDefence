@@ -111,11 +111,15 @@ func _draw() -> void:
 	for slot_index in state.tower_slots.size():
 		var slot: Dictionary = state.tower_slots[slot_index]
 		var turret := state.tower_position(slot_index)
-		var module_color := Color("b6ff2e")
+		var module_color := Color("ff2bd6")
 		if slot.module_id == "cryo":
 			module_color = Color("7feaff")
 		elif slot.module_id == "arc":
 			module_color = Color("c48aff")
+		elif slot.module_id == "pulse":
+			module_color = Color("b6ff2e")
+		elif slot.module_id == "laser":
+			module_color = Color("ff3355")
 		draw_circle(turret, 13 if state.levels[1] else 9, Color("1a0f3a"))
 		draw_arc(turret, 13 if state.levels[1] else 9, 0, TAU, 40, module_color, 1.5, true)
 		if state.levels[1] > 0:
@@ -126,9 +130,22 @@ func _draw() -> void:
 			elif slot.module_id == "arc":
 				for side in [-1, 1]:
 					glow_line(turret + direction.orthogonal() * side * 8, turret + direction * 27 + direction.orthogonal() * side * 6, module_color, 2)
+			elif slot.module_id == "pulse":
+				draw_arc(turret, 17, 0, TAU, 16, module_color, 2.0, true)
+			elif slot.module_id == "laser":
+				glow_line(turret + direction * 18 - direction.orthogonal() * 5, turret + direction * 26, module_color, 3)
+				glow_line(turret + direction * 18 + direction.orthogonal() * 5, turret + direction * 26, module_color, 3)
+		if slot.get("pulse_time", 0.0) > 0:
+			var ring_progress: float = 1.0 - (float(slot.pulse_time) / 0.4)
+			var cur_radius: float = 20.0 + float(slot.get("pulse_ring", 200.0)) * ring_progress
+			draw_arc(turret, cur_radius, 0, TAU, 48, Color(module_color, float(slot.pulse_time) / 0.4), 3.5, true)
+			draw_arc(turret, cur_radius * 0.7, 0, TAU, 32, Color(module_color, (float(slot.pulse_time) / 0.4) * 0.5), 1.5, true)
 		if slot.beam_time > 0:
-			glow_line(turret, slot.beam_target, Color(module_color, slot.beam_time / 0.16), 3)
-			draw_line(turret, slot.beam_target, Color.WHITE, 1, true)
+			var beam_width := 3.0
+			if slot.module_id == "laser":
+				beam_width = 3.0 + minf(6.0, slot.get("laser_focus_time", 0.0) * 3.0)
+			glow_line(turret, slot.beam_target, Color(module_color, slot.beam_time / 0.16), beam_width)
+			draw_line(turret, slot.beam_target, Color.WHITE, 1.5 if slot.module_id == "laser" else 1.0, true)
 			var previous: Vector2 = slot.beam_target
 			for point in slot.beam_chain:
 				var midpoint: Vector2 = previous.lerp(point, 0.5) + (point - previous).orthogonal().normalized() * 8
@@ -190,6 +207,8 @@ func draw_enemy(enemy: Dictionary) -> void:
 		for i in 3:
 			var frost_axis := Vector2.from_angle(i * PI / 3) * 6
 			draw_line(frost_center - frost_axis, frost_center + frost_axis, Color(0.5, 0.92, 1, visual_alpha), 2, true)
+	if enemy.get("static_timer", 0.0) > 0:
+		draw_arc(enemy.p, radius + 7, clock * 6, clock * 6 + PI, 16, Color(1, 0.9, 0.3, visual_alpha * 0.8), 2.0, true)
 	if enemy.variant == "armored" or enemy.modifiers.has("armor"):
 		draw_arc(enemy.p, radius + 11, 0, TAU, 8, Color(0.8, 0.85, 1, 0.8 * visual_alpha), 3, true)
 	if enemy.variant == "regen" or enemy.modifiers.has("regen"):

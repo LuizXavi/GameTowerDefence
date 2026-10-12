@@ -216,6 +216,30 @@ func _init() -> void:
 	schema_four.path = schema_four_path
 	schema_four.load_data()
 	check(schema_four.unlocked_tower_slots == 1 and schema_four.tower_loadout[0] == "cryo" and schema_four.tower_loadout.size() == 7, "Schema 4 migrates equipped tower into first slot")
+	check(schema_four.tower_modules.has("pulse") and not schema_four.tower_modules.pulse, "Schema 4 migrates with pulse module locked")
+	var schema_five_path := "user://test_schema5_%d.json" % Time.get_ticks_usec()
+	file = FileAccess.open(schema_five_path, FileAccess.WRITE)
+	file.store_string(JSON.stringify({"version":5, "scores":[], "best":0, "muted":false, "pieces":[0,0,0,0], "research":[0,0,0,0], "enemy_stats":{}, "highest_wave":20, "tower_modules":{"plasma":true,"cryo":true,"arc":true}, "unlocked_tower_slots":3, "tower_loadout":["plasma","cryo","arc","plasma","plasma","plasma","plasma"]}))
+	file.close()
+	var schema_five = load("res://scripts/score_store.gd").new()
+	schema_five.path = schema_five_path
+	schema_five.load_data()
+	check(schema_five.tower_modules.has("pulse") and not schema_five.tower_modules.pulse and schema_five.tower_modules.has("laser"), "Schema 5 migrates to Schema 6 with pulse and laser locked")
+	# Teste de Mecanica: Onda Sísmica (Pulse Knockback) e Laser Contínuo
+	game.reset()
+	game.configure_tower_loadout(["pulse"])
+	var p_enemy := game.spawn(0)
+	p_enemy.p = Vector2(game.bounds.x / 2, 200)
+	var prev_y: float = p_enemy.p.y
+	game.auto_attack(p_enemy, 10, "pulse", 0)
+	check(p_enemy.p.y < prev_y and p_enemy.static_timer > 0, "Pulse tower applies vertical knockback and static charge")
+	# Teste de Mecânica: Choque Térmico (Plasma em alvo desacelerado)
+	game.reset()
+	var t_enemy := game.spawn(0)
+	t_enemy.slow_timer = 1.5
+	var hp_before: float = t_enemy.hp
+	game.auto_attack(t_enemy, 10, "plasma", 0)
+	check(t_enemy.hp < hp_before, "Plasma applies damage with thermal shock bonus")
 	var expansion = load("res://scripts/score_store.gd").new()
 	expansion.highest_wave = 30
 	expansion.pieces.assign([100,100,100,100])
@@ -233,6 +257,8 @@ func _init() -> void:
 			DirAccess.remove_absolute(schema_three_path + suffix)
 		if FileAccess.file_exists(schema_four_path + suffix):
 			DirAccess.remove_absolute(schema_four_path + suffix)
+		if FileAccess.file_exists(schema_five_path + suffix):
+			DirAccess.remove_absolute(schema_five_path + suffix)
 	if failures > 0:
 		print("FAIL: %d of %d gameplay/save checks" % [failures, checks])
 		quit(1)
