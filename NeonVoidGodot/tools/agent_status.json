@@ -1,0 +1,32 @@
+{
+  "updated_at": "2026-10-12T20:29:40Z",
+  "active_count": 1,
+  "idle_count": 4,
+  "agents": {
+    "orchestrator": {
+      "state": "work",
+      "task": "Supervisionando chat e integrando mudancas no Git",
+      "updated_at": "2026-10-12T20:29:40Z"
+    },
+    "gameplay": {
+      "state": "leisure",
+      "task": "Aguardando novo balanceamento de combate",
+      "updated_at": "2026-10-12T20:27:33Z"
+    },
+    "persistence": {
+      "state": "leisure",
+      "task": "Schema 6 persistido e validado com sucesso",
+      "updated_at": "2026-10-12T20:23:46Z"
+    },
+    "ui_vfx": {
+      "state": "leisure",
+      "task": "Indicador de recarga sismica e cores integrados",
+      "updated_at": "2026-10-12T20:27:33Z"
+    },
+    "qa": {
+      "state": "leisure",
+      "task": "Ultima validacao concluida: 66/66 testes PASS",
+      "updated_at": "2026-10-12T20:27:13Z"
+    }
+  }
+}
