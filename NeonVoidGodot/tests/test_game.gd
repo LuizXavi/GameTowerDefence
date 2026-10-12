@@ -191,7 +191,7 @@ func _init() -> void:
 	var legacy = load("res://scripts/score_store.gd").new()
 	legacy.path = legacy_path
 	legacy.load_data()
-	check(legacy.best == 42 and legacy.pieces == [0,0,0,0] and legacy.research == [0,0,0,0], "Schema 1 migrates to research schema")
+	check(legacy.best == 42 and legacy.pieces == [0,0,0,0] and legacy.research == [0,0,0,0,0,0,0,0], "Schema 1 migrates to research schema")
 	var schema_two_path := "user://test_schema2_%d.json" % Time.get_ticks_usec()
 	file = FileAccess.open(schema_two_path, FileAccess.WRITE)
 	file.store_string(JSON.stringify({"version":2, "scores":[], "best":8, "muted":true, "pieces":[1,2,3,4], "research":[1,0,0,0]}))
@@ -199,7 +199,7 @@ func _init() -> void:
 	var schema_two = load("res://scripts/score_store.gd").new()
 	schema_two.path = schema_two_path
 	schema_two.load_data()
-	check(schema_two.best == 8 and schema_two.pieces == [1,2,3,4] and schema_two.enemy_stats.is_empty(), "Schema 2 migrates to Codex schema")
+	check(schema_two.best == 8 and schema_two.pieces == [1,2,3,4] and schema_two.research == [1,0,0,0,0,0,0,0] and schema_two.enemy_stats.is_empty(), "Schema 2 migrates to Codex schema")
 	var schema_three_path := "user://test_schema3_%d.json" % Time.get_ticks_usec()
 	file = FileAccess.open(schema_three_path, FileAccess.WRITE)
 	file.store_string(JSON.stringify({"version":3, "scores":[{"name":"OLD", "score":20, "wave":12, "kills":2, "gold":4, "max_combo":1}], "best":20, "muted":false, "pieces":[0,0,0,0], "research":[0,0,0,0], "enemy_stats":{}}))
@@ -266,6 +266,18 @@ func _init() -> void:
 	schema_six.path = schema_six_path
 	schema_six.load_data()
 	check(schema_six.tower_modules.has("vortex") and not schema_six.tower_modules.vortex and schema_six.tower_modules.has("railgun") and not schema_six.tower_modules.railgun, "Schema 6 migrates to Schema 7 with vortex and railgun")
+	check(schema_six.research.size() == 8, "Schema 6 migrates to Schema 8 with 8 research slots")
+	# Teste de Migração Schema 7 para Schema 8
+	var schema_seven_path := "user://test_schema7_%d.json" % Time.get_ticks_usec()
+	file = FileAccess.open(schema_seven_path, FileAccess.WRITE)
+	file.store_string(JSON.stringify({"version":7, "scores":[], "best":0, "muted":false, "pieces":[10,10,10,10], "research":[2,1,0,1], "enemy_stats":{}, "highest_wave":25, "tower_modules":{"plasma":true,"cryo":true,"arc":true,"pulse":true,"laser":true,"vortex":true,"railgun":true}, "unlocked_tower_slots":4, "tower_loadout":["plasma","cryo","arc","pulse","plasma","plasma","plasma"]}))
+	file.close()
+	var schema_seven = load("res://scripts/score_store.gd").new()
+	schema_seven.path = schema_seven_path
+	schema_seven.load_data()
+	check(schema_seven.research.size() == 8 and schema_seven.research[0] == 2 and schema_seven.research[4] == 0, "Schema 7 migrates to Schema 8 with expanded research array")
+	check(schema_seven.can_research(4) and schema_seven.buy_research(4) and schema_seven.research[4] == 1, "Purchasing expanded research 4 (Foco Critico) succeeds")
+	check(schema_seven.pieces[0] == 2, "Research 4 consumes square fragments properly")
 	# Teste de Mecânica: Vórtice Gravitacional puxa inimigos próximos
 	game.reset()
 	game.configure_tower_loadout(["vortex"])
@@ -335,6 +347,8 @@ func _init() -> void:
 			DirAccess.remove_absolute(schema_five_path + suffix)
 		if FileAccess.file_exists(schema_six_path + suffix):
 			DirAccess.remove_absolute(schema_six_path + suffix)
+		if FileAccess.file_exists(schema_seven_path + suffix):
+			DirAccess.remove_absolute(schema_seven_path + suffix)
 	if failures > 0:
 		print("FAIL: %d of %d gameplay/save checks" % [failures, checks])
 		quit(1)

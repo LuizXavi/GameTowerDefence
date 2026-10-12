@@ -91,7 +91,7 @@ var beam_time: float:
 var beam_chain: Array[Vector2]:
 	get: return tower_slots[0].beam_chain
 	set(value): tower_slots[0].beam_chain = value
-var research: Array[int] = [0, 0, 0, 0]
+var research: Array[int] = [0, 0, 0, 0, 0, 0, 0, 0]
 var run_pieces: Array[int] = [0, 0, 0, 0]
 
 func _init() -> void:
@@ -136,8 +136,9 @@ func tower_position(slot_index: int) -> Vector2:
 	return Vector2(bounds.x * (slot_index + 1.0) / (tower_slots.size() + 1.0), bounds.y - 40)
 
 func configure_research(levels: Array) -> void:
-	for i in 4:
-		research[i] = clampi(int(levels[i]) if i < levels.size() else 0, 0, [5, 5, 5, 3][i])
+	var max_res: Array[int] = [5, 5, 5, 3, 5, 5, 5, 3]
+	for i in 8:
+		research[i] = clampi(int(levels[i]) if i < levels.size() else 0, 0, max_res[i])
 
 func reset() -> void:
 	gold = 0
@@ -167,7 +168,8 @@ func reset() -> void:
 	sound.emit("start")
 
 func multiplier() -> float:
-	return 1 + mini(combo, 60) * 0.04
+	var combo_bonus: float = 0.04 + float(research[5]) * 0.008 # Sincronia de Combate
+	return 1 + mini(combo, 60) * combo_bonus
 
 func click_damage() -> int:
 	return roundi((3 + research[0] + levels[0] * 3 + wave * 0.6) * multiplier())
@@ -341,7 +343,8 @@ func auto_attack(target: Dictionary, base_damage: float, module_id: String = "",
 		damage_enemy(targets[i], damage * (1.0 if i == 0 else 0.45), false, "auto")
 
 func crit_chance() -> float:
-	return minf(0.05 + levels[2] * 0.045, 0.65)
+	var res_crit: float = float(research[4]) * 0.02 # Foco Crítico
+	return minf(0.05 + levels[2] * 0.045 + res_crit, 0.75)
 
 func cost(key: int) -> int:
 	return floori([15, 50, 90, 70][key] * pow([1.58, 1.68, 1.8, 1.72][key], levels[key]))
@@ -388,7 +391,8 @@ func tap(point: Vector2) -> void:
 	var critical := randf() < crit_chance()
 	var damage := click_damage() * randf_range(0.9, 1.1)
 	if critical:
-		damage *= 3 + levels[2] * 0.25
+		var crit_mult: float = 3.0 + levels[2] * 0.25 + float(research[4]) * 0.20
+		damage *= crit_mult
 	combo += 1
 	combo_timer = 2.2
 	max_combo = maxi(max_combo, combo)
@@ -404,7 +408,8 @@ func nova() -> bool:
 	if not running or paused or charge < 100:
 		return false
 	charge = 0
-	var damage := 60 + click_damage() * 12 + wave * 12
+	var nova_bonus: float = 1.0 + float(research[7]) * 0.25 # Singularidade Nova
+	var damage := (60 + click_damage() * 12 + wave * 12) * nova_bonus
 	effect.emit("nova", bounds / 2, Color.WHITE, "PULSO NOVA!")
 	sound.emit("bomb")
 	for enemy in enemies.duplicate():
@@ -426,7 +431,8 @@ func damage_enemy(enemy: Dictionary, damage: float, critical := false, source :=
 	enemies.erase(enemy)
 	kills += 1
 	wave_kills += 1
-	var gain := roundi(enemy.gold * multiplier())
+	var gold_mult: float = 1.0 + float(research[6]) * 0.08 # Extração Quântica
+	var gain := roundi(enemy.gold * multiplier() * gold_mult)
 	gold += gain
 	total_gold += gain
 	score += roundi(enemy.score * (1 + wave * 0.15) * (1.5 if critical else 1.0))

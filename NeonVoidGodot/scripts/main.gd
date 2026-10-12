@@ -14,8 +14,14 @@ const DESCS = ["+3 dano por clique", "DPS automático", "+4,5% chance crítico",
 const COLORS = [PINK, LIME, AMBER, CYAN]
 const PIECE_NAMES = ["FRAGMENTO QUADRADO", "FRAGMENTO TRIANGULAR", "LIGA HEXAGONAL", "NÚCLEO DE BOSS"]
 const PIECE_SHORT = ["■", "▲", "⬢", "✦"]
-const RESEARCH_NAMES = ["Análise de Plasma", "Roteamento Autônomo", "Liga da Base", "Reator Nova"]
-const RESEARCH_DESCS = ["+1 dano base por clique", "+8% DPS da torreta", "+10 vida máxima da base", "+0,3 carga/s da Nova"]
+const RESEARCH_NAMES = [
+	"Análise de Plasma", "Roteamento Autônomo", "Liga da Base", "Reator Nova",
+	"Foco Crítico", "Sincronia de Combate", "Extração Quântica", "Singularidade Nova"
+]
+const RESEARCH_DESCS = [
+	"+1 dano base por clique", "+8% DPS da torreta", "+10 vida máxima da base", "+0,3 carga/s da Nova",
+	"+2% chance e +0,2x dano crítico", "+0,8% bônus de dano/ouro por combo", "+8% ouro ganho por abate", "+25% dano destrutivo do Pulso Nova"
+]
 const MODULE_IDS = ["plasma", "cryo", "arc", "pulse", "laser", "vortex", "railgun"]
 const MODULE_INFO = {
 	"plasma": ["Torre Plasma", "100% dano • disparo direto • Choque Térmico", PINK],
@@ -756,13 +762,14 @@ func build_research_cards() -> void:
 	dynamic.add_theme_constant_override("separation", 10)
 	research_content.add_child(dynamic)
 	center_label(dynamic, pieces_text(), 16, AMBER, true)
-	for i in 4:
+	for i in 8:
 		var level: int = store.research[i]
 		var maximum: int = store.RESEARCH_MAX[i]
 		var cost: int = store.research_cost(i)
-		var words := "%s  %s  •  Nv.%d/%d\n%s\n" % [PIECE_SHORT[i], RESEARCH_NAMES[i], level, maximum, RESEARCH_DESCS[i]]
-		words += "PESQUISA CONCLUÍDA" if level >= maximum else "Custo: %d %s   •   Você tem: %d" % [cost, PIECE_SHORT[i], store.pieces[i]]
-		var research_button := button(words, func(): buy_research(i), COLORS[i])
+		var p_idx: int = store.piece_index_for_research(i)
+		var words := "%s  %s  •  Nv.%d/%d\n%s\n" % [PIECE_SHORT[p_idx], RESEARCH_NAMES[i], level, maximum, RESEARCH_DESCS[i]]
+		words += "PESQUISA CONCLUÍDA" if level >= maximum else "Custo: %d %s   •   Você tem: %d" % [cost, PIECE_SHORT[p_idx], store.pieces[p_idx]]
+		var research_button := button(words, func(): buy_research(i), COLORS[p_idx])
 		research_button.name = "Research%d" % (i + 1)
 		research_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		research_button.custom_minimum_size.y = 78
