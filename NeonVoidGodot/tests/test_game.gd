@@ -257,6 +257,37 @@ func _init() -> void:
 	check(sweep != null and sweep.data.size() > 100, "SoundManager synthesizes sweep audio stream")
 	var noise := SoundManager._synth_noise_burst(0.05, 0.5)
 	check(noise != null and noise.data.size() > 100, "SoundManager synthesizes noise burst audio stream")
+	# Teste de Migração para Schema 7 (Vórtice e Railgun)
+	var schema_six_path := "user://test_schema6_%d.json" % Time.get_ticks_usec()
+	file = FileAccess.open(schema_six_path, FileAccess.WRITE)
+	file.store_string(JSON.stringify({"version":6, "scores":[], "best":0, "muted":false, "pieces":[0,0,0,0], "research":[0,0,0,0], "enemy_stats":{}, "highest_wave":25, "tower_modules":{"plasma":true,"cryo":true,"arc":true,"pulse":true,"laser":true}, "unlocked_tower_slots":4, "tower_loadout":["plasma","cryo","arc","pulse","plasma","plasma","plasma"]}))
+	file.close()
+	var schema_six = load("res://scripts/score_store.gd").new()
+	schema_six.path = schema_six_path
+	schema_six.load_data()
+	check(schema_six.tower_modules.has("vortex") and not schema_six.tower_modules.vortex and schema_six.tower_modules.has("railgun") and not schema_six.tower_modules.railgun, "Schema 6 migrates to Schema 7 with vortex and railgun")
+	# Teste de Mecânica: Vórtice Gravitacional puxa inimigos próximos
+	game.reset()
+	game.configure_tower_loadout(["vortex"])
+	var v_target := game.spawn(0)
+	v_target.p = Vector2(game.bounds.x / 2, 200)
+	var v_nearby := game.spawn(0)
+	v_nearby.p = Vector2(game.bounds.x / 2 + 80, 200)
+	var dist_before: float = v_target.p.distance_to(v_nearby.p)
+	game.auto_attack(v_target, 10, "vortex", 0)
+	var dist_after: float = v_target.p.distance_to(v_nearby.p)
+	check(dist_after < dist_before and v_nearby.get("vortex_timer", 0.0) > 0, "Vortex tower pulls nearby enemies towards singularity")
+	# Teste de Mecânica: Railgun Fotônico perfura múltiplos inimigos na linha
+	game.reset()
+	game.configure_tower_loadout(["railgun"])
+	var r_target := game.spawn(0)
+	r_target.p = Vector2(game.bounds.x / 2, 250)
+	var r_behind := game.spawn(0)
+	r_behind.p = Vector2(game.bounds.x / 2, 120)
+	var r_target_hp: float = r_target.hp
+	var r_behind_hp: float = r_behind.hp
+	game.auto_attack(r_target, 10, "railgun", 0)
+	check(r_target.hp < r_target_hp and r_behind.hp < r_behind_hp, "Railgun penetrates multiple enemies in firing line")
 	for suffix in ["", ".bak", ".tmp"]:
 		if FileAccess.file_exists(store.path + suffix):
 			DirAccess.remove_absolute(store.path + suffix)
@@ -270,6 +301,8 @@ func _init() -> void:
 			DirAccess.remove_absolute(schema_four_path + suffix)
 		if FileAccess.file_exists(schema_five_path + suffix):
 			DirAccess.remove_absolute(schema_five_path + suffix)
+		if FileAccess.file_exists(schema_six_path + suffix):
+			DirAccess.remove_absolute(schema_six_path + suffix)
 	if failures > 0:
 		print("FAIL: %d of %d gameplay/save checks" % [failures, checks])
 		quit(1)

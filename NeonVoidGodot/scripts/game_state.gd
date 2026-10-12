@@ -11,7 +11,7 @@ signal enemy_defeated(enemy_id: String, at_wave: int)
 const COLORS = [Color("ff2bd6"), Color("22e6ff"), Color("b6ff2e"), Color("ffb02e")]
 const FAMILY_IDS = ["square", "triangle", "hexagon", "boss"]
 const ELITE_MODIFIERS = ["armor", "haste", "regen", "phase"]
-const TOWER_MODULE_IDS = ["plasma", "cryo", "arc", "pulse", "laser"]
+const TOWER_MODULE_IDS = ["plasma", "cryo", "arc", "pulse", "laser", "vortex", "railgun"]
 const MAX_TOWER_SLOTS := 7
 const AUTO_INTERVAL := 0.28
 const ARC_CHAIN_RADIUS := 160.0
@@ -24,6 +24,10 @@ var tower_module: String = "plasma"
 func interval_for_module(module_id: String) -> float:
 	if module_id == "pulse":
 		return PULSE_INTERVAL
+	elif module_id == "vortex":
+		return 1.4
+	elif module_id == "railgun":
+		return 1.6
 	return AUTO_INTERVAL
 var tower_loadout: Array[String] = ["plasma"]
 var tower_slots: Array[Dictionary] = []
@@ -102,7 +106,9 @@ func _reset_tower_slots() -> void:
 			"pulse_time": 0.0,
 			"pulse_ring": 0.0,
 			"laser_focus_time": 0.0,
-			"laser_target_id": ""
+			"laser_target_id": "",
+			"vortex_time": 0.0,
+			"vortex_center": Vector2.ZERO
 		})
 
 func tower_position(slot_index: int) -> Vector2:
@@ -214,6 +220,78 @@ func auto_attack(target: Dictionary, base_damage: float, module_id: String = "",
 		if target.get("slow_timer", 0.0) > 0:
 			damage *= 1.45
 			effect.emit("text", target.p - Vector2(0, target.radius + 18), Color("ff55ff"), "CHOQUE TÉRMICO!")
+	elif active_module == "vortex":
+		# Vórtice Gravitacional: cria micro singularidade, puxa inimigos e causa implosão
+		slot.vortex_center = target.p
+		slot.vortex_time = 0.7
+		slot.beam_target = target.p
+		slot.beam_time = 0.22
+		sound.emit("vortex")
+		effect.emit("burst", target.p, Color("9933ff"), "VÓRTICE!")
+		var vortex_radius := 160.0
+		for enemy in enemies.duplicate():
+			if enemy.hp <= 0 or enemy.ghosted:
+				continue
+			var diff: Vector2 = target.p - enemy.p
+			var dist: float = diff.length()
+			if dist <= vortex_radius:
+				if dist > 6.0:
+					enemy.p += diff.normalized() * minf(dist - 5.0, 48.0)
+				enemy.vortex_timer = 2.0
+				var v_dmg := base_damage * 1.25
+				if enemy.get("slow_timer", 0.0) > 0 or enemy.get("static_timer", 0.0) > 0:
+					v_dmg *= 1.5
+					effect.emit("text", enemy.p - Vector2(0, enemy.radius + 18), Color("9933ff"), "IMPLOSÃO!")
+				damage_enemy(enemy, v_dmg, false, "auto")
+		return
+	elif active_module == "railgun":
+		# Canhão Railgun Fotônico: feixe perfurante ultra-sônico com ricochete na parede
+		var origin: Vector2 = tower_position(slot_index)
+		var fire_dir: Vector2 = (target.p - origin).normalized()
+		var t_wall: float = bounds.y * 2.0
+		var hit_side: String = "top"
+		if fire_dir.y < -0.001:
+			var t_top: float = -origin.y / fire_dir.y
+			if t_top > 0.0 and t_top < t_wall:
+				t_wall = t_top
+				hit_side = "top"
+		if fire_dir.x < -0.001:
+			var t_left: float = -origin.x / fire_dir.x
+			if t_left > 0.0 and t_left < t_wall:
+				t_wall = t_left
+				hit_side = "left"
+		elif fire_dir.x > 0.001:
+			var t_right: float = (bounds.x - origin.x) / fire_dir.x
+			if t_right > 0.0 and t_right < t_wall:
+				t_wall = t_right
+				hit_side = "right"
+
+		var p_wall: Vector2 = origin + fire_dir * t_wall
+		p_wall.x = clampf(p_wall.x, 0.0, bounds.x)
+		p_wall.y = clampf(p_wall.y, 0.0, bounds.y)
+
+		var reflect_dir: Vector2 = fire_dir
+		if hit_side == "top":
+			reflect_dir.y = -reflect_dir.y
+		else:
+			reflect_dir.x = -reflect_dir.x
+
+		var p_bounce: Vector2 = p_wall + reflect_dir * (bounds.y * 0.7)
+		slot.beam_target = p_wall
+		slot.beam_chain = [p_bounce]
+		slot.beam_time = 0.20
+		sound.emit("railgun")
+
+		for enemy in enemies.duplicate():
+			if enemy.hp <= 0 or enemy.ghosted:
+				continue
+			var d1: float = Geometry2D.get_closest_point_to_segment(enemy.p, origin, p_wall).distance_to(enemy.p)
+			var d2: float = Geometry2D.get_closest_point_to_segment(enemy.p, p_wall, p_bounce).distance_to(enemy.p)
+			if d1 < enemy.radius + 14.0 or d2 < enemy.radius + 14.0:
+				var tag := "PERFURADO!" if d1 < enemy.radius + 14.0 else "RICOCHETE!"
+				effect.emit("text", enemy.p - Vector2(0, enemy.radius + 16), Color("33ffcc"), tag)
+				damage_enemy(enemy, base_damage * 1.6, false, "auto")
+		return
 
 	var targets: Array[Dictionary] = [target]
 	if active_module == "arc":
@@ -470,6 +548,7 @@ func tick(delta: float) -> void:
 	for slot in tower_slots:
 		slot.beam_time = maxf(0, slot.beam_time - dt)
 		slot.pulse_time = maxf(0, slot.pulse_time - dt)
+		slot.vortex_time = maxf(0, float(slot.get("vortex_time", 0.0)) - dt)
 	combo_timer -= dt
 	if combo_timer <= 0:
 		combo = 0

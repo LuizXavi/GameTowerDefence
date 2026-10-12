@@ -12,6 +12,8 @@ var _plasma_stream: AudioStreamWAV
 var _click_stream: AudioStreamWAV
 var _spark_stream: AudioStreamWAV
 var _boss_stream: AudioStreamWAV
+var _vortex_stream: AudioStreamWAV
+var _railgun_stream: AudioStreamWAV
 
 var _players: Array[AudioStreamPlayer] = []
 const MAX_PLAYERS: int = 12
@@ -36,6 +38,8 @@ func _generate_audio_streams() -> void:
 	_spark_stream = _synth_sweep(1600.0, 600.0, 0.06, 0.25)
 	_click_stream = _synth_blip(1200.0, 0.03, 0.20)
 	_boss_stream = _synth_sweep(240.0, 80.0, 0.60, 0.60)
+	_vortex_stream = _synth_sweep(320.0, 65.0, 0.45, 0.45)
+	_railgun_stream = _synth_sweep(1800.0, 150.0, 0.22, 0.55)
 
 func play_sfx(sfx_name: String, pitch_variance: float = 0.08) -> void:
 	if not sfx_enabled:
@@ -48,6 +52,8 @@ func play_sfx(sfx_name: String, pitch_variance: float = 0.08) -> void:
 		"spark": stream = _spark_stream
 		"click": stream = _click_stream
 		"boss": stream = _boss_stream
+		"vortex": stream = _vortex_stream
+		"railgun": stream = _railgun_stream
 	if stream == null:
 		return
 

@@ -16,13 +16,15 @@ const PIECE_NAMES = ["FRAGMENTO QUADRADO", "FRAGMENTO TRIANGULAR", "LIGA HEXAGON
 const PIECE_SHORT = ["■", "▲", "⬢", "✦"]
 const RESEARCH_NAMES = ["Análise de Plasma", "Roteamento Autônomo", "Liga da Base", "Reator Nova"]
 const RESEARCH_DESCS = ["+1 dano base por clique", "+8% DPS da torreta", "+10 vida máxima da base", "+0,3 carga/s da Nova"]
-const MODULE_IDS = ["plasma", "cryo", "arc", "pulse", "laser"]
+const MODULE_IDS = ["plasma", "cryo", "arc", "pulse", "laser", "vortex", "railgun"]
 const MODULE_INFO = {
 	"plasma": ["Torre Plasma", "100% dano • disparo direto • Choque Térmico", PINK],
 	"cryo": ["Torre Criogênica", "75% dano • desacelera 35% por 1,5s", CYAN],
 	"arc": ["Torre de Arco", "65% dano • salta até 2 alvos (4 em estática)", AMBER],
 	"pulse": ["Torre Sísmica", "Recarga 2,5s • onda radial • knockback vertical", LIME],
-	"laser": ["Laser Antimatéria", "Feixe contínuo • rampa até 350% de dano", Color("ff3355")]
+	"laser": ["Laser Antimatéria", "Feixe contínuo • rampa até 350% de dano", Color("ff3355")],
+	"vortex": ["Vórtice Gravitacional", "Atrai inimigos em 160px • Implosão com choque", Color("9933ff")],
+	"railgun": ["Railgun Fotônico", "Feixe ultra-sônico • perfura e ricocheteia", Color("33ffcc")]
 }
 const CODEX_ORDER = ["square", "armored_square", "splitter", "triangle", "ghost_triangle", "thief", "hexagon", "regen_hexagon", "elite", "boss"]
 const ENEMY_INFO = {
@@ -91,6 +93,8 @@ func _ready() -> void:
 	sfx["pulse"] = SoundManager._synth_sweep(130.0, 42.0, 0.35, 0.55)
 	sfx["spark"] = SoundManager._synth_sweep(1600.0, 600.0, 0.06, 0.25)
 	sfx["boss"] = SoundManager._synth_sweep(240.0, 75.0, 0.65, 0.60)
+	sfx["vortex"] = SoundManager._synth_sweep(320.0, 65.0, 0.45, 0.45)
+	sfx["railgun"] = SoundManager._synth_sweep(1800.0, 150.0, 0.22, 0.55)
 	for i in 12:
 		var player := AudioStreamPlayer.new()
 		player.volume_db = -7

@@ -120,6 +120,10 @@ func _draw() -> void:
 			module_color = Color("b6ff2e")
 		elif slot.module_id == "laser":
 			module_color = Color("ff3355")
+		elif slot.module_id == "vortex":
+			module_color = Color("9933ff")
+		elif slot.module_id == "railgun":
+			module_color = Color("33ffcc")
 		draw_circle(turret, 13 if state.levels[1] else 9, Color("1a0f3a"))
 		draw_arc(turret, 13 if state.levels[1] else 9, 0, TAU, 40, module_color, 1.5, true)
 		if state.levels[1] > 0:
@@ -141,6 +145,16 @@ func _draw() -> void:
 			elif slot.module_id == "laser":
 				glow_line(turret + direction * 18 - direction.orthogonal() * 5, turret + direction * 26, module_color, 3)
 				glow_line(turret + direction * 18 + direction.orthogonal() * 5, turret + direction * 26, module_color, 3)
+			elif slot.module_id == "vortex":
+				draw_arc(turret, 16, clock * 3, clock * 3 + TAU * 0.7, 24, module_color, 2.0, true)
+				draw_arc(turret, 20, -clock * 4, -clock * 4 + TAU * 0.7, 24, Color(module_color, 0.7), 1.5, true)
+				draw_circle(turret, 4, Color("050014"))
+			elif slot.module_id == "railgun":
+				var norm := direction.orthogonal()
+				glow_line(turret + norm * 3.5, turret + direction * 30 + norm * 3.5, module_color, 2.0)
+				glow_line(turret - norm * 3.5, turret + direction * 30 - norm * 3.5, module_color, 2.0)
+				for coil in [12.0, 20.0, 28.0]:
+					draw_line(turret + direction * coil - norm * 4.5, turret + direction * coil + norm * 4.5, Color.WHITE, 1.5, true)
 		if slot.get("pulse_time", 0.0) > 0:
 			var ring_progress: float = 1.0 - (float(slot.pulse_time) / 0.4)
 			var cur_radius: float = 20.0 + float(slot.get("pulse_ring", 200.0)) * ring_progress
@@ -162,6 +176,10 @@ func _draw() -> void:
 			elif slot.module_id == "laser":
 				var focus_time: float = float(slot.get("laser_focus_time", 0.0))
 				_draw_laser_deathray(turret, slot.beam_target, focus_time, alpha)
+			elif slot.module_id == "vortex":
+				_draw_vortex_attack(turret, slot.beam_target, alpha)
+			elif slot.module_id == "railgun":
+				_draw_railgun_attack(turret, slot.beam_target, slot.beam_chain, alpha)
 			else:
 				glow_line(turret, slot.beam_target, Color(module_color, alpha), 3.0)
 				draw_line(turret, slot.beam_target, Color.WHITE, 1.0, true)
@@ -398,3 +416,70 @@ func _draw_laser_deathray(from: Vector2, to: Vector2, focus_time: float, alpha: 
 	draw_circle(to, burn_radius * 0.5, Color.WHITE)
 	draw_arc(to, burn_radius * 1.8 + sin(clock * 25.0) * 2.0, 0, TAU, 20, Color(col_laser, alpha), 2.0, true)
 
+func _draw_vortex_attack(from: Vector2, to: Vector2, alpha: float) -> void:
+	var col_vortex := Color("9933ff")
+	col_vortex.a = alpha
+	var col_inner := Color("d88aff")
+	col_inner.a = alpha
+
+	# Linha de ancoragem gravitacional da torre à singularidade
+	glow_line(from, to, Color(col_vortex, 0.35 * alpha), 4.0)
+	draw_line(from, to, Color(col_inner, 0.7 * alpha), 1.5, true)
+
+	# Disco de acréscimo em espiral e ondas de curvatura
+	var base_r: float = 18.0 + sin(clock * 12.0) * 3.0
+	draw_arc(to, base_r * 2.2, clock * 5.0, clock * 5.0 + TAU * 0.8, 32, Color(col_vortex, 0.4 * alpha), 2.0, true)
+	draw_arc(to, base_r * 1.5, -clock * 7.0, -clock * 7.0 + TAU * 0.85, 28, Color(col_vortex, 0.7 * alpha), 2.5, true)
+	draw_arc(to, base_r, clock * 9.0, clock * 9.0 + TAU * 0.9, 24, Color(col_inner, 0.9 * alpha), 3.0, true)
+
+	# Horizonte de Eventos / Núcleo do Buraco Negro
+	draw_circle(to, 12.0, Color("050014"))
+	draw_circle(to, 6.0, Color("000000"))
+	draw_arc(to, 12.0, 0, TAU, 24, Color(col_inner, alpha), 1.5, true)
+
+	# Linhas de sucção gravitacional
+	for i in 6:
+		var ang: float = float(i) * (TAU / 6.0) + clock * 4.0
+		var p_outer: Vector2 = to + Vector2.from_angle(ang) * (base_r * 2.8)
+		var p_mid: Vector2 = to + Vector2.from_angle(ang + 0.6) * (base_r * 1.4)
+		draw_line(p_outer, p_mid, Color(col_vortex, 0.5 * alpha), 1.5, true)
+
+func _draw_railgun_attack(from: Vector2, wall_hit: Vector2, chain: Array, alpha: float) -> void:
+	var col_rail := Color("33ffcc")
+	col_rail.a = alpha
+	var col_core := Color(1, 1, 1, alpha)
+
+	# Segmento 1: Da Torre até a Parede de Impacto
+	glow_line(from, wall_hit, Color(col_rail, 0.4 * alpha), 10.0)
+	glow_line(from, wall_hit, Color(col_rail, 0.85 * alpha), 4.5)
+	draw_line(from, wall_hit, col_core, 2.0, true)
+
+	# Anéis de choque de Mach ao longo do primeiro segmento
+	var dist_1: float = from.distance_to(wall_hit)
+	var dir_1: Vector2 = (wall_hit - from).normalized()
+	var norm_1: Vector2 = dir_1.orthogonal()
+	var rings_count: int = maxi(2, int(dist_1 / 90.0))
+	for r in range(1, rings_count):
+		var t: float = float(r) / float(rings_count)
+		var r_pos: Vector2 = from.lerp(wall_hit, t)
+		draw_line(r_pos - norm_1 * 9.0, r_pos + norm_1 * 9.0, Color(col_rail, 0.7 * alpha), 2.0, true)
+
+	# Ponto de impacto na parede da arena com faíscas reflexivas
+	draw_circle(wall_hit, 8.0, Color(col_rail, alpha))
+	draw_circle(wall_hit, 4.0, Color.WHITE)
+	draw_arc(wall_hit, 16.0 * (1.0 - alpha * 0.5), 0, TAU, 20, Color(col_rail, alpha), 2.0, true)
+
+	# Segmento 2: Ricochete da Parede em direção à tela
+	if not chain.is_empty():
+		var bounce_end: Vector2 = chain[0]
+		glow_line(wall_hit, bounce_end, Color(col_rail, 0.3 * alpha), 7.0)
+		glow_line(wall_hit, bounce_end, Color(col_rail, 0.7 * alpha), 3.5)
+		draw_line(wall_hit, bounce_end, col_core, 1.5, true)
+		var dist_2: float = wall_hit.distance_to(bounce_end)
+		var dir_2: Vector2 = (bounce_end - wall_hit).normalized()
+		var norm_2: Vector2 = dir_2.orthogonal()
+		var rings_count_2: int = maxi(1, int(dist_2 / 100.0))
+		for r in range(1, rings_count_2):
+			var t2: float = float(r) / float(rings_count_2)
+			var r_pos2: Vector2 = wall_hit.lerp(bounce_end, t2)
+			draw_line(r_pos2 - norm_2 * 7.0, r_pos2 + norm_2 * 7.0, Color(col_rail, 0.6 * alpha), 1.5, true)

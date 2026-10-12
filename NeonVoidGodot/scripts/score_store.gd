@@ -9,7 +9,7 @@ var pieces: Array[int] = [0, 0, 0, 0]
 var research: Array[int] = [0, 0, 0, 0]
 var enemy_stats: Dictionary = {}
 var highest_wave := 1
-var tower_modules: Dictionary = {"plasma": true, "cryo": false, "arc": false, "pulse": false, "laser": false}
+var tower_modules: Dictionary = {"plasma": true, "cryo": false, "arc": false, "pulse": false, "laser": false, "vortex": false, "railgun": false}
 var unlocked_tower_slots := 1
 var tower_loadout: Array[String] = ["plasma", "plasma", "plasma", "plasma", "plasma", "plasma", "plasma"]
 var equipped_module: String:
@@ -20,7 +20,7 @@ var equipped_module: String:
 			tower_loadout[0] = value
 
 const RESEARCH_MAX := [5, 5, 5, 3]
-const SCHEMA_VERSION := 6
+const SCHEMA_VERSION := 7
 const SLOT_WAVES := [1, 3, 6, 10, 15, 22, 30]
 const SLOT_COSTS := [
 	{"piece_index": -1, "amount": 0},
@@ -31,13 +31,15 @@ const SLOT_COSTS := [
 	{"piece_index": 2, "amount": 18},
 	{"piece_index": 3, "amount": 6},
 ]
-const MODULE_WAVES := {"plasma": 1, "cryo": 5, "arc": 10, "pulse": 15, "laser": 20}
+const MODULE_WAVES := {"plasma": 1, "cryo": 5, "arc": 10, "pulse": 15, "laser": 20, "vortex": 25, "railgun": 30}
 const MODULE_COSTS := {
 	"plasma": {"piece_index": -1, "amount": 0},
 	"cryo": {"piece_index": 1, "amount": 8},
 	"arc": {"piece_index": 0, "amount": 12},
 	"pulse": {"piece_index": 2, "amount": 14},
 	"laser": {"piece_index": 3, "amount": 4},
+	"vortex": {"piece_index": 2, "amount": 20},
+	"railgun": {"piece_index": 3, "amount": 6},
 }
 
 func migrate(data: Dictionary) -> Dictionary:
@@ -76,11 +78,18 @@ func migrate(data: Dictionary) -> Dictionary:
 		migrated.erase("equipped_module")
 		version = 5
 	if version == 5:
-		migrated["version"] = SCHEMA_VERSION
+		migrated["version"] = 6
 		var current_modules: Dictionary = migrated.get("tower_modules", {})
 		current_modules["pulse"] = false
 		current_modules["laser"] = false
 		migrated["tower_modules"] = current_modules
+		version = 6
+	if version == 6:
+		migrated["version"] = SCHEMA_VERSION
+		var current_modules_v6: Dictionary = migrated.get("tower_modules", {})
+		current_modules_v6["vortex"] = false
+		current_modules_v6["railgun"] = false
+		migrated["tower_modules"] = current_modules_v6
 	return migrated
 
 func valid(data: Variant) -> bool:
@@ -157,7 +166,7 @@ func is_legacy_schema(data: Variant) -> bool:
 	if not data is Dictionary:
 		return false
 	var version: Variant = data.get("version")
-	return (version is int or version is float) and is_finite(float(version)) and float(version) == floor(float(version)) and int(version) in [1, 2, 3, 4, 5]
+	return (version is int or version is float) and is_finite(float(version)) and float(version) == floor(float(version)) and int(version) in [1, 2, 3, 4, 5, 6]
 
 func load_data() -> void:
 	var data: Variant = read_data(path)
