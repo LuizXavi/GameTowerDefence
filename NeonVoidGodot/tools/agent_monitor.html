@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Neon Void — Agent Command Center</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 1; filter: drop-shadow(0 0 8px rgba(34, 230, 255, 0.6)); }
+      50% { opacity: 0.5; filter: drop-shadow(0 0 2px rgba(34, 230, 255, 0.2)); }
+    }
+    .neon-pulse { animation: pulse-glow 2.5s infinite; }
+    .glass-card {
+      background: rgba(18, 10, 42, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(139, 92, 246, 0.35);
+    }
+    .glass-card:hover {
+      border-color: rgba(34, 230, 255, 0.6);
+      box-shadow: 0 0 16px rgba(34, 230, 255, 0.15);
+    }
+  </style>
+</head>
+<body class="bg-[#0b0420] text-gray-100 antialiased p-6 select-none min-h-screen">
+  <div class="glass-card rounded-2xl p-6 shadow-2xl border border-purple-800/40 max-w-4xl mx-auto">
+    <!-- Header -->
+    <div class="flex flex-wrap items-center justify-between border-b border-purple-900/60 pb-4 mb-5 gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-3.5 h-3.5 rounded-full bg-cyan-400 neon-pulse"></div>
+        <div>
+          <h1 class="text-xl font-black tracking-widest text-cyan-400 uppercase font-mono">
+            NEON VOID // AGENT COMMAND MATRIX
+          </h1>
+          <p class="text-xs text-purple-300 font-mono">Monitoramento Operacional de Subagentes Multi-Model</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 font-mono text-xs">
+        <span class="px-2.5 py-1 rounded-md bg-purple-950/80 text-emerald-400 border border-emerald-500/30 font-semibold">
+          ● REPO: LuizXavi/GameTowerDefence
+        </span>
+        <span class="px-2.5 py-1 rounded-md bg-purple-950/80 text-cyan-300 border border-cyan-500/30">
+          TESTES: 62/62 PASS
+        </span>
+      </div>
+    </div>
+
+    <!-- Agent Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5" id="agent-grid">
+      <!-- Cards rendered via JS -->
+    </div>
+
+    <!-- Terminal Feed -->
+    <div class="mt-4 pt-4 border-t border-purple-900/50">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs font-mono font-bold uppercase text-purple-300 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-pink-500 animate-ping"></span>
+          Feed de Atividade em Tempo Real
+        </span>
+        <button onclick="clearLogs()" class="text-xs font-mono text-purple-400 hover:text-cyan-300 transition-colors">
+          Limpar Terminal
+        </button>
+      </div>
+      <div id="log-terminal" class="bg-black/70 border border-purple-950 rounded-xl p-3 h-32 overflow-y-auto font-mono text-xs space-y-1.5 scrollbar-thin text-purple-200">
+        <!-- Live log entries -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const AGENTS = [
+      {
+        id: "coordinator",
+        name: "Coordenador & Integrador",
+        role: "Orquestração & Arquitetura",
+        model: "Pro (gpt-6-astra)",
+        color: "text-amber-400",
+        border: "border-amber-500/40",
+        badgeBg: "bg-amber-950/40 text-amber-300 border-amber-500/30",
+        files: "AGENTS.md, project.godot, docs/agents/",
+        status: "Ativo / Standby",
+        activity: "Gerenciando contratos entre sistemas"
+      },
+      {
+        id: "gameplay",
+        name: "Gameplay & Balanço",
+        role: "Regras de Combate & Waves",
+        model: "Pro (neon_gameplay_expert)",
+        color: "text-pink-400",
+        border: "border-pink-500/40",
+        badgeBg: "bg-pink-950/40 text-pink-300 border-pink-500/30",
+        files: "scripts/game_state.gd",
+        status: "Ativo / Standby",
+        activity: "Aguardando specs da próxima wave/torre"
+      },
+      {
+        id: "persistence",
+        name: "Metaprogressão & Save",
+        role: "Schemas, Migrações & Codex",
+        model: "Pro (neon_meta_persistence)",
+        color: "text-cyan-400",
+        border: "border-cyan-500/40",
+        badgeBg: "bg-cyan-950/40 text-cyan-300 border-cyan-500/30",
+        files: "scripts/score_store.gd",
+        status: "Ativo / Standby",
+        activity: "Schema 5 validado e persistido"
+      },
+      {
+        id: "ui_vfx",
+        name: "UI / VFX & Áudio",
+        role: "Containers, Shaders & Telas",
+        model: "Flash (neon_ui_vfx_specialist)",
+        color: "text-emerald-400",
+        border: "border-emerald-500/40",
+        badgeBg: "bg-emerald-950/40 text-emerald-300 border-emerald-500/30",
+        files: "scripts/main.gd, arena.gd, shaders/",
+        status: "Ativo / Standby",
+        activity: "Layouts responsivos 640x640 prontos"
+      },
+      {
+        id: "qa",
+        name: "QA & Validação",
+        role: "Testes Lógicos & Headless",
+        model: "Pro (neon_qa_validator)",
+        color: "text-purple-300",
+        border: "border-purple-500/40",
+        badgeBg: "bg-purple-950/40 text-purple-300 border-purple-500/30",
+        files: "tests/test_game.gd, test_ui.gd",
+        status: "Concluído (100%)",
+        activity: "62/62 verificações aprovadas"
+      }
+    ];
+
+    function renderAgents() {
+      const container = document.getElementById("agent-grid");
+      container.innerHTML = AGENTS.map(agent => `
+        <div class="p-3.5 rounded-xl bg-purple-950/30 border ${agent.border} hover:bg-purple-900/30 transition-all">
+          <div class="flex items-start justify-between gap-2 mb-2">
+            <div>
+              <h3 class="font-bold text-sm ${agent.color} font-mono flex items-center gap-1.5">
+                ${agent.name}
+              </h3>
+              <p class="text-xs text-purple-300">${agent.role}</p>
+            </div>
+            <span class="text-[11px] font-mono px-2 py-0.5 rounded border ${agent.badgeBg} font-semibold">
+              ${agent.status}
+            </span>
+          </div>
+          <div class="space-y-1 text-xs font-mono text-purple-300">
+            <div class="flex justify-between text-[11px]">
+              <span class="text-purple-400">Modelo:</span>
+              <span class="text-white font-medium">${agent.model}</span>
+            </div>
+            <div class="flex justify-between text-[11px]">
+              <span class="text-purple-400">Arquivos:</span>
+              <span class="text-cyan-300 truncate max-w-[180px]">${agent.files}</span>
+            </div>
+            <div class="flex items-center gap-1.5 pt-1 text-[11px] text-purple-200">
+              <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+              <span class="truncate">${agent.activity}</span>
+            </div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    const logTerminal = document.getElementById("log-terminal");
+    const initialLogs = [
+      { time: "19:33", agent: "QA", text: "Iniciando importação headless do Godot 4.7..." },
+      { time: "19:35", agent: "QA", text: "Suíte executada: 62/62 verificações de regras e persistência APROVADAS." },
+      { time: "19:44", agent: "COORD", text: "Repositório Git vinculado a https://github.com/LuizXavi/GameTowerDefence.git" },
+      { time: "19:45", agent: "COORD", text: "Push efetuado com sucesso na branch 'main' (82 arquivos sincronizados)." },
+      { time: "19:46", agent: "SYSTEM", text: "Ambiente de monitoramento conectado. Subagentes em prontidão." }
+    ];
+
+    function addLog(time, agent, text) {
+      const entry = document.createElement("div");
+      entry.className = "flex items-start gap-2 leading-relaxed";
+      entry.innerHTML = `
+        <span class="text-purple-500 select-none">[${time}]</span>
+        <span class="text-cyan-400 font-bold">[${agent}]</span>
+        <span class="text-purple-200">${text}</span>
+      `;
+      logTerminal.appendChild(entry);
+      logTerminal.scrollTop = logTerminal.scrollHeight;
+    }
+
+    function clearLogs() {
+      logTerminal.innerHTML = "";
+    }
+
+    initialLogs.forEach(l => addLog(l.time, l.agent, l.text));
+    renderAgents();
+  </script>
+</body>
+</html>
