@@ -1,0 +1,11 @@
+# Normaliza finais de linha: LF no repositório para código/recursos Godot
+* text=auto eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.png binary
+*.jpg binary
+*.ttf binary
+*.otf binary
+*.wav binary
+*.ogg binary
+*.mp3 binary
