@@ -84,9 +84,13 @@ func _ready() -> void:
 	var ui_theme := Theme.new()
 	ui_theme.default_font = BODY
 	ui_theme.default_font_size = 18
-	theme = ui_theme
 	for kind in ["click", "crit", "kill", "leak", "buy", "deny", "wave", "bomb", "gameover", "start", "shield"]:
 		sfx[kind] = load("res://assets/audio/" + kind + ".wav")
+	# Síntese procedural de efeitos sonoros especiais em tempo real
+	sfx["laser"] = SoundManager._synth_sweep(880.0, 260.0, 0.12, 0.35)
+	sfx["pulse"] = SoundManager._synth_sweep(130.0, 42.0, 0.35, 0.55)
+	sfx["spark"] = SoundManager._synth_sweep(1600.0, 600.0, 0.06, 0.25)
+	sfx["boss"] = SoundManager._synth_sweep(240.0, 75.0, 0.65, 0.60)
 	for i in 12:
 		var player := AudioStreamPlayer.new()
 		player.volume_db = -7
@@ -953,23 +957,23 @@ func time_text(seconds: float) -> String:
 
 func refresh_hud() -> void:
 	record_wave_progress()
-	hud_score.text = "PONTOS\n%d" % state.score
-	hud_gold.text = "◈ %d" % state.gold
+	hud_score.text = "PONTOS\n%s" % NumberFormat.format_int(state.score)
+	hud_gold.text = "◈ %s" % NumberFormat.format(float(state.gold), 1)
 	hud_pieces.text = pieces_text(state.run_pieces)
 	hud_wave.text = "WAVE %d\n%d/%d" % [state.wave, state.wave_kills, state.quota()]
 	hud_hp.text = str(state.hp)
 	hp_bar.value = state.hp * 100.0 / state.max_hp
 	wave_bar.value = state.wave_kills * 100.0 / state.quota()
-	mini_stats.text = "%d abates   |   %s   |   %d dmg   |   %d/s" % [state.kills, time_text(state.play_time), state.click_damage(), state.auto_dps()]
+	mini_stats.text = "%s abates   |   %s   |   %s dmg   |   %s/s" % [NumberFormat.format_int(state.kills), time_text(state.play_time), NumberFormat.format_int(state.click_damage()), NumberFormat.format_int(state.auto_dps())]
 	nova_button.text = "NOVA!\nESPAÇO" if state.charge >= 100 else "NOVA\n%d%%" % state.charge
 	nova_button.disabled = state.charge < 100
 	for i in 4:
 		var detail: String = DESCS[i]
 		if i == 0:
-			detail = "%d dano/clique" % state.click_damage()
+			detail = "%s dano/clique" % NumberFormat.format_int(state.click_damage())
 		if i == 1 and state.levels[1] > 0:
-			detail = "%d dano/s automático" % state.auto_dps()
-		upgrades[i].text = "%d  %s  •  Nv.%d\n%s\n%s   ◈ %d" % [i + 1, NAMES[i], state.levels[i], detail, "▰".repeat(mini(state.levels[i], 10)) + "▱".repeat(maxi(0, 10 - state.levels[i])), state.cost(i)]
+			detail = "%s dano/s auto" % NumberFormat.format_int(state.auto_dps())
+		upgrades[i].text = "%d  %s  •  Nv.%d\n%s\n%s   ◈ %s" % [i + 1, NAMES[i], state.levels[i], detail, "▰".repeat(mini(state.levels[i], 10)) + "▱".repeat(maxi(0, 10 - state.levels[i])), NumberFormat.format(float(state.cost(i)), 1)]
 		upgrades[i].disabled = state.gold < state.cost(i)
 
 func _process(dt: float) -> void:

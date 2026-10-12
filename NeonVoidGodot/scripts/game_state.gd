@@ -164,7 +164,7 @@ func auto_attack(target: Dictionary, base_damage: float, module_id: String = "",
 		slot.pulse_time = 0.4
 		slot.pulse_ring = bounds.x * 0.75
 		effect.emit("burst", tower_position(slot_index), Color("b6ff2e"), "ONDA SÍSMICA")
-		sound.emit("bomb")
+		sound.emit("pulse")
 		var pulse_damage := base_damage * 1.8
 		for enemy in enemies.duplicate():
 			if enemy.hp <= 0 or enemy.ghosted:
@@ -204,6 +204,7 @@ func auto_attack(target: Dictionary, base_damage: float, module_id: String = "",
 		# Multiplicador rampa de 0.5x até 3.5x
 		var ramp: float = 0.5 + (float(slot.laser_focus_time) / 2.0) * 3.0
 		damage *= ramp
+		sound.emit("laser")
 		# Ponto de Ruptura: acelera em inimigos congelados
 		if target.get("slow_timer", 0.0) > 0:
 			damage *= 1.35
@@ -218,6 +219,8 @@ func auto_attack(target: Dictionary, base_damage: float, module_id: String = "",
 	if active_module == "arc":
 		# Sinergia Tempestade Estática: se alvo foi eletrizado por sísmica, raio salta até 4 vezes e com maior alcance
 		var max_hops := 4 if target.get("static_timer", 0.0) > 0 else 2
+		if target.get("static_timer", 0.0) > 0:
+			sound.emit("spark")
 		var chain_radius := ARC_CHAIN_RADIUS * 1.5 if target.get("static_timer", 0.0) > 0 else ARC_CHAIN_RADIUS
 		var origin: Vector2 = target.p
 		for hop in max_hops:
@@ -369,7 +372,7 @@ func next_wave() -> void:
 	hp = mini(max_hp, hp + 6)
 	banner = ("BOSS — WAVE %d" if wave % 5 == 0 else "WAVE %d") % wave
 	banner_time = 1.8
-	sound.emit("wave")
+	sound.emit("boss" if wave % 5 == 0 else "wave")
 	if wave % 5 == 0:
 		spawn(3)
 

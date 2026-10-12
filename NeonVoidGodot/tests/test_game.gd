@@ -246,6 +246,17 @@ func _init() -> void:
 	for slot_index in range(1, 7):
 		check(expansion.research_slot(slot_index), "Sequential tower slot %d unlocks" % (slot_index + 1))
 	check(expansion.unlocked_tower_slots == 7 and not expansion.research_slot(7), "Tower hangar stops at seven slots")
+	# Testes de NumberFormat e Escalonamento Incremental
+	check(NumberFormat.format(500) == "500", "NumberFormat units below 1000")
+	check(NumberFormat.format(1500) == "1.5K", "NumberFormat thousands (K)")
+	check(NumberFormat.format(2400000) == "2.4M", "NumberFormat millions (M)")
+	check(NumberFormat.format(1200000000) == "1.2B", "NumberFormat billions (B)")
+	check(NumberFormat.format(1000000000000) == "1T", "NumberFormat trillions (T)")
+	# Testes de Síntese Procedural de Áudio (SoundManager)
+	var sweep := SoundManager._synth_sweep(440.0, 220.0, 0.05, 0.5)
+	check(sweep != null and sweep.data.size() > 100, "SoundManager synthesizes sweep audio stream")
+	var noise := SoundManager._synth_noise_burst(0.05, 0.5)
+	check(noise != null and noise.data.size() > 100, "SoundManager synthesizes noise burst audio stream")
 	for suffix in ["", ".bak", ".tmp"]:
 		if FileAccess.file_exists(store.path + suffix):
 			DirAccess.remove_absolute(store.path + suffix)
