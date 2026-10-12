@@ -108,6 +108,14 @@ func run() -> void:
 	app.refresh_hud()
 	await click(app.upgrades[0].get_global_rect().get_center())
 	assert(app.state.levels[0] == 1, "Upgrade button")
+	app.select_shop_tab("towers")
+	await process_frame
+	assert(app.shop_tab == "towers" and app.shop_items[0]["kind"] == "tower_slot", "Towers tab lists individual tower slots first")
+	app.select_shop_tab("defense")
+	await process_frame
+	assert(app.shop_tab == "defense" and app.shop_items.size() == 7, "Defense tab lists hull and shield upgrades")
+	app.select_shop_tab("attack")
+	await process_frame
 	var showcases := [[0, "armored"], [1, "ghost"], [2, "regen"], [0, "splitter"], [1, "thief"]]
 	for i in showcases.size():
 		enemy = app.state.spawn(showcases[i][0], showcases[i][1], false, false)

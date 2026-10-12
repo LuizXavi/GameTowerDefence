@@ -108,8 +108,15 @@ func _draw() -> void:
 		draw_line(Vector2(0, base_y - i), Vector2(size.x, base_y - i), Color(base_color, 0.08 * (1 - i / 90.0)))
 	glow_line(Vector2(0, base_y), Vector2(size.x, base_y), base_color, 3)
 	draw_rect(Rect2(0, base_y, size.x, 30), Color(base_color, 0.08))
+	if state.max_shield > 0.0 and state.shield > 0.0:
+		var s_ratio: float = clampf(state.shield / state.max_shield, 0.0, 1.0)
+		var s_col := Color("00f5d4")
+		var shield_y: float = base_y - 7.0
+		glow_line(Vector2(0, shield_y), Vector2(size.x * s_ratio, shield_y), Color(s_col, 0.75 + sin(clock * 8.0) * 0.2), 3.0)
+		draw_line(Vector2(0, shield_y), Vector2(size.x * s_ratio, shield_y), Color.WHITE, 1.2, true)
 	for slot_index in state.tower_slots.size():
 		var slot: Dictionary = state.tower_slots[slot_index]
+		var slot_lvl: int = state.tower_slot_level(slot_index)
 		var turret := state.tower_position(slot_index)
 		var module_color := Color("ff2bd6")
 		if slot.module_id == "cryo":
@@ -124,9 +131,9 @@ func _draw() -> void:
 			module_color = Color("9933ff")
 		elif slot.module_id == "railgun":
 			module_color = Color("33ffcc")
-		draw_circle(turret, 13 if state.levels[1] else 9, Color("1a0f3a"))
-		draw_arc(turret, 13 if state.levels[1] else 9, 0, TAU, 40, module_color, 1.5, true)
-		if state.levels[1] > 0:
+		draw_circle(turret, 13 if slot_lvl > 0 else 9, Color("1a0f3a"))
+		draw_arc(turret, 13 if slot_lvl > 0 else 9, 0, TAU, 40, Color(module_color, 1.0 if slot_lvl > 0 else 0.38), 1.5, true)
+		if slot_lvl > 0:
 			var direction := Vector2.from_angle(slot.turret_angle)
 			glow_line(turret, turret + direction * 23, module_color, 6)
 			if slot.module_id == "cryo":
@@ -155,6 +162,9 @@ func _draw() -> void:
 				glow_line(turret - norm * 3.5, turret + direction * 30 - norm * 3.5, module_color, 2.0)
 				for coil in [12.0, 20.0, 28.0]:
 					draw_line(turret + direction * coil - norm * 4.5, turret + direction * coil + norm * 4.5, Color.WHITE, 1.5, true)
+			text_at("Nv.%d" % slot_lvl, turret + Vector2(0, 24), Color(module_color, 0.9), 9)
+		else:
+			text_at("#%d" % (slot_index + 1), turret + Vector2(0, 4), Color(module_color, 0.55), 9)
 		if slot.get("pulse_time", 0.0) > 0:
 			var ring_progress: float = 1.0 - (float(slot.pulse_time) / 0.4)
 			var cur_radius: float = 20.0 + float(slot.get("pulse_ring", 200.0)) * ring_progress

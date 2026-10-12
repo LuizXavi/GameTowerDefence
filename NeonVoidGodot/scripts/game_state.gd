@@ -64,6 +64,26 @@ const PULSE_INTERVAL := 2.5
 const PULSE_KNOCKBACK_FORCE := 38.0
 var tower_module: String = "plasma"
 
+const UPGRADE_DEFS = {
+	"click_dmg": {"base": 15, "scale": 1.58},
+	"crit_chance": {"base": 90, "scale": 1.80},
+	"crit_mult": {"base": 65, "scale": 1.70},
+	"combo_drive": {"base": 55, "scale": 1.65},
+	"click_splash": {"base": 80, "scale": 1.75},
+	"nova_overdrive": {"base": 75, "scale": 1.72},
+	"tower_haste": {"base": 60, "scale": 1.70},
+	"tower_range": {"base": 70, "scale": 1.72},
+	"tower_pierce": {"base": 85, "scale": 1.75},
+	"tower_synergy": {"base": 95, "scale": 1.78},
+	"base_hull": {"base": 70, "scale": 1.72},
+	"hull_vitality": {"base": 60, "scale": 1.68},
+	"nano_regen": {"base": 65, "scale": 1.70},
+	"reactive_plating": {"base": 80, "scale": 1.75},
+	"shield_cap": {"base": 75, "scale": 1.72, "requires_shield": true},
+	"shield_regen": {"base": 85, "scale": 1.75, "requires_shield": true},
+	"shield_pulse": {"base": 95, "scale": 1.80, "requires_shield": true}
+}
+
 func interval_for_module(module_id: String) -> float:
 	var base := AUTO_INTERVAL
 	if module_id == "pulse":
@@ -72,7 +92,8 @@ func interval_for_module(module_id: String) -> float:
 		base = 1.4
 	elif module_id == "railgun":
 		base = 1.6 * (1.0 - float(research[24]) * 0.04)
-	return base / (1.0 + float(research[9]) * 0.05)
+	var haste_bonus: float = float(research[9]) * 0.05 + float(upg_level("tower_haste")) * 0.10
+	return base / (1.0 + haste_bonus)
 var tower_loadout: Array[String] = ["plasma"]
 var tower_slots: Array[Dictionary] = []
 var gold: int = 0
@@ -83,7 +104,12 @@ var wave: int = 1
 var wave_kills: int = 0
 var hp: int = 100
 var max_hp: int = 100
+var shield: float = 0.0
+var max_shield: float = 0.0
+var shield_regen_timer: float = 0.0
+var hp_regen_acc: float = 0.0
 var levels: Array = [0, 0, 0, 0]
+var upg_levels: Dictionary = {}
 var combo: int = 0
 var max_combo: int = 0
 var combo_timer: float = 0
@@ -118,12 +144,93 @@ var beam_chain: Array[Vector2]:
 var research: Array[int] = [
 	0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0
+	0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0
 ]
 var run_pieces: Array[int] = [0, 0, 0, 0]
 
 func _init() -> void:
+	_reset_upgrades()
 	_reset_tower_slots()
+
+func _reset_upgrades() -> void:
+	upg_levels.clear()
+	for k in UPGRADE_DEFS:
+		upg_levels[k] = 0
+
+func shield_unlocked() -> bool:
+	return research.size() > 25 and research[25] > 0
+
+func shield_regen_rate() -> float:
+	if max_shield <= 0.0:
+		return 0.0
+	return 1.5 + float(research[26]) * 1.5 + float(upg_level("shield_regen")) * 2.5
+
+func upg_level(id: String) -> int:
+	if id == "click_dmg":
+		return int(levels[0])
+	if id == "crit_chance":
+		return int(levels[2])
+	if id == "base_hull":
+		return int(levels[3])
+	return int(upg_levels.get(id, 0))
+
+func upg_cost(id: String) -> int:
+	if id == "click_dmg":
+		return cost(0)
+	if id == "crit_chance":
+		return cost(2)
+	if id == "base_hull":
+		return cost(3)
+	if not UPGRADE_DEFS.has(id):
+		return 999999
+	var def: Dictionary = UPGRADE_DEFS[id]
+	var lvl: int = upg_level(id)
+	return floori(float(def.base) * pow(float(def.scale), lvl))
+
+func can_buy_upgrade(id: String) -> bool:
+	if not running or paused:
+		return false
+	if UPGRADE_DEFS.has(id) and UPGRADE_DEFS[id].get("requires_shield", false) and not shield_unlocked():
+		return false
+	return gold >= upg_cost(id)
+
+func buy_upgrade(id: String) -> bool:
+	if not running or paused:
+		return false
+	if id == "click_dmg":
+		return buy(0)
+	if id == "crit_chance":
+		return buy(2)
+	if id == "base_hull":
+		return buy(3)
+	if not UPGRADE_DEFS.has(id):
+		return false
+	if UPGRADE_DEFS[id].get("requires_shield", false) and not shield_unlocked():
+		sound.emit("deny")
+		return false
+	var price := upg_cost(id)
+	if gold < price:
+		sound.emit("deny")
+		return false
+	gold -= price
+	upg_levels[id] = upg_level(id) + 1
+	if id == "hull_vitality":
+		max_hp += 25
+		hp = mini(max_hp, hp + 20)
+		effect.emit("burst", Vector2(bounds.x / 2, bounds.y - 60), COLORS[2], "+25 VIDA MÁX")
+		sound.emit("shield")
+	elif id == "shield_cap":
+		max_shield += 35.0
+		shield = minf(max_shield, shield + 35.0)
+		effect.emit("burst", Vector2(bounds.x / 2, bounds.y - 60), Color("00f5d4"), "+35 ESCUDO")
+		sound.emit("shield")
+	elif id in ["shield_regen", "shield_pulse"]:
+		shield = minf(max_shield, shield + 15.0)
+		sound.emit("shield")
+	else:
+		sound.emit("buy")
+	return true
 
 func configure_tower_module(id: String) -> void:
 	configure_tower_loadout([id])
@@ -146,6 +253,7 @@ func _reset_tower_slots() -> void:
 		var cadence := interval_for_module(mid)
 		tower_slots.append({
 			"module_id": mid,
+			"level": 0,
 			"auto_timer": cadence * (float(i) / maxf(1.0, float(tower_loadout.size()))),
 			"turret_angle": -PI / 2,
 			"turret_target": -PI / 2,
@@ -160,17 +268,65 @@ func _reset_tower_slots() -> void:
 			"vortex_center": Vector2.ZERO
 		})
 
+func tower_slot_level(slot_index: int) -> int:
+	if slot_index < 0 or slot_index >= tower_slots.size():
+		return 0
+	var lvl: int = int(tower_slots[slot_index].get("level", 0))
+	if slot_index == 0 and lvl == 0 and int(levels[1]) > 0:
+		return int(levels[1])
+	return lvl
+
+func tower_slot_cost(slot_index: int) -> int:
+	if slot_index < 0 or slot_index >= tower_slots.size():
+		return 999999
+	var lvl: int = tower_slot_level(slot_index)
+	var base_c: int = 50 + slot_index * 25
+	return floori(base_c * pow(1.68, lvl))
+
+func buy_tower_slot(slot_index: int) -> bool:
+	if not running or paused or slot_index < 0 or slot_index >= tower_slots.size():
+		return false
+	var price := tower_slot_cost(slot_index)
+	if gold < price:
+		sound.emit("deny")
+		return false
+	gold -= price
+	var next_lvl: int = tower_slot_level(slot_index) + 1
+	tower_slots[slot_index].level = next_lvl
+	if slot_index == 0:
+		levels[1] = next_lvl
+	var pos := tower_position(slot_index)
+	var msg := "TORRE #%d ATIVA!" % (slot_index + 1) if next_lvl == 1 else "TORRE #%d Nv.%d" % [slot_index + 1, next_lvl]
+	effect.emit("burst", pos - Vector2(0, 20), COLORS[2], msg)
+	sound.emit("buy")
+	return true
+
+func slot_dps(slot_index: int) -> int:
+	var lvl: int = tower_slot_level(slot_index)
+	if lvl <= 0:
+		return 0
+	var syn_mult: float = 1.0 + float(upg_level("tower_synergy")) * 0.12
+	return roundi(lvl * (5.0 + wave * 1.4 + lvl * 1.6) * (1.0 + research[1] * 0.08) * syn_mult)
+
+func active_tower_count() -> int:
+	var count := 0
+	for i in tower_slots.size():
+		if tower_slot_level(i) > 0:
+			count += 1
+	return count
+
 func tower_position(slot_index: int) -> Vector2:
 	return Vector2(bounds.x * (slot_index + 1.0) / (tower_slots.size() + 1.0), bounds.y - 40)
 
-func configure_research(levels: Array) -> void:
+func configure_research(res_levels: Array) -> void:
 	var max_res: Array[int] = [
 		5, 5, 5, 3, 5, 5, 5, 3,
 		5, 5, 5, 5, 5, 5, 5, 5, 5, 3,
-		5, 5, 5, 5, 5, 5, 5
+		5, 5, 5, 5, 5, 5, 5,
+		5, 5, 5
 	]
 	for i in max_res.size():
-		research[i] = clampi(int(levels[i]) if i < levels.size() else 0, 0, max_res[i])
+		research[i] = clampi(int(res_levels[i]) if i < res_levels.size() else 0, 0, max_res[i])
 
 func reset() -> void:
 	gold = research[15] * 20
@@ -183,7 +339,12 @@ func reset() -> void:
 	max_hp = 100
 	max_hp += research[2] * 10
 	hp = max_hp
+	max_shield = float(research[25] * 25) if shield_unlocked() else 0.0
+	shield = max_shield
+	shield_regen_timer = 0.0
+	hp_regen_acc = 0.0
 	levels = [0, 0, 0, 0]
+	_reset_upgrades()
 	combo = 0
 	max_combo = 0
 	combo_timer = 0
@@ -201,15 +362,17 @@ func reset() -> void:
 	sound.emit("start")
 
 func multiplier() -> float:
-	var combo_bonus: float = 0.04 + float(research[5]) * 0.008 # Sincronia de Combate
+	var combo_bonus: float = 0.04 + float(research[5]) * 0.008 + float(upg_level("combo_drive")) * 0.012
 	return 1 + mini(combo, 60) * combo_bonus
 
 func click_damage() -> int:
 	return roundi((3 + research[0] + levels[0] * 3 + wave * 0.6) * multiplier())
 
 func auto_dps() -> int:
-	var level: int = levels[1]
-	return roundi(level * (5 + wave * 1.4 + level * 1.6) * (1 + research[1] * 0.08))
+	var total := 0
+	for i in tower_slots.size():
+		total += slot_dps(i)
+	return total
 
 func auto_attack(target: Dictionary, base_damage: float, module_id: String = "", slot_index: int = 0) -> void:
 	if not running or paused:
@@ -220,15 +383,16 @@ func auto_attack(target: Dictionary, base_damage: float, module_id: String = "",
 	var active_module: String = slot.module_id if module_id.is_empty() else module_id
 	if active_module not in TOWER_MODULE_IDS:
 		active_module = "plasma"
+	var range_mult: float = 1.0 + float(upg_level("tower_range")) * 0.15
 
 	if active_module == "pulse":
 		# Onda Sísmica: dano radial, empurra inimigos e eletriza para tempestade estática
 		slot.pulse_time = 0.4
-		slot.pulse_ring = bounds.x * 0.75
+		slot.pulse_ring = bounds.x * 0.75 * range_mult
 		effect.emit("burst", tower_position(slot_index), Color("b6ff2e"), "ONDA SÍSMICA")
 		sound.emit("pulse")
 		var pulse_damage := base_damage * 1.8 * (1.0 + float(research[21]) * 0.12)
-		var knockback := PULSE_KNOCKBACK_FORCE + float(research[21]) * 6.0
+		var knockback := (PULSE_KNOCKBACK_FORCE + float(research[21]) * 6.0) * range_mult
 		for proj in enemy_projectiles.duplicate():
 			if tower_position(slot_index).distance_to(proj.p) < slot.pulse_ring:
 				enemy_projectiles.erase(proj)
@@ -291,7 +455,7 @@ func auto_attack(target: Dictionary, base_damage: float, module_id: String = "",
 		slot.beam_time = 0.22
 		sound.emit("vortex")
 		effect.emit("burst", target.p, Color("9933ff"), "VÓRTICE!")
-		var vortex_radius := 160.0 + float(research[23]) * 12.0
+		var vortex_radius := (160.0 + float(research[23]) * 12.0) * range_mult
 		for enemy in enemies.duplicate():
 			if enemy.hp <= 0 or enemy.ghosted:
 				continue
@@ -299,7 +463,7 @@ func auto_attack(target: Dictionary, base_damage: float, module_id: String = "",
 			var dist: float = diff.length()
 			if dist <= vortex_radius:
 				if dist > 6.0:
-					enemy.p += diff.normalized() * minf(dist - 5.0, 48.0)
+					enemy.p += diff.normalized() * minf(dist - 5.0, 48.0 * range_mult)
 				enemy.vortex_timer = 2.0
 				var v_dmg := base_damage * 1.25 * (1.0 + float(research[23]) * 0.12)
 				if enemy.get("slow_timer", 0.0) > 0 or enemy.get("static_timer", 0.0) > 0:
@@ -359,10 +523,10 @@ func auto_attack(target: Dictionary, base_damage: float, module_id: String = "",
 	var targets: Array[Dictionary] = [target]
 	if active_module == "arc":
 		# Sinergia Tempestade Estática: se alvo foi eletrizado por sísmica, raio salta até 4 vezes e com maior alcance
-		var max_hops := 4 if target.get("static_timer", 0.0) > 0 else 2
+		var max_hops := (4 if target.get("static_timer", 0.0) > 0 else 2) + (1 if upg_level("tower_range") >= 2 else 0)
 		if target.get("static_timer", 0.0) > 0:
 			sound.emit("spark")
-		var base_arc_radius: float = ARC_CHAIN_RADIUS + float(research[20]) * 18.0
+		var base_arc_radius: float = (ARC_CHAIN_RADIUS + float(research[20]) * 18.0) * range_mult
 		var chain_radius := base_arc_radius * 1.5 if target.get("static_timer", 0.0) > 0 else base_arc_radius
 		var origin: Vector2 = target.p
 		for hop in max_hops:
@@ -388,6 +552,8 @@ func crit_chance() -> float:
 	return minf(0.05 + levels[2] * 0.045 + res_crit, 0.75)
 
 func cost(key: int) -> int:
+	if key == 1:
+		return tower_slot_cost(0)
 	return floori([15, 50, 90, 70][key] * pow([1.58, 1.68, 1.8, 1.72][key], levels[key]))
 
 func quota() -> int:
@@ -396,6 +562,8 @@ func quota() -> int:
 func buy(key: int) -> bool:
 	if not running or paused or key < 0 or key > 3:
 		return false
+	if key == 1:
+		return buy_tower_slot(0)
 	var price := cost(key)
 	if gold < price:
 		sound.emit("deny")
@@ -405,7 +573,9 @@ func buy(key: int) -> bool:
 	if key == 3:
 		max_hp += 15
 		hp = mini(max_hp, hp + 30 + research[16] * 4)
-		effect.emit("burst", Vector2(bounds.x / 2, bounds.y - 60), COLORS[1], "+%d ESCUDO" % (30 + research[16] * 4))
+		if max_shield > 0.0:
+			shield = minf(max_shield, shield + 15.0)
+		effect.emit("burst", Vector2(bounds.x / 2, bounds.y - 60), COLORS[1], "+%d VIDA" % (30 + research[16] * 4))
 	sound.emit("shield" if key == 3 else "buy")
 	return true
 
@@ -416,7 +586,7 @@ func tap(point: Vector2) -> void:
 		if point.distance_squared_to(proj.p) <= pow(float(proj.radius) + 18.0, 2):
 			enemy_projectiles.erase(proj)
 			combo += 1
-			combo_timer = 2.2 + float(research[12]) * 0.4
+			combo_timer = 2.2 + float(research[12]) * 0.4 + float(upg_level("combo_drive")) * 0.3
 			max_combo = maxi(max_combo, combo)
 			effect.emit("burst", proj.p, COLORS[1], "INTERCEPTADO!")
 			sound.emit("click")
@@ -441,14 +611,21 @@ func tap(point: Vector2) -> void:
 	var critical := randf() < crit_chance()
 	var damage := click_damage() * randf_range(0.9, 1.1)
 	if critical:
-		var crit_mult: float = 3.0 + levels[2] * 0.25 + float(research[4]) * 0.20
+		var crit_mult: float = 3.0 + levels[2] * 0.25 + float(research[4]) * 0.20 + float(upg_level("crit_mult")) * 0.35
 		damage *= crit_mult
 	combo += 1
-	combo_timer = 2.2 + float(research[12]) * 0.4
+	combo_timer = 2.2 + float(research[12]) * 0.4 + float(upg_level("combo_drive")) * 0.3
 	max_combo = maxi(max_combo, combo)
+	var target_pos: Vector2 = target.p
 	target.p.y -= 10 if critical else 5
 	effect.emit("hit", point, COLORS[3] if critical else COLORS[1], "")
 	damage_enemy(target, damage, critical, "click")
+	var splash_lvl: int = upg_level("click_splash")
+	if splash_lvl > 0:
+		var splash_dmg: float = damage * (0.15 + float(splash_lvl) * 0.10)
+		for other in enemies.duplicate():
+			if other != target and other.hp > 0 and not other.ghosted and other.p.distance_to(target_pos) <= 95.0 + splash_lvl * 15.0:
+				damage_enemy(other, splash_dmg, false, "click")
 	sound.emit("crit" if critical else "click")
 	if combo % 15 == 0:
 		charge = minf(100, charge + 12)
@@ -459,7 +636,7 @@ func nova() -> bool:
 		return false
 	charge = 0
 	enemy_projectiles.clear()
-	var nova_bonus: float = 1.0 + float(research[7]) * 0.25 # Singularidade Nova
+	var nova_bonus: float = 1.0 + float(research[7]) * 0.25 + float(upg_level("nova_overdrive")) * 0.25
 	var damage := (60 + click_damage() * 12 + wave * 12) * nova_bonus
 	effect.emit("nova", bounds / 2, Color.WHITE, "PULSO NOVA!")
 	sound.emit("bomb")
@@ -470,12 +647,13 @@ func nova() -> bool:
 func damage_enemy(enemy: Dictionary, damage: float, critical := false, source := "click") -> void:
 	if enemy.hp <= 0 or enemy.ghosted:
 		return
+	var pierce_bonus: float = float(upg_level("tower_pierce")) * 0.18 if source == "auto" else 0.0
 	if enemy.variant == "armored" or enemy.modifiers.has("armor"):
-		damage *= (1.75 if source == "auto" else (0.35 if source == "click" else 0.8)) * (1.0 + float(research[8]) * 0.12)
+		damage *= (1.75 if source == "auto" else (0.35 if source == "click" else 0.8)) * (1.0 + float(research[8]) * 0.12 + pierce_bonus)
 	if research[10] > 0 and enemy.hp < float(enemy.max_hp) * 0.40:
 		damage *= (1.0 + float(research[10]) * 0.10)
-	if research[11] > 0 and (enemy.elite or enemy.type == 3):
-		damage *= (1.0 + float(research[11]) * 0.12)
+	if (research[11] > 0 or pierce_bonus > 0.0) and (enemy.elite or enemy.type == 3):
+		damage *= (1.0 + float(research[11]) * 0.12 + pierce_bonus)
 	enemy.hp -= damage
 	enemy.hit = 0.09
 	enemy.since_hit = 0.0
@@ -899,6 +1077,39 @@ func spawn_split_children(parent: Dictionary) -> void:
 		child.speed = parent.speed * 1.25
 		child.p = parent.p + Vector2(direction * 14, 0)
 
+func apply_base_damage(raw_dmg: int, hit_pos: Vector2, stolen := 0, is_proj := false) -> void:
+	var armor_red: int = research[13] + upg_level("reactive_plating")
+	var dmg: int = maxi(1, raw_dmg - (armor_red / 2 if is_proj else armor_red))
+	var absorbed := 0
+	if shield >= 1.0:
+		if research[27] > 0:
+			dmg = maxi(1, roundi(float(dmg) * maxf(0.4, 1.0 - float(research[27]) * 0.08)))
+		absorbed = mini(int(floor(shield)), dmg)
+		shield = maxf(0.0, shield - float(absorbed))
+		dmg -= absorbed
+		shield_regen_timer = maxf(1.0, 3.2 - float(research[26]) * 0.3 - float(upg_level("shield_regen")) * 0.25)
+		if research[27] > 0 or upg_level("shield_pulse") > 0:
+			var pulse_lvl: int = upg_level("shield_pulse")
+			var ref_dmg: float = float(absorbed * (2 + research[27] * 2 + pulse_lvl * 3))
+			for other in enemies.duplicate():
+				if other.hp > 0 and not other.ghosted and other.p.y >= bounds.y - 240.0:
+					if pulse_lvl > 0:
+						other.p.y = maxf(other.radius + 10.0, other.p.y - (28.0 + pulse_lvl * 10.0))
+					damage_enemy(other, ref_dmg, false, "auto")
+	if dmg > 0:
+		hp = maxi(0, hp - dmg)
+	if absorbed > 0 and dmg == 0:
+		effect.emit("ring", hit_pos, Color("00f5d4"), "-%d ESCUDO" % absorbed)
+		sound.emit("shield")
+	else:
+		var msg := ("-%d HP  -%d OURO" % [dmg, stolen]) if stolen > 0 else ("-%d TIRO" % dmg if is_proj else "-%d" % dmg)
+		effect.emit("hit" if is_proj else "leak", hit_pos, Color("ff3355"), msg)
+		sound.emit("leak")
+	if hp == 0:
+		running = false
+		sound.emit("gameover")
+		ended.emit()
+
 func tick(delta: float) -> void:
 	if not running or paused:
 		return
@@ -912,7 +1123,18 @@ func tick(delta: float) -> void:
 	combo_timer -= dt
 	if combo_timer <= 0:
 		combo = 0
-	charge = minf(100, charge + dt * (1.6 + research[3] * 0.3))
+	var nova_regen_bonus: float = float(research[3]) * 0.3 + float(upg_level("nova_overdrive")) * 0.8
+	charge = minf(100, charge + dt * (1.6 + nova_regen_bonus))
+	if upg_level("nano_regen") > 0 and hp < max_hp:
+		hp_regen_acc += dt * float(upg_level("nano_regen")) * 1.5
+		if hp_regen_acc >= 1.0:
+			var heal_pts: int = int(floor(hp_regen_acc))
+			hp_regen_acc -= float(heal_pts)
+			hp = mini(max_hp, hp + heal_pts)
+	if max_shield > 0.0:
+		shield_regen_timer = maxf(0.0, shield_regen_timer - dt)
+		if shield_regen_timer <= 0.0 and shield < max_shield:
+			shield = minf(max_shield, shield + shield_regen_rate() * dt)
 	spawn_timer -= dt
 	var max_alive := mini(26, 8 + wave)
 	if spawn_timer <= 0 and enemies.size() < max_alive:
@@ -924,6 +1146,9 @@ func tick(delta: float) -> void:
 			spawn()
 	if auto_dps() > 0 and not enemies.is_empty():
 		for slot_index in tower_slots.size():
+			var s_dps := slot_dps(slot_index)
+			if s_dps <= 0:
+				continue
 			var slot := tower_slots[slot_index]
 			slot.auto_timer -= dt
 			if slot.auto_timer > 0:
@@ -935,7 +1160,7 @@ func tick(delta: float) -> void:
 				if enemy.hp > 0 and not enemy.ghosted and (target.is_empty() or enemy.hp < target.hp):
 					target = enemy
 			if not target.is_empty() or slot.module_id == "pulse":
-				auto_attack(target, auto_dps() * cadence * randf_range(0.85, 1.15), slot.module_id, slot_index)
+				auto_attack(target, s_dps * cadence * randf_range(0.85, 1.15), slot.module_id, slot_index)
 	for slot in tower_slots:
 		slot.turret_angle = lerp_angle(slot.turret_angle, slot.turret_target, minf(1, dt * 10))
 	for proj in enemy_projectiles.duplicate():
@@ -943,14 +1168,8 @@ func tick(delta: float) -> void:
 		proj.p += Vector2(proj.v) * dt
 		if proj.p.y >= bounds.y - 34.0:
 			enemy_projectiles.erase(proj)
-			var proj_dmg: int = maxi(1, int(proj.damage) - research[13] / 2)
-			hp = maxi(0, hp - proj_dmg)
-			effect.emit("hit", proj.p, proj.color, "-%d TIRO" % proj_dmg)
-			sound.emit("leak")
-			if hp == 0:
-				running = false
-				sound.emit("gameover")
-				ended.emit()
+			apply_base_damage(int(proj.damage), proj.p, 0, true)
+			if not running:
 				return
 	for enemy in enemies.duplicate():
 		enemy.age += dt
@@ -989,13 +1208,7 @@ func tick(delta: float) -> void:
 				var steal_factor: float = maxf(0.2, 1.0 - float(research[15]) * 0.12)
 				stolen = mini(gold, maxi(1, roundi(maxi(10, roundi(gold * 0.15)) * steal_factor)))
 				gold -= stolen
-			var leak_dmg: int = maxi(1, int(enemy.leak) - research[13])
-			hp = maxi(0, hp - leak_dmg)
 			combo = maxi(0, combo - 6)
-			effect.emit("leak", enemy.p, Color("ff3355"), ("-%d HP  -%d OURO" % [leak_dmg, stolen]) if stolen > 0 else "-%d" % leak_dmg)
-			sound.emit("leak")
-			if hp == 0:
-				running = false
-				sound.emit("gameover")
-				ended.emit()
+			apply_base_damage(int(enemy.leak), enemy.p, stolen, false)
+			if not running:
 				break

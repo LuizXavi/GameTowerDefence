@@ -21,7 +21,8 @@ const RESEARCH_NAMES = [
 	"Estabilizador de Combo", "Blindagem Reativa", "Nanorreparo de Onda", "Cofre Quântico",
 	"Gerador de Emergência", "Magnetismo de Fragmentos",
 	"Superaquecimento de Plasma", "Zero Absoluto", "Condutores de Alta Tensão",
-	"Ressonância Tectônica", "Lente de Antimatéria", "Horizonte de Eventos", "Capacitores Hiperfônicos"
+	"Ressonância Tectônica", "Lente de Antimatéria", "Horizonte de Eventos", "Capacitores Hiperfônicos",
+	"Gerador de Escudo Quântico", "Recarga Harmônica de Escudo", "Barreira Reflexiva de Plasma"
 ]
 const RESEARCH_DESCS = [
 	"+1 dano base por clique", "+8% DPS da torreta", "+10 vida máxima da base", "+0,3 carga/s da Nova",
@@ -35,7 +36,10 @@ const RESEARCH_DESCS = [
 	"[Torre Sísmica] +12% dano radial e +6px força de empurrão",
 	"[Laser Antimatéria] +15% velocidade de rampa e +0,3x dano máximo",
 	"[Vórtice Gravitacional] +12% dano de implosão e +12px raio de atração",
-	"[Railgun Fotônico] +14% dano perfurante e recarga 4% mais rápida"
+	"[Railgun Fotônico] +14% dano perfurante e recarga 4% mais rápida",
+	"[Escudo] Desbloqueia Escudo de Energia na base (+25 Escudo Máx inicial/nv)",
+	"[Escudo] +1,5/s regeneração de escudo e -0,3s atraso de recarga",
+	"[Escudo] Reduz dano recebido no escudo em 8%/nv e reflete dano em área"
 ]
 const MODULE_IDS = ["plasma", "cryo", "arc", "pulse", "laser", "vortex", "railgun"]
 const MODULE_INFO = {
@@ -105,7 +109,11 @@ var arena: Control
 var overlay: Control
 var body: BoxContainer
 var shop: VBoxContainer
+var shop_tabs_row: HBoxContainer
+var shop_scroll: ScrollContainer
 var shop_grid: GridContainer
+var shop_tab: String = "attack"
+var shop_items: Array[Dictionary] = []
 var hud_score: Label
 var hud_gold: Label
 var hud_wave: Label
@@ -131,6 +139,30 @@ var modules_content: VBoxContainer
 var module_status := ""
 var modal_return_focus: Control
 var hide_completed_research := false
+
+const UPG_ATTACK_IDS := ["click_dmg", "crit_chance", "crit_mult", "combo_drive", "click_splash", "nova_overdrive"]
+const UPG_TOWER_IDS := ["tower_haste", "tower_range", "tower_pierce", "tower_synergy"]
+const UPG_DEFENSE_IDS := ["base_hull", "hull_vitality", "nano_regen", "reactive_plating", "shield_cap", "shield_regen", "shield_pulse"]
+
+const IN_GAME_UPG_INFO := {
+	"click_dmg": ["CLIQUE PLASMA", "+Dano por clique (+25% a cada 5 nv)", Color("ff2bd6")],
+	"crit_chance": ["NÚCLEO CRÍTICO", "+4% chance de acerto crítico (máx 75%)", Color("facc15")],
+	"crit_mult": ["MULTIPLICADOR LETAL", "+0.25x multiplicador de dano crítico", Color("f97316")],
+	"combo_drive": ["FRENESI DE COMBO", "+Bônus de dano e duração de combo", Color("ec4899")],
+	"click_splash": ["ONDA DE IMPACTO", "Cliques causam dano em área (115px)", Color("a855f7")],
+	"nova_overdrive": ["SOBRECARGA NOVA", "+20% recarga e +12% dano do Pulso Nova", Color("22d3ee")],
+	"tower_haste": ["ACELERADOR DE CADÊNCIA", "+12% velocidade de disparo das torres", Color("a3e635")],
+	"tower_range": ["BOBINAS DE ALCANCE", "+8% alcance de todas as torres", Color("22d3ee")],
+	"tower_pierce": ["MUNIÇÃO ANTI-TITÃ", "+18% dano das torres em Elites e Bosses", Color("facc15")],
+	"tower_synergy": ["SINCRONIA DE BATERIA", "+6% dano por cada torre ativa", Color("a855f7")],
+	"base_hull": ["ESTRUTURA DA BASE", "+2 Vida máx e +1 Vida imediata", Color("22d3ee")],
+	"hull_vitality": ["REFORÇO DE TITÂNIO", "+4 Vida máx e +3 Vida imediata", Color("a3e635")],
+	"nano_regen": ["NANORREPARO CONTÍNUO", "Regenera +1 Vida da base periodicamente", Color("34d399")],
+	"reactive_plating": ["BLINDAGEM DE ABSORÇÃO", "+15% chance de bloquear 1 dano no casco", Color("facc15")],
+	"shield_cap": ["CAPACITOR DE ESCUDO", "+35 Escudo máx e recarga imediata", Color("38bdf8")],
+	"shield_regen": ["REATOR DE ESCUDO", "+1.8 Escudo/s de regeneração contínua", Color("22d3ee")],
+	"shield_pulse": ["CAMPO DE REPULSÃO", "Ao quebrar escudo, empurra e dá dano", Color("818cf8")]
+}
 
 func _ready() -> void:
 	get_window().min_size = Vector2i(640, 640)
@@ -328,36 +360,123 @@ func build_game() -> void:
 	var shop_panel := PanelContainer.new()
 	shop_panel.name = "Upgrades"
 	shop_panel.add_theme_stylebox_override("panel", box(Color("8b5cf6"), Color("0b0420"), 0))
-	shop_panel.custom_minimum_size.x = 296
+	shop_panel.custom_minimum_size.x = 308
 	body.add_child(shop_panel)
 	shop = VBoxContainer.new()
-	shop.add_theme_constant_override("separation", 12)
+	shop.add_theme_constant_override("separation", 10)
 	shop_panel.add_child(shop)
 	shop.add_child(label("↑  EVOLUÇÕES", 15, Color.WHITE, true))
-	shop.add_child(label("Gaste ouro. Multiplique seu poder.", 17, MUTED))
+	shop.add_child(label("Gaste ouro por categoria.", 16, MUTED))
+	shop_tabs_row = HBoxContainer.new()
+	shop_tabs_row.name = "ShopTabs"
+	shop_tabs_row.add_theme_constant_override("separation", 6)
+	shop.add_child(shop_tabs_row)
+	var tab_defs := [
+		["attack", "⚔ ATAQUE", PINK, "TabAttack"],
+		["towers", "⌖ TORRES", LIME, "TabTowers"],
+		["defense", "🛡 DEFESA", CYAN, "TabDefense"]
+	]
+	for tdef in tab_defs:
+		var tid: String = tdef[0]
+		var tlabel: String = tdef[1]
+		var tcol: Color = tdef[2]
+		var tname: String = tdef[3]
+		var tbtn := button(tlabel, func(): select_shop_tab(tid), tcol, shop_tab == tid)
+		tbtn.name = tname
+		tbtn.custom_minimum_size.y = 38
+		tbtn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tbtn.add_theme_font_size_override("font_size", 11)
+		shop_tabs_row.add_child(tbtn)
+	shop_scroll = ScrollContainer.new()
+	shop_scroll.name = "ShopScroll"
+	shop_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shop_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	shop_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	shop_scroll.custom_minimum_size.y = 320
+	shop.add_child(shop_scroll)
 	shop_grid = GridContainer.new()
 	shop_grid.columns = 1
-	shop_grid.add_theme_constant_override("v_separation", 12)
-	shop_grid.add_theme_constant_override("h_separation", 12)
-	shop.add_child(shop_grid)
-	for i in 4:
-		var buy := button("", func(): state.buy(i), COLORS[i])
-		buy.name = "Upgrade%d" % (i + 1)
-		buy.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		buy.custom_minimum_size.y = 104
-		buy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		buy.add_theme_font_override("font", BODY)
-		buy.add_theme_font_size_override("font_size", 18)
-		buy.add_theme_color_override("font_color", COLORS[i])
-		shop_grid.add_child(buy)
-		upgrades.append(buy)
-	var note := label("1–4  comprar upgrade\nESPAÇO  Pulso Nova\nP / ESC  pausar", 17, MUTED)
+	shop_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shop_grid.add_theme_constant_override("v_separation", 10)
+	shop_grid.add_theme_constant_override("h_separation", 10)
+	shop_scroll.add_child(shop_grid)
+	rebuild_shop_cards()
+	var note := label("1–4  atalho rápido\nESPAÇO  Pulso Nova\nP / ESC  pausar", 16, MUTED)
 	note.name = "Note"
 	shop.add_child(note)
 	var help := panel(shop, CYAN)
 	help.get_parent().name = "TipPanel"
-	var words := label("COMBOS = MAIS PODER\nAcerte em sequência para aumentar\no dano e o ouro. Boss a cada 5 waves.", 16, MUTED)
+	var words := label("COMBOS = MAIS PODER\nCompre cada torre na aba TORRES\ne pesquise Escudos no Laboratório.", 15, MUTED)
 	help.add_child(words)
+
+func select_shop_tab(tab_id: String) -> void:
+	shop_tab = tab_id
+	if is_instance_valid(shop_tabs_row):
+		var tab_colors := {"attack": PINK, "towers": LIME, "defense": CYAN}
+		var tab_map := {"TabAttack": "attack", "TabTowers": "towers", "TabDefense": "defense"}
+		for child in shop_tabs_row.get_children():
+			if child is Button and tab_map.has(child.name):
+				var tid: String = tab_map[child.name]
+				var col: Color = tab_colors[tid]
+				var active := (tid == shop_tab)
+				child.add_theme_stylebox_override("normal", box(col, Color("3b1778") if active else Color("140b29"), 10))
+				child.add_theme_color_override("font_color", Color.WHITE if active else col)
+	rebuild_shop_cards()
+	refresh_hud()
+
+func buy_in_game_upgrade(upg_id: String) -> void:
+	if state.buy_upgrade(upg_id):
+		refresh_hud()
+
+func buy_in_game_tower_slot(slot_idx: int) -> void:
+	if state.buy_tower_slot(slot_idx):
+		refresh_hud()
+
+func rebuild_shop_cards() -> void:
+	if not is_instance_valid(shop_grid):
+		return
+	for child in shop_grid.get_children():
+		shop_grid.remove_child(child)
+		child.queue_free()
+	upgrades.clear()
+	shop_items.clear()
+	var narrow := size.x < 1000
+	var card_index := 0
+	if shop_tab == "towers":
+		for slot_idx in state.tower_loadout.size():
+			card_index += 1
+			var mod_id: String = state.tower_loadout[slot_idx]
+			var info: Array = MODULE_INFO.get(mod_id, MODULE_INFO["plasma"])
+			var col: Color = info[2]
+			var buy := button("", func(): buy_in_game_tower_slot(slot_idx), col)
+			buy.name = "TowerSlot%d" % (slot_idx + 1)
+			buy.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			buy.custom_minimum_size.y = 76 if narrow else 92
+			buy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			buy.add_theme_font_override("font", BODY)
+			buy.add_theme_font_size_override("font_size", 16)
+			buy.add_theme_color_override("font_color", col)
+			buy.draw.connect(func(): draw_tower_module_icon(buy, mod_id, 13.0, Vector2(buy.size.x - 32.0, buy.size.y * 0.5)))
+			shop_grid.add_child(buy)
+			upgrades.append(buy)
+			shop_items.append({"kind": "tower_slot", "slot_index": slot_idx, "button": buy})
+	var upg_list: Array = UPG_ATTACK_IDS if shop_tab == "attack" else (UPG_TOWER_IDS if shop_tab == "towers" else UPG_DEFENSE_IDS)
+	for upg_id in upg_list:
+		card_index += 1
+		var uinfo: Array = IN_GAME_UPG_INFO[upg_id]
+		var ucol: Color = uinfo[2]
+		var buy := button("", func(): buy_in_game_upgrade(upg_id), ucol)
+		buy.name = "Upgrade%d" % card_index
+		buy.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		buy.custom_minimum_size.y = 76 if narrow else 92
+		buy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		buy.add_theme_font_override("font", BODY)
+		buy.add_theme_font_size_override("font_size", 16)
+		buy.add_theme_color_override("font_color", ucol)
+		shop_grid.add_child(buy)
+		upgrades.append(buy)
+		shop_items.append({"kind": "upgrade", "id": upg_id, "button": buy})
+
 
 func build_menu() -> void:
 	if is_instance_valid(menu):
@@ -480,11 +599,12 @@ func responsive() -> void:
 	var narrow := size.x < 1000
 	body.vertical = narrow
 	shop_grid.columns = 2 if narrow else 1
-	body.get_node("Upgrades").custom_minimum_size.x = 0 if narrow else 296
+	body.get_node("Upgrades").custom_minimum_size.x = 0 if narrow else 308
 	shop.get_node("Note").visible = not narrow
 	shop.get_node("TipPanel").visible = not narrow
 	for buy in upgrades:
-		buy.custom_minimum_size.y = 76 if narrow else 104
+		if is_instance_valid(buy):
+			buy.custom_minimum_size.y = 76 if narrow else 92
 	var header: HBoxContainer = game.get_child(0).get_child(0)
 	header.get_node("Logo").visible = size.x >= 1100
 	hp_bar.visible = size.x >= 800
@@ -509,7 +629,7 @@ func start_game() -> void:
 	state.reset()
 	record_wave_progress()
 	saved = false
-	refresh_hud()
+	select_shop_tab("attack")
 
 func pieces_text(values: Array = store.pieces) -> String:
 	return "  ".join(PackedStringArray([
@@ -936,35 +1056,42 @@ func build_research_cards() -> void:
 	center_label(dynamic, "⚔  PESQUISAS DE ATAQUE E DEFESA", 15, CYAN, true)
 	var combat_shown := 0
 	var tower_shown := 0
+	var shield_shown := 0
 	for i in RESEARCH_NAMES.size():
 		if i == 18:
 			if combat_shown == 0 and hide_completed_research:
 				center_label(dynamic, "✓ Todas as pesquisas de ataque e defesa foram concluídas.", 15, LIME)
 			center_label(dynamic, "⌖  ESPECIALIZAÇÃO DE TORRETAS", 15, PINK, true)
+		elif i == 25:
+			if tower_shown == 0 and hide_completed_research:
+				center_label(dynamic, "✓ Todas as especializações de torretas foram concluídas.", 15, LIME)
+			center_label(dynamic, "🛡  TECNOLOGIA DE ESCUDOS", 15, CYAN, true)
 		var level: int = store.research[i]
 		var maximum: int = store.RESEARCH_MAX[i]
 		if hide_completed_research and level >= maximum:
 			continue
 		if i < 18:
 			combat_shown += 1
-		else:
+		elif i < 25:
 			tower_shown += 1
+		else:
+			shield_shown += 1
 		var cost: int = store.research_cost(i)
 		var p_idx: int = store.piece_index_for_research(i)
 		var words := "%s  %s  •  Nv.%d/%d\n%s\n" % [PIECE_SHORT[p_idx], RESEARCH_NAMES[i], level, maximum, RESEARCH_DESCS[i]]
 		words += "✓ PESQUISA CONCLUÍDA" if level >= maximum else "Custo: %d %s   •   Você tem: %d" % [cost, PIECE_SHORT[p_idx], store.pieces[p_idx]]
-		var btn_color: Color = MODULE_INFO[MODULE_IDS[i - 18]][2] if i >= 18 else COLORS[p_idx]
+		var btn_color: Color = MODULE_INFO[MODULE_IDS[i - 18]][2] if (i >= 18 and i < 25) else COLORS[p_idx]
 		var research_button := button(words, func(): buy_research(i), btn_color)
 		research_button.name = "Research%d" % (i + 1)
 		research_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		research_button.custom_minimum_size.y = 78
 		research_button.disabled = not store.can_research(i)
-		if i >= 18:
+		if i >= 18 and i < 25:
 			var tower_mod_id: String = MODULE_IDS[i - 18]
 			research_button.draw.connect(func(): draw_tower_module_icon(research_button, tower_mod_id, 13.0, Vector2(research_button.size.x - 36.0, research_button.size.y * 0.5)))
 		dynamic.add_child(research_button)
-	if tower_shown == 0 and hide_completed_research:
-		center_label(dynamic, "✓ Todas as especializações de torretas foram concluídas.", 15, LIME)
+	if shield_shown == 0 and hide_completed_research:
+		center_label(dynamic, "✓ Todas as pesquisas de tecnologia de escudos foram concluídas.", 15, LIME)
 	append_module_cards(dynamic)
 	append_slot_expansion(dynamic, true)
 	append_module_status(dynamic)
@@ -1426,20 +1553,59 @@ func refresh_hud() -> void:
 	hud_gold.text = "◈ %s" % NumberFormat.format(float(state.gold), 1)
 	hud_pieces.text = pieces_text(state.run_pieces)
 	hud_wave.text = "WAVE %d\n%d/%d" % [state.wave, state.wave_kills, state.quota()]
-	hud_hp.text = str(state.hp)
+	hud_hp.text = "%d  🛡%d" % [state.hp, int(floor(state.shield))] if state.max_shield > 0 else str(state.hp)
 	hp_bar.value = state.hp * 100.0 / state.max_hp
 	wave_bar.value = state.wave_kills * 100.0 / state.quota()
 	mini_stats.text = "%s abates   |   %s   |   %s dmg   |   %s/s" % [NumberFormat.format_int(state.kills), time_text(state.play_time), NumberFormat.format_int(state.click_damage()), NumberFormat.format_int(state.auto_dps())]
 	nova_button.text = "NOVA!\nESPAÇO" if state.charge >= 100 else "NOVA\n%d%%" % state.charge
 	nova_button.disabled = state.charge < 100
-	for i in 4:
-		var detail: String = DESCS[i]
-		if i == 0:
-			detail = "%s dano/clique" % NumberFormat.format_int(state.click_damage())
-		if i == 1 and state.levels[1] > 0:
-			detail = "%s dano/s auto" % NumberFormat.format_int(state.auto_dps())
-		upgrades[i].text = "%d  %s  •  Nv.%d\n%s\n%s   ◈ %s" % [i + 1, NAMES[i], state.levels[i], detail, "▰".repeat(mini(state.levels[i], 10)) + "▱".repeat(maxi(0, 10 - state.levels[i])), NumberFormat.format(float(state.cost(i)), 1)]
-		upgrades[i].disabled = state.gold < state.cost(i)
+	for item in shop_items:
+		var btn: Button = item["button"]
+		if not is_instance_valid(btn):
+			continue
+		if item["kind"] == "tower_slot":
+			var slot_idx: int = int(item["slot_index"])
+			if slot_idx < 0 or slot_idx >= state.tower_loadout.size():
+				continue
+			var mod_id: String = state.tower_loadout[slot_idx]
+			var info: Array = MODULE_INFO.get(mod_id, MODULE_INFO["plasma"])
+			var lvl: int = state.tower_slot_level(slot_idx)
+			var c: int = state.tower_slot_cost(slot_idx)
+			var status_line: String = "COMPRAR TORRE  •  Ativa disparo" if lvl == 0 else "%s dano/s  •  Evoluir torre" % NumberFormat.format_int(state.slot_dps(slot_idx))
+			btn.text = "SLOT %d: %s  •  %s\n%s\n%s   ◈ %s" % [
+				slot_idx + 1,
+				info[0].to_upper(),
+				"INATIVA" if lvl == 0 else ("Nv.%d" % lvl),
+				status_line,
+				"▰".repeat(mini(lvl, 10)) + "▱".repeat(maxi(0, 10 - lvl)),
+				NumberFormat.format(float(c), 1)
+			]
+			btn.disabled = state.gold < c
+		else:
+			var upg_id: String = item["id"]
+			var uinfo: Array = IN_GAME_UPG_INFO[upg_id]
+			var lvl: int = state.upg_level(upg_id)
+			var max_lvl: int = int(state.UPGRADE_DEFS[upg_id].get("max_level", 999))
+			var c: int = state.upg_cost(upg_id)
+			var detail: String = uinfo[1]
+			if upg_id == "click_dmg":
+				detail = "%s dano/clique (+25%% a cada 5 nv)" % NumberFormat.format_int(state.click_damage())
+			if upg_id in ["shield_cap", "shield_regen", "shield_pulse"] and not state.shield_unlocked():
+				btn.text = "🔒 %s\nRequer pesquisa: Gerador de Escudo Quântico\nDesbloqueie no Laboratório" % uinfo[0]
+				btn.disabled = true
+			elif lvl >= max_lvl:
+				btn.text = "%s  •  Nv.%d (MÁX)\n%s\n✓ NÍVEL MÁXIMO ATINGIDO" % [uinfo[0], lvl, detail]
+				btn.disabled = true
+			else:
+				var lvl_text := ("Nv.%d/%d" % [lvl, max_lvl]) if max_lvl < 900 else ("Nv.%d" % lvl)
+				btn.text = "%s  •  %s\n%s\n%s   ◈ %s" % [
+					uinfo[0],
+					lvl_text,
+					detail,
+					"▰".repeat(mini(lvl, 10)) + "▱".repeat(maxi(0, 10 - lvl)),
+					NumberFormat.format(float(c), 1)
+				]
+				btn.disabled = not state.can_buy_upgrade(upg_id)
 
 func _process(dt: float) -> void:
 	state.tick(dt)

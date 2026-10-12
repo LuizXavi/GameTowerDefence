@@ -9,7 +9,8 @@ var pieces: Array[int] = [0, 0, 0, 0]
 var research: Array[int] = [
 	0, 0, 0, 0, 0, 0, 0, 0,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0
+	0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0
 ]
 var enemy_stats: Dictionary = {}
 var highest_wave := 1
@@ -26,19 +27,22 @@ var equipped_module: String:
 const RESEARCH_MAX := [
 	5, 5, 5, 3, 5, 5, 5, 3,
 	5, 5, 5, 5, 5, 5, 5, 5, 5, 3,
-	5, 5, 5, 5, 5, 5, 5
+	5, 5, 5, 5, 5, 5, 5,
+	5, 5, 5
 ]
 const RESEARCH_BASE_COSTS := [
 	5, 5, 4, 2, 8, 8, 7, 3,
 	6, 6, 7, 3, 5, 6, 5, 6, 6, 4,
-	6, 6, 7, 7, 3, 8, 4
+	6, 6, 7, 7, 3, 8, 4,
+	4, 5, 3
 ]
 const RESEARCH_PIECE_INDEX := [
 	0, 1, 2, 3, 0, 1, 2, 3,
 	0, 1, 0, 3, 1, 2, 2, 1, 2, 3,
-	0, 1, 0, 2, 3, 2, 3
+	0, 1, 0, 2, 3, 2, 3,
+	2, 1, 3
 ]
-const SCHEMA_VERSION := 9
+const SCHEMA_VERSION := 10
 const SLOT_WAVES := [1, 3, 6, 10, 15, 22, 30]
 const SLOT_COSTS := [
 	{"piece_index": -1, "amount": 0},
@@ -117,11 +121,18 @@ func migrate(data: Dictionary) -> Dictionary:
 		migrated["research"] = cur_res
 		version = 8
 	if version == 8:
-		migrated["version"] = SCHEMA_VERSION
+		migrated["version"] = 9
 		var cur_res8: Array = migrated.get("research", [])
-		while cur_res8.size() < RESEARCH_MAX.size():
+		while cur_res8.size() < 25:
 			cur_res8.append(0)
 		migrated["research"] = cur_res8
+		version = 9
+	if version == 9:
+		migrated["version"] = SCHEMA_VERSION
+		var cur_res9: Array = migrated.get("research", [])
+		while cur_res9.size() < RESEARCH_MAX.size():
+			cur_res9.append(0)
+		migrated["research"] = cur_res9
 	return migrated
 
 func valid(data: Variant) -> bool:
@@ -202,7 +213,7 @@ func is_legacy_schema(data: Variant) -> bool:
 	if not data is Dictionary:
 		return false
 	var version: Variant = data.get("version")
-	return (version is int or version is float) and is_finite(float(version)) and float(version) == floor(float(version)) and int(version) in [1, 2, 3, 4, 5, 6, 7, 8]
+	return (version is int or version is float) and is_finite(float(version)) and float(version) == floor(float(version)) and int(version) in [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 func load_data() -> void:
 	var data: Variant = read_data(path)
