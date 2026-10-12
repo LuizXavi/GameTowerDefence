@@ -161,7 +161,7 @@ func _init() -> void:
 	check(store.slot_visible(1) and store.slot_cost(1) == {"piece_index": 0, "amount": 6}, "Second tower slot research appears at wave three")
 	check(store.research_slot(1) and store.unlocked_tower_slots == 2 and store.pieces[0] == 0 and not store.research_slot(1), "Tower slot research is sequential and consumes pieces once")
 	check(store.equip_module_in_slot(1, "cryo") and store.tower_loadout[1] == "cryo" and not store.equip_module_in_slot(2, "cryo"), "Modules equip only in unlocked tower slots")
-	store.pieces[0] = 5
+	store.pieces[0] = 6
 	check(store.buy_research(0) and store.pieces[0] == 1 and store.research[0] == 1, "Research consumes exact matching pieces")
 	check(not store.buy_research(0), "Research blocks insufficient pieces")
 	check(store.save_data(), "Write save")
