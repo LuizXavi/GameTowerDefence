@@ -597,12 +597,14 @@ func append_tower_slots(parent: VBoxContainer) -> void:
 		card.add_child(head_row)
 
 		var slot_icon := Control.new()
-		slot_icon.custom_minimum_size = Vector2(36, 36)
-		slot_icon.draw.connect(func(): draw_tower_module_icon(slot_icon, selected, 12.0))
+		slot_icon.custom_minimum_size = Vector2(32, 32)
+		slot_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		slot_icon.draw.connect(func(): draw_tower_module_icon(slot_icon, selected, 11.0))
 		head_row.add_child(slot_icon)
 
 		var heading := label("SLOT %d  •  %s" % [index + 1, MODULE_INFO[selected][0]], 16, MODULE_INFO[selected][2], true)
-		heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		heading.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		head_row.add_child(heading)
 
 		var choices := GridContainer.new()
