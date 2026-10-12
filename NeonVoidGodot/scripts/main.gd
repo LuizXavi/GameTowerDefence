@@ -566,7 +566,16 @@ func append_tower_slots(parent: VBoxContainer) -> void:
 		for module_id in MODULE_IDS:
 			if not store.module_unlocked(module_id):
 				continue
-			var module_name: String = {"plasma": "PLASMA", "cryo": "CRIOGÊNICA", "arc": "ARCO", "pulse": "SÍSMICA", "laser": "LASER"}[module_id]
+			var module_names: Dictionary = {
+				"plasma": "PLASMA",
+				"cryo": "CRIOGÊNICA",
+				"arc": "ARCO",
+				"pulse": "SÍSMICA",
+				"laser": "LASER",
+				"vortex": "VÓRTICE",
+				"railgun": "RAILGUN"
+			}
+			var module_name: String = str(module_names.get(module_id, module_id.to_upper()))
 			var equipped: bool = selected == module_id
 			var action := button(("✓ " if equipped else "") + module_name, func(): equip_tower_module(index, module_id), MODULE_INFO[module_id][2])
 			action.name = "Slot%d_%s" % [index, module_id]
