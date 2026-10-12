@@ -431,18 +431,35 @@ func damage_enemy(enemy: Dictionary, damage: float, critical := false, source :=
 func roll_piece_drop(enemy: Dictionary, forced_roll := -1.0) -> int:
 	if not enemy.drop_allowed:
 		return 0
-	var kind: int = int(enemy.type)
-	var chance: float = [0.30, 0.22, 0.40, 1.0][kind]
-	if enemy.elite:
+	# Mapeia tipos expandidos para os 4 tipos de fragmentos fundamentais
+	# 0: Square, 1: Triangle, 2: Hexagon, 3: Boss
+	# 4 (Pentagon) dropa Triangle/Square (índice 1), 5 (Heptagon) dropa Hexagon (índice 2)
+	var enemy_type: int = int(enemy.type)
+	var piece_kind: int = 0
+	var chance: float = 0.30
+	if enemy_type == 3:
+		piece_kind = 3 # Boss core
+		chance = 1.0
+	elif enemy_type == 1 or enemy_type == 4:
+		piece_kind = 1 # Triângulo
+		chance = 0.25
+	elif enemy_type == 2 or enemy_type == 5:
+		piece_kind = 2 # Hexágono
+		chance = 0.40
+	else:
+		piece_kind = 0 # Quadrado
+		chance = 0.30
+
+	if enemy.elite or enemy.get("is_miniboss", false):
 		chance = minf(1.0, chance * 2.0)
 	var roll := randf() if forced_roll < 0 else forced_roll
 	if roll >= chance:
 		return 0
-	var amount := 2 if kind == 3 else 1
-	if enemy.elite:
+	var amount := 2 if enemy_type == 3 else 1
+	if enemy.elite or enemy.get("is_miniboss", false):
 		amount += 1
-	run_pieces[kind] += amount
-	piece_dropped.emit(kind, amount, enemy.p, enemy.enemy_id, enemy.elite)
+	run_pieces[piece_kind] += amount
+	piece_dropped.emit(piece_kind, amount, enemy.p, enemy.enemy_id, enemy.elite)
 	return amount
 
 func next_wave() -> void:
