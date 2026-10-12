@@ -8,8 +8,8 @@ signal piece_dropped(kind: int, amount: int, position: Vector2, enemy_id: String
 signal enemy_discovered(enemy_id: String)
 signal enemy_defeated(enemy_id: String, at_wave: int)
 
-const COLORS = [Color("ff2bd6"), Color("22e6ff"), Color("b6ff2e"), Color("ffb02e")]
-const FAMILY_IDS = ["square", "triangle", "hexagon", "boss"]
+const COLORS = [Color("ff2bd6"), Color("22e6ff"), Color("b6ff2e"), Color("ffb02e"), Color("b43aff"), Color("38ef7d")]
+const FAMILY_IDS = ["square", "triangle", "hexagon", "boss", "pentagon", "heptagon"]
 const ELITE_MODIFIERS = ["armor", "haste", "regen", "phase"]
 const TOWER_MODULE_IDS = ["plasma", "cryo", "arc", "pulse", "laser", "vortex", "railgun"]
 const MAX_TOWER_SLOTS := 7
@@ -409,13 +409,18 @@ func damage_enemy(enemy: Dictionary, damage: float, critical := false, source :=
 	gold += gain
 	total_gold += gain
 	score += roundi(enemy.score * (1 + wave * 0.15) * (1.5 if critical else 1.0))
-	charge = minf(100, charge + [3.5, 3.5, 6, 30][enemy.type])
-	effect.emit("burst", enemy.p, COLORS[enemy.type], "+%d" % gain)
+	var charge_gains: Array[float] = [3.5, 3.5, 6.0, 30.0, 4.0, 5.0]
+	charge = minf(100, charge + (charge_gains[enemy.type] if enemy.type < charge_gains.size() else 10.0))
+	var burst_color: Color = COLORS[enemy.type] if enemy.type < COLORS.size() else Color.WHITE
+	effect.emit("burst", enemy.p, burst_color, "+%d" % gain)
 	sound.emit("kill")
 	roll_piece_drop(enemy)
 	enemy_defeated.emit(enemy.enemy_id, wave)
 	if enemy.elite:
 		enemy_defeated.emit("elite", wave)
+	if enemy.get("is_miniboss", false):
+		enemy_defeated.emit("miniboss", wave)
+		effect.emit("burst", enemy.p, Color("ffb02e"), "MINI-BOSS DERROTADO!")
 	if enemy.variant == "splitter" and enemy.split_depth == 0:
 		spawn_split_children(enemy)
 	if enemy.type == 3:
@@ -448,11 +453,22 @@ func next_wave() -> void:
 	total_gold += bonus
 	score += wave * 250
 	hp = mini(max_hp, hp + 6)
-	banner = ("BOSS — WAVE %d" if wave % 5 == 0 else "WAVE %d") % wave
-	banner_time = 1.8
-	sound.emit("boss" if wave % 5 == 0 else "wave")
 	if wave % 5 == 0:
+		var boss_names := ["GUARDIÃO OCTOGONAL", "COLOSSO DECAGONAL", "DODECÁGONO PRIMORDIAL", "NEXUS CÓSMICO"]
+		var boss_idx: int = (wave / 5 - 1) % boss_names.size()
+		banner = "BOSS — " + boss_names[boss_idx]
+		banner_time = 2.2
+		sound.emit("boss")
 		spawn(3)
+	elif wave % 5 == 3 and wave >= 3:
+		banner = "MINI-BOSS — ENVIADO DO VAZIO"
+		banner_time = 1.8
+		sound.emit("boss")
+		spawn(-1, "", false, true, true)
+	else:
+		banner = "WAVE %d" % wave
+		banner_time = 1.6
+		sound.emit("wave")
 
 func variant_for(kind: int) -> String:
 	var roll := randf()
@@ -474,22 +490,84 @@ func id_for(kind: int, variant: String) -> String:
 	if variant == "regen": return "regen_hexagon"
 	if variant == "splitter": return "splitter"
 	if variant == "thief": return "thief"
-	return FAMILY_IDS[kind]
+	if kind < FAMILY_IDS.size():
+		return FAMILY_IDS[kind]
+	return "square"
 
-func spawn(kind: int = -1, forced_variant := "", force_elite := false, allow_elite := true) -> Dictionary:
-	if kind < 0:
+func spawn(kind: int = -1, forced_variant := "", force_elite := false, allow_elite := true, is_miniboss := false) -> Dictionary:
+	if is_miniboss:
+		kind = 4 if randf() < 0.5 else 5
+	elif kind < 0:
 		var roll := randf()
-		var tank_p := minf(0.22, 0.06 + wave * 0.012)
-		kind = 2 if roll < tank_p else (1 if roll < tank_p + minf(0.4, 0.22 + wave * 0.01) else 0)
+		if wave >= 6 and roll < 0.14:
+			kind = 5 # Heptágono
+		elif wave >= 3 and roll < 0.28:
+			kind = 4 # Pentágono
+		else:
+			var tank_p := minf(0.22, 0.06 + wave * 0.012)
+			kind = 2 if roll < tank_p else (1 if roll < tank_p + minf(0.4, 0.22 + wave * 0.01) else 0)
+
 	var scale_hp := 1 + (wave - 1) * 0.55 + pow(wave - 1, 1.55) * 0.09 + play_time * 0.008
-	var health := roundi([6, 4, 22, 160 * (1 + wave * 0.06)][kind] * scale_hp)
-	var speed: float = (bounds.y * 0.085 + wave * 2.4) * [1, 1.65, 0.62, 1][kind]
+	# Base health por tipo: [square: 6, triangle: 4, hexagon: 22, boss: 160, pentagon: 14, heptagon: 35]
+	var base_hps: Array[float] = [6.0, 4.0, 22.0, 160.0 * (1.0 + wave * 0.06), 14.0, 35.0]
+	var health := roundi(base_hps[kind] * scale_hp)
+	var speed_mults: Array[float] = [1.0, 1.65, 0.62, 1.0, 1.25, 0.55]
+	var speed: float = (bounds.y * 0.085 + wave * 2.4) * speed_mults[kind]
 	if kind == 3:
 		speed = bounds.y * 0.045
+
 	var variant := forced_variant if not forced_variant.is_empty() else variant_for(kind)
-	var enemy := {"type": kind, "enemy_id": id_for(kind, variant), "variant": variant, "modifiers": [], "elite": false, "ghosted": false, "since_hit": 99.0, "drop_allowed": true, "split_depth": 0, "p": Vector2(bounds.x / 2 if kind == 3 else randf_range(30, bounds.x - 30), -50 if kind == 3 else -30), "hp": float(health), "max_hp": health, "radius": [20, 15, 27, 44][kind], "speed": speed, "gold": [4 + wave, 3 + wave, 12 + wave * 2, 100 + wave * 12][kind], "leak": [8, 5, 14, 40][kind], "score": [10, 12, 30, 300][kind], "rot": randf() * TAU, "rot_speed": 0.5 if kind == 3 else randf_range(-1.6, 1.6), "sides": [4, 3, 6, 8][kind], "wob": randf() * TAU, "wob_speed": 1.2 if kind == 3 else randf_range(1, 3), "wob_amp": 60 if kind == 3 else (randf_range(20, 45) if kind == 1 else randf_range(4, 14)), "hit": 0.0, "age": 0.0}
+	var radii: Array[float] = [20.0, 15.0, 27.0, 44.0, 22.0, 32.0]
+	var sides_list: Array[int] = [4, 3, 6, 8, 5, 7]
+	# Se for Boss (tipo 3), o número de lados rota conforme a onda (8, 10, 12, 16)
+	if kind == 3:
+		var boss_sides_rot: Array[int] = [8, 10, 12, 16]
+		var b_idx: int = (wave / 5 - 1) % boss_sides_rot.size()
+		sides_list[3] = boss_sides_rot[b_idx]
+
+	var golds: Array[int] = [4 + wave, 3 + wave, 12 + wave * 2, 100 + wave * 12, 8 + wave * 2, 20 + wave * 3]
+	var leaks: Array[int] = [8, 5, 14, 40, 10, 18]
+	var scores: Array[int] = [10, 12, 30, 300, 20, 50]
+
+	var enemy := {
+		"type": kind,
+		"enemy_id": id_for(kind, variant),
+		"variant": variant,
+		"modifiers": [],
+		"elite": false,
+		"is_miniboss": is_miniboss,
+		"ghosted": false,
+		"since_hit": 99.0,
+		"drop_allowed": true,
+		"split_depth": 0,
+		"p": Vector2(bounds.x / 2 if kind == 3 else randf_range(30, bounds.x - 30), -50 if kind == 3 else -30),
+		"hp": float(health),
+		"max_hp": health,
+		"radius": radii[kind],
+		"speed": speed,
+		"gold": golds[kind],
+		"leak": leaks[kind],
+		"score": scores[kind],
+		"rot": randf() * TAU,
+		"rot_speed": 0.5 if kind == 3 else randf_range(-1.6, 1.6),
+		"sides": sides_list[kind],
+		"wob": randf() * TAU,
+		"wob_speed": 1.2 if kind == 3 else randf_range(1, 3),
+		"wob_amp": 60 if kind == 3 else (randf_range(20, 45) if kind == 1 else randf_range(4, 14)),
+		"hit": 0.0,
+		"age": 0.0
+	}
 	enemy.slow_timer = 0.0
 	enemy.static_timer = 0.0
+
+	if is_miniboss:
+		enemy.max_hp = roundi(enemy.max_hp * 3.5)
+		enemy.hp = float(enemy.max_hp)
+		enemy.gold = roundi(enemy.gold * 3.0)
+		enemy.score = roundi(enemy.score * 3.0)
+		enemy.radius *= 1.35
+		enemy.leak *= 2
+
 	if variant == "armored":
 		enemy.max_hp = roundi(enemy.max_hp * 1.6)
 		enemy.hp = float(enemy.max_hp)
@@ -499,7 +577,8 @@ func spawn(kind: int = -1, forced_variant := "", force_elite := false, allow_eli
 	if variant == "splitter":
 		enemy.max_hp = roundi(enemy.max_hp * 1.3)
 		enemy.hp = float(enemy.max_hp)
-	var becomes_elite := allow_elite and kind != 3 and (force_elite or (wave >= 4 and randf() < minf(0.16, 0.04 + wave * 0.008)))
+
+	var becomes_elite := allow_elite and kind != 3 and not is_miniboss and (force_elite or (wave >= 4 and randf() < minf(0.16, 0.04 + wave * 0.008)))
 	if becomes_elite:
 		apply_elite(enemy)
 	enemies.append(enemy)

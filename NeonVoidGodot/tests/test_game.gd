@@ -288,6 +288,17 @@ func _init() -> void:
 	var r_behind_hp: float = r_behind.hp
 	game.auto_attack(r_target, 10, "railgun", 0)
 	check(r_target.hp < r_target_hp and r_behind.hp < r_behind_hp, "Railgun penetrates multiple enemies in firing line")
+	# Testes de Formas Geométricas: Pentágono (5 lados) e Heptágono (7 lados)
+	var pentagon := game.spawn(4)
+	check(pentagon.sides == 5 and pentagon.enemy_id == "pentagon", "Pentagon spawns with 5 geometric sides")
+	var heptagon := game.spawn(5)
+	check(heptagon.sides == 7 and heptagon.enemy_id == "heptagon", "Heptagon spawns with 7 geometric sides")
+	# Testes de Mini-Bosses e Rotação de Bosses
+	var miniboss := game.spawn(-1, "", false, true, true)
+	check(miniboss.is_miniboss and miniboss.hp > 30, "Mini-boss spawns with elevated stats")
+	game.wave = 10
+	var colossus_boss := game.spawn(3)
+	check(colossus_boss.sides == 10, "Wave 10 boss has decagonal geometry (10 sides)")
 	for suffix in ["", ".bak", ".tmp"]:
 		if FileAccess.file_exists(store.path + suffix):
 			DirAccess.remove_absolute(store.path + suffix)

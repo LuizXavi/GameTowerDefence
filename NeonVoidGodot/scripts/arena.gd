@@ -249,9 +249,16 @@ func draw_enemy(enemy: Dictionary) -> void:
 		draw_circle(enemy.p + Vector2(radius * 0.38, 0), 3, Color.WHITE)
 	if enemy.variant == "thief":
 		text_at("$", enemy.p + Vector2(0, 5), Color("ffb02e"), 12)
-	if enemy.elite:
+	if enemy.get("is_miniboss", false):
+		draw_arc(enemy.p, radius + 12, clock * 4, clock * 4 + TAU * 0.8, 36, Color("ffb02e", visual_alpha), 3.0, true)
+		text_at("★ MINI-BOSS ★", enemy.p - Vector2(0, radius + 26), Color("ffcf66", visual_alpha), 11)
+	elif enemy.elite:
 		draw_arc(enemy.p, radius + 16, clock, clock + TAU * 0.72, 40, Color("ffb02e"), 3, true)
 		text_at("ELITE • " + "+".join(PackedStringArray(enemy.modifiers)).to_upper(), enemy.p - Vector2(0, radius + 28), Color("ffcf66"), 10)
+	elif enemy.type == 4:
+		text_at("PENTÁGONO", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[4], visual_alpha), 10)
+	elif enemy.type == 5:
+		text_at("HEPTÁGONO", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[5], visual_alpha), 10)
 	elif enemy.variant == "ghost":
 		text_at("FANTASMA", enemy.p - Vector2(0, radius + 20), Color(VoidState.COLORS[1], visual_alpha), 10)
 	elif enemy.variant == "armored":
@@ -269,7 +276,8 @@ func draw_enemy(enemy: Dictionary) -> void:
 		rect.size.x *= maxf(0, enemy.hp / enemy.max_hp)
 		draw_rect(rect, color)
 	if enemy.type == 3:
-		text_at("— BOSS —", enemy.p - Vector2(0, radius + 20), color, 13)
+		draw_arc(enemy.p, radius + 18, -clock * 2, -clock * 2 + TAU, 48, Color(color, 0.6 * visual_alpha), 2.5, true)
+		text_at("— BOSS SUPREMO —", enemy.p - Vector2(0, radius + 22), color, 13)
 
 func _draw_plasma_attack(from: Vector2, to: Vector2, alpha: float) -> void:
 	var dist := from.distance_to(to)

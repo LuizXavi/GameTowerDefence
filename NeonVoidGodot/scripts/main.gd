@@ -26,7 +26,7 @@ const MODULE_INFO = {
 	"vortex": ["Vórtice Gravitacional", "Atrai inimigos em 160px • Implosão com choque", Color("9933ff")],
 	"railgun": ["Railgun Fotônico", "Feixe ultra-sônico • perfura e ricocheteia", Color("33ffcc")]
 }
-const CODEX_ORDER = ["square", "armored_square", "splitter", "triangle", "ghost_triangle", "thief", "hexagon", "regen_hexagon", "elite", "boss"]
+const CODEX_ORDER = ["square", "armored_square", "splitter", "triangle", "ghost_triangle", "thief", "pentagon", "hexagon", "regen_hexagon", "heptagon", "elite", "miniboss", "boss"]
 const ENEMY_INFO = {
 	"square": ["QUADRADO", "30%", "Dano direto", "Blindado e Duplicador", "Análise de Plasma"],
 	"armored_square": ["QUADRADO BLINDADO", "30%", "Torreta automática", "Reduz clique a 35%", "Análise de Plasma"],
@@ -34,10 +34,13 @@ const ENEMY_INFO = {
 	"triangle": ["TRIÂNGULO", "22%", "Clique rápido", "Fantasma e Ladrão", "Roteamento Autônomo"],
 	"ghost_triangle": ["TRIÂNGULO FANTASMA", "22%", "Ataque durante a fase sólida", "Intangível 1s a cada 3s", "Roteamento Autônomo"],
 	"thief": ["LADRÃO", "22%", "Eliminar antes da base", "Rouba 15% do ouro", "Roteamento Autônomo"],
+	"pentagon": ["PENTÁGONO", "25%", "Dano moderado", "Rápido e agressivo", "Liga da Base"],
 	"hexagon": ["HEXÁGONO", "40%", "Dano sustentado", "Regenerador", "Liga da Base"],
 	"regen_hexagon": ["HEXÁGONO REGENERADOR", "40%", "Não interromper ataques", "Regenera após 1,5s", "Liga da Base"],
+	"heptagon": ["HEPTÁGONO", "35%", "Blindagem pesada", "Escudo natural", "Liga da Base"],
 	"elite": ["ELITE", "Chance dobrada", "Depende dos modificadores", "Recebe dois modificadores", "Todas as linhas"],
-	"boss": ["BOSS", "100% • 2 núcleos", "Nova e dano concentrado", "Surge a cada 5 waves", "Reator Nova"]
+	"miniboss": ["MINI-BOSS", "75% • 1 núcleo", "Foco das torretas", "Surge nas waves 3, 8, 13...", "Reator Nova"],
+	"boss": ["BOSS SUPREMO", "100% • 2 núcleos", "Nova e dano concentrado", "Octógono/Dodecágono a cada 5 waves", "Reator Nova"]
 }
 var state := VoidState.new()
 var store = Store.new()
