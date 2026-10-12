@@ -21,7 +21,7 @@ const MODULE_INFO = {
 	"plasma": ["Torre Plasma", "100% dano • disparo direto • Choque Térmico", PINK],
 	"cryo": ["Torre Criogênica", "75% dano • desacelera 35% por 1,5s", CYAN],
 	"arc": ["Torre de Arco", "65% dano • salta até 2 alvos (4 em estática)", AMBER],
-	"pulse": ["Torre Sísmica", "Onda radial • empurra inimigos • eletriza", LIME],
+	"pulse": ["Torre Sísmica", "Recarga 2,5s • onda radial • knockback vertical", LIME],
 	"laser": ["Laser Antimatéria", "Feixe contínuo • rampa até 350% de dano", Color("ff3355")]
 }
 const CODEX_ORDER = ["square", "armored_square", "splitter", "triangle", "ghost_triangle", "thief", "hexagon", "regen_hexagon", "elite", "boss"]

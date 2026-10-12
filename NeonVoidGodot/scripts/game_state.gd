@@ -20,6 +20,11 @@ const CRYO_SLOW_STRENGTH := 0.35
 const PULSE_INTERVAL := 2.5
 const PULSE_KNOCKBACK_FORCE := 38.0
 var tower_module: String = "plasma"
+
+func interval_for_module(module_id: String) -> float:
+	if module_id == "pulse":
+		return PULSE_INTERVAL
+	return AUTO_INTERVAL
 var tower_loadout: Array[String] = ["plasma"]
 var tower_slots: Array[Dictionary] = []
 var gold: int = 0
@@ -84,9 +89,11 @@ func _reset_tower_slots() -> void:
 	tower_slots.clear()
 	for i in tower_loadout.size():
 		var chain: Array[Vector2] = []
+		var mid: String = tower_loadout[i]
+		var cadence := interval_for_module(mid)
 		tower_slots.append({
-			"module_id": tower_loadout[i],
-			"auto_timer": AUTO_INTERVAL * i / tower_loadout.size(),
+			"module_id": mid,
+			"auto_timer": cadence * (float(i) / maxf(1.0, float(tower_loadout.size()))),
 			"turret_angle": -PI / 2,
 			"turret_target": -PI / 2,
 			"beam_target": Vector2.ZERO,
@@ -479,14 +486,14 @@ func tick(delta: float) -> void:
 			slot.auto_timer -= dt
 			if slot.auto_timer > 0:
 				continue
-			# Keep fractional overshoot so each slot retains its stagger and cadence.
-			slot.auto_timer += AUTO_INTERVAL
+			var cadence := interval_for_module(slot.module_id)
+			slot.auto_timer += cadence
 			var target: Dictionary = {}
 			for enemy in enemies:
 				if enemy.hp > 0 and not enemy.ghosted and (target.is_empty() or enemy.hp < target.hp):
 					target = enemy
-			if not target.is_empty():
-				auto_attack(target, auto_dps() * AUTO_INTERVAL * randf_range(0.85, 1.15), slot.module_id, slot_index)
+			if not target.is_empty() or slot.module_id == "pulse":
+				auto_attack(target, auto_dps() * cadence * randf_range(0.85, 1.15), slot.module_id, slot_index)
 	for slot in tower_slots:
 		slot.turret_angle = lerp_angle(slot.turret_angle, slot.turret_target, minf(1, dt * 10))
 	for enemy in enemies.duplicate():

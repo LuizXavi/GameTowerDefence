@@ -132,6 +132,12 @@ func _draw() -> void:
 					glow_line(turret + direction.orthogonal() * side * 8, turret + direction * 27 + direction.orthogonal() * side * 6, module_color, 2)
 			elif slot.module_id == "pulse":
 				draw_arc(turret, 17, 0, TAU, 16, module_color, 2.0, true)
+				# Indicador visual de recarga da onda sismica
+				var charge_pct: float = clampf(1.0 - (float(slot.get("auto_timer", 0.0)) / 2.5), 0.0, 1.0)
+				if charge_pct < 1.0:
+					draw_arc(turret, 20, -PI / 2, -PI / 2 + TAU * charge_pct, 24, Color(module_color, 0.7), 2.0, true)
+				else:
+					draw_arc(turret, 20 + sin(clock * 8) * 1.5, 0, TAU, 24, Color(module_color, 0.9), 2.0, true)
 			elif slot.module_id == "laser":
 				glow_line(turret + direction * 18 - direction.orthogonal() * 5, turret + direction * 26, module_color, 3)
 				glow_line(turret + direction * 18 + direction.orthogonal() * 5, turret + direction * 26, module_color, 3)
