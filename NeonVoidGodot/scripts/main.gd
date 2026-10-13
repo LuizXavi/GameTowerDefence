@@ -223,17 +223,7 @@ func build_game() -> void:
 
 func select_shop_tab(tab_id: String) -> void:
 	shop_tab = tab_id
-	if is_instance_valid(shop_tabs_row):
-		var tab_colors := {"attack": PINK, "towers": LIME, "defense": CYAN}
-		var tab_map := {"TabAttack": "attack", "TabTowers": "towers", "TabDefense": "defense"}
-		for child in shop_tabs_row.get_children():
-			if child is Button and tab_map.has(child.name):
-				var tid: String = tab_map[child.name]
-				var col: Color = tab_colors[tid]
-				var active := (tid == shop_tab)
-				child.add_theme_stylebox_override("normal", UIFactory.box(col, Color("3b1778") if active else Color("140b29"), 10))
-				child.add_theme_color_override("font_color", Color.WHITE if active else col)
-				child.queue_redraw()
+	ShopView.style_tabs(shop_tabs_row, shop_tab)
 	rebuild_shop_cards()
 	refresh_hud()
 
@@ -246,162 +236,13 @@ func buy_in_game_tower_slot(slot_idx: int) -> void:
 		refresh_hud()
 
 func rebuild_shop_cards() -> void:
-	if not is_instance_valid(shop_grid):
-		return
-	for child in shop_grid.get_children():
-		shop_grid.remove_child(child)
-		child.queue_free()
-	upgrades.clear()
-	shop_items.clear()
-	var narrow := size.x < 1000
-	var card_index := 0
-	if shop_tab == "towers":
-		for slot_idx in state.tower_loadout.size():
-			card_index += 1
-			var mod_id: String = state.tower_loadout[slot_idx]
-			var info: Array = MODULE_INFO.get(mod_id, MODULE_INFO["plasma"])
-			var col: Color = info[2]
-			var buy := UIFactory.button("", func(): buy_in_game_tower_slot(slot_idx), col)
-			buy.name = "TowerSlot%d" % (slot_idx + 1)
-			buy.alignment = HORIZONTAL_ALIGNMENT_LEFT
-			buy.custom_minimum_size.y = 76 if narrow else 92
-			buy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			buy.add_theme_font_override("font", BODY)
-			buy.add_theme_font_size_override("font_size", 16)
-			buy.add_theme_color_override("font_color", col)
-			buy.draw.connect(func(): NeonIcons.draw_tower(buy, mod_id, 13.0, Vector2(buy.size.x - 32.0, buy.size.y * 0.5)))
-			shop_grid.add_child(buy)
-			upgrades.append(buy)
-			shop_items.append({"kind": "tower_slot", "slot_index": slot_idx, "button": buy})
-	var upg_list: Array = UPG_ATTACK_IDS if shop_tab == "attack" else (UPG_TOWER_IDS if shop_tab == "towers" else UPG_DEFENSE_IDS)
-	for upg_id in upg_list:
-		card_index += 1
-		var uinfo: Array = IN_GAME_UPG_INFO[upg_id]
-		var ucol: Color = uinfo[2]
-		var buy := UIFactory.button("", func(): buy_in_game_upgrade(upg_id), ucol)
-		buy.name = "Upgrade%d" % card_index
-		buy.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		buy.custom_minimum_size.y = 76 if narrow else 92
-		buy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		buy.add_theme_font_override("font", BODY)
-		buy.add_theme_font_size_override("font_size", 16)
-		buy.add_theme_color_override("font_color", ucol)
-		buy.draw.connect(func():
-			var is_locked_shield: bool = (upg_id in ["shield_cap", "shield_regen", "shield_pulse"] and not state.shield_unlocked())
-			NeonIcons.draw_ui(buy, "lock" if is_locked_shield else str(upg_id), 12.5, Vector2(buy.size.x - 32.0, buy.size.y * 0.5), Color("756d83") if is_locked_shield else ucol)
-		)
-		shop_grid.add_child(buy)
-		upgrades.append(buy)
-		shop_items.append({"kind": "upgrade", "id": upg_id, "button": buy})
-
+	ShopView.rebuild_cards(self)
 
 func build_menu() -> void:
-	if is_instance_valid(menu):
-		remove_child(menu)
-		menu.queue_free()
-	menu = Control.new()
-	menu.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(menu)
-	var bg := ColorRect.new()
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var shader_material := ShaderMaterial.new()
-	shader_material.shader = preload("res://shaders/menu.gdshader")
-	bg.material = shader_material
-	menu.add_child(bg)
-	var scroll := ScrollContainer.new()
-	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.follow_focus = true
-	menu.add_child(scroll)
-	var centering := CenterContainer.new()
-	centering.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	centering.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.add_child(centering)
-	var margins := UIFactory.margin(centering, 28)
-	var stack := VBoxContainer.new()
-	stack.name = "MenuContent"
-	stack.custom_minimum_size.x = minf(960, maxf(480, size.x - 70))
-	stack.add_theme_constant_override("separation", 7)
-	margins.add_child(stack)
-	if store.best > 0:
-		UIFactory.center_label(stack, "♛  RECORDE: %d" % store.best, 12, AMBER, true)
-	UIFactory.center_label(stack, "//  D E F E S A  I N C R E M E N T A L  //", 12, CYAN, true)
-	var title := UIFactory.center_label(stack, "NEON\nVOID", 82, Color.WHITE, true)
-	title.add_theme_constant_override("line_spacing", -14)
-	var title_material := ShaderMaterial.new()
-	title_material.shader = preload("res://shaders/title.gdshader")
-	title.material = title_material
-	UIFactory.center_label(stack, "Clique. Evolua. Sobreviva.", 24, Color("d4cee0"))
-	UIFactory.spacer(stack, 10)
-	var start := UIFactory.button("▶  JOGAR AGORA", start_game, PINK, true)
-	start.name = "Start"
-	start.custom_minimum_size = Vector2(328, 58)
-	start.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	start.add_theme_font_size_override("font_size", 18)
-	stack.add_child(start)
-	var modules_button := UIFactory.button("⌖  MÓDULOS DA TORRE", show_modules, PINK)
-	modules_button.name = "Modules"
-	modules_button.custom_minimum_size = Vector2(328, 48)
-	modules_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	stack.add_child(modules_button)
-	UIFactory.center_label(stack, "Slots liberados: %d/7" % store.unlocked_tower_slots, 16, CYAN)
-	var loadout := UIFactory.center_label(stack, tower_loadout_text(), 17, MUTED)
-	loadout.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var research_button := UIFactory.button("⌬  LABORATÓRIO DE PESQUISAS", show_research, CYAN)
-	research_button.name = "Research"
-	research_button.custom_minimum_size = Vector2(328, 48)
-	research_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	stack.add_child(research_button)
-	var codex_button := UIFactory.button("◈  CODEX DOS INIMIGOS", show_codex, AMBER)
-	codex_button.name = "Codex"
-	codex_button.custom_minimum_size = Vector2(328, 44)
-	codex_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	stack.add_child(codex_button)
-	UIFactory.center_label(stack, pieces_text(), 14, AMBER, true)
-	UIFactory.center_label(stack, "ou pressione ENTER", 14, MUTED)
-	UIFactory.spacer(stack, 5)
-	UIFactory.center_label(stack, "✧  Dica: Combos aumentam dano e ouro — não erre!", 18, Color("d9cdb8"))
-	UIFactory.spacer(stack, 12)
-	var cards := BoxContainer.new()
-	cards.name = "Cards"
-	cards.vertical = size.x < 700
-	cards.add_theme_constant_override("separation", 12)
-	stack.add_child(cards)
-	var headings := ["1 • DESTRUA", "2 • EVOLUA", "3 • SOBREVIVA"]
-	var descriptions := ["Toque/clique nos inimigos antes que atinjam sua base. Combos dão mais dano e ouro.", "Gaste ouro em Clique, Torreta Auto, Crítico e Escudo. Custo sobe, poder explode.", "Segure as waves e o BOSS. Pulso Nova (ESPAÇO) limpa a tela em emergência."]
-	for i in 3:
-		var content := UIFactory.panel(cards, [PINK, LIME, CYAN][i])
-		content.add_child(UIFactory.label(["⌖", "↑", "✧"][i], 24, [PINK, LIME, CYAN][i], true))
-		content.add_child(UIFactory.label(headings[i], 13, [PINK, LIME, CYAN][i], true))
-		var desc := UIFactory.label(descriptions[i], 18, Color("bfb7cf"))
-		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		content.add_child(desc)
-	var lower := BoxContainer.new()
-	lower.name = "Lower"
-	lower.vertical = size.x < 1000
-	lower.add_theme_constant_override("separation", 12)
-	stack.add_child(lower)
-	var controls := UIFactory.panel(lower, CYAN)
-	controls.add_child(UIFactory.label("CONTROLES", 12, CYAN, true))
-	controls.add_child(UIFactory.label("Mouse / Touch     Toque nos inimigos para atirar\n1–4   Upgrades        ESPAÇO   Nova\nP / ESC   Pausa       R   Reiniciar", 18, Color("bfb7cf")))
-	ranking(lower, true)
-	UIFactory.spacer(stack, 8)
-	var mute := UIFactory.button("Som: OFF" if store.muted else "Som: ON", toggle_mute)
-	mute.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	stack.add_child(mute)
-	mute_buttons.append(mute)
-	UIFactory.center_label(stack, "v1.0 • Godot • recorde local", 13, Color("726781"))
+	MenuScreen.build(self)
 
 func ranking(parent: Node, compact := false) -> Control:
-	var content := UIFactory.panel(parent, AMBER)
-	content.add_child(UIFactory.label("♛  RANKING LOCAL                         TOP 10", 11, AMBER, true))
-	if store.scores.is_empty():
-		content.add_child(UIFactory.label("Nenhum recorde ainda.\nSeja o primeiro a dominar o Void!", 18, MUTED))
-	else:
-		for i in mini(store.scores.size(), 3 if compact else 10):
-			var entry: Dictionary = store.scores[i]
-			content.add_child(UIFactory.label("#%d   %-10s     W%d     %d" % [i + 1, entry.name, entry.wave, entry.score], 15, AMBER if i == 0 else Color("cfc7dd")))
-	return content.get_parent()
+	return MenuScreen.build_ranking(parent, store.scores, compact)
 
 func responsive() -> void:
 	if not is_instance_valid(body):
@@ -449,12 +290,7 @@ func start_game() -> void:
 	select_shop_tab("attack")
 
 func pieces_text(values: Array = store.pieces) -> String:
-	return "  ".join(PackedStringArray([
-		"■ %d" % int(values[0]),
-		"▲ %d" % int(values[1]),
-		"⬢ %d" % int(values[2]),
-		"✦ %d" % int(values[3])
-	]))
+	return MenuScreen.pieces_text(values)
 
 func focus_menu_button(node_name: String) -> void:
 	var target := menu.find_child(node_name, true, false) as Control
@@ -462,11 +298,7 @@ func focus_menu_button(node_name: String) -> void:
 		target.grab_focus()
 
 func tower_loadout_text() -> String:
-	var summary: PackedStringArray = []
-	for index in store.unlocked_tower_slots:
-		var module_id: String = store.tower_loadout[index]
-		summary.append("%d · %s" % [index + 1, MODULE_INFO[module_id][0]])
-	return "   |   ".join(summary)
+	return MenuScreen.tower_loadout_text(store)
 
 func show_modules() -> void:
 	phase = "modules"
@@ -480,24 +312,7 @@ func show_modules() -> void:
 	build_module_cards()
 
 func build_module_cards() -> void:
-	for child in modules_content.get_children():
-		if child.name == "DynamicModules":
-			modules_content.remove_child(child)
-			child.queue_free()
-	var dynamic := VBoxContainer.new()
-	dynamic.name = "DynamicModules"
-	dynamic.add_theme_constant_override("separation", 10)
-	modules_content.add_child(dynamic)
-	UIFactory.center_label(dynamic, pieces_text(), 16, AMBER, true)
-	append_tower_slots(dynamic)
-	append_slot_expansion(dynamic)
-	append_module_cards(dynamic)
-	append_module_status(dynamic)
-	var close := UIFactory.button("VOLTAR AO MENU", close_modules, PINK)
-	close.name = "CloseModules"
-	dynamic.add_child(close)
-	contain_modal_focus()
-	focus_first_modal_action()
+	ModulesScreen.build(self)
 
 func section_header_with_icon(parent: Node, title_text: String, icon_id: String, color: Color) -> HBoxContainer:
 	var row := HBoxContainer.new()
@@ -537,172 +352,16 @@ func toggle_hide_completed_research() -> void:
 		toggle_btn.grab_focus()
 
 func append_module_cards(parent: VBoxContainer) -> void:
-	section_header_with_icon(parent, "PESQUISA DE MÓDULOS", "towers", PINK)
-	if phase == "modules":
-		append_hide_completed_button(parent)
-	var undiscovered := false
-	var shown_count := 0
-	for module_id in MODULE_IDS:
-		if not store.module_visible(module_id):
-			undiscovered = true
-			continue
-		var info: Array = MODULE_INFO[module_id]
-		var unlocked: bool = store.module_unlocked(module_id)
-		if hide_completed_research and unlocked:
-			continue
-		shown_count += 1
-		var card := UIFactory.panel(parent, info[2])
-
-		var card_row := HBoxContainer.new()
-		card_row.add_theme_constant_override("separation", 14)
-		card.add_child(card_row)
-
-		var icon := Control.new()
-		icon.custom_minimum_size = Vector2(58, 58)
-		icon.draw.connect(func(): NeonIcons.draw_tower(icon, module_id))
-		card_row.add_child(icon)
-
-		var text_col := VBoxContainer.new()
-		text_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		text_col.add_theme_constant_override("separation", 3)
-		card_row.add_child(text_col)
-
-		var heading := UIFactory.label(info[0], 17, info[2], true)
-		heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		text_col.add_child(heading)
-		var desc := UIFactory.label(info[1], 16, Color("d4cee0"))
-		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		text_col.add_child(desc)
-
-		var action: Button
-		if unlocked:
-			var status := UIFactory.label("✓ PESQUISADO • disponível em todos os slots", 15, LIME)
-			status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			card.add_child(status)
-			continue
-		else:
-			var cost: Dictionary = store.module_cost(module_id)
-			var index: int = cost.piece_index
-			var costs := UIFactory.label("BLOQUEADO • Custo: %d %s • Você tem: %d" % [int(cost.amount), PIECE_SHORT[index], store.pieces[index]], 16, MUTED)
-			costs.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			card.add_child(costs)
-			action = UIFactory.button("PESQUISAR" if store.can_research_module(module_id) else "PESQUISAR • PEÇAS INSUFICIENTES", func(): buy_tower_module(module_id), info[2])
-			action.disabled = not store.can_research_module(module_id)
-		action.name = "Module_" + module_id
-		card.add_child(action)
-	if shown_count == 0 and hide_completed_research:
-		UIFactory.center_label(parent, "✓ Todos os módulos descobertos já foram pesquisados.", 15, LIME)
-	if undiscovered:
-		var next_wave := 5
-		for mid in MODULE_IDS:
-			if not store.module_visible(mid):
-				next_wave = int(store.MODULE_WAVES[mid])
-				break
-		var hint := UIFactory.label("◇  Novo módulo: alcance a wave %d para descobrir." % next_wave, 18, MUTED)
-		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		parent.add_child(hint)
+	ModulesScreen.append_module_cards(self, parent)
 
 func append_tower_slots(parent: VBoxContainer) -> void:
-	UIFactory.center_label(parent, "SLOTS LIBERADOS: %d/7" % store.unlocked_tower_slots, 16, CYAN, true)
-	for index in store.unlocked_tower_slots:
-		var selected: String = store.tower_loadout[index]
-		var card := UIFactory.panel(parent, MODULE_INFO[selected][2])
-
-		var head_row := HBoxContainer.new()
-		head_row.add_theme_constant_override("separation", 10)
-		card.add_child(head_row)
-
-		var slot_icon := Control.new()
-		slot_icon.custom_minimum_size = Vector2(32, 32)
-		slot_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		slot_icon.draw.connect(func(): NeonIcons.draw_tower(slot_icon, selected, 11.0))
-		head_row.add_child(slot_icon)
-
-		var heading := UIFactory.label("SLOT %d  •  %s" % [index + 1, MODULE_INFO[selected][0]], 16, MODULE_INFO[selected][2], true)
-		heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		heading.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		head_row.add_child(heading)
-
-		var choices := GridContainer.new()
-		choices.name = "SlotChoices%d" % index
-		choices.columns = 1 if size.x < 700 else 3
-		choices.add_theme_constant_override("h_separation", 8)
-		choices.add_theme_constant_override("v_separation", 8)
-		card.add_child(choices)
-		for module_id in MODULE_IDS:
-			if not store.module_unlocked(module_id):
-				continue
-			var module_names: Dictionary = {
-				"plasma": "PLASMA",
-				"cryo": "CRIOGÊNICA",
-				"arc": "ARCO",
-				"pulse": "SÍSMICA",
-				"laser": "LASER",
-				"vortex": "VÓRTICE",
-				"railgun": "RAILGUN"
-			}
-			var module_name: String = str(module_names.get(module_id, module_id.to_upper()))
-			var equipped: bool = selected == module_id
-			var action := UIFactory.button("", func(): equip_tower_module(index, module_id), MODULE_INFO[module_id][2])
-			action.name = "Slot%d_%s" % [index, module_id]
-			action.tooltip_text = "Equipado neste slot" if equipped else "Equipar %s no slot %d" % [MODULE_INFO[module_id][0], index + 1]
-			action.disabled = equipped
-			action.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			action.custom_minimum_size = Vector2(0, 48)
-
-			var btn_content := HBoxContainer.new()
-			btn_content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-			btn_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			btn_content.alignment = BoxContainer.ALIGNMENT_CENTER
-			btn_content.add_theme_constant_override("separation", 8)
-			action.add_child(btn_content)
-
-			if equipped:
-				var check := UIFactory.label("✓", 13, LIME, true)
-				check.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				btn_content.add_child(check)
-
-			var btn_icon := Control.new()
-			btn_icon.custom_minimum_size = Vector2(26, 26)
-			btn_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			btn_icon.draw.connect(func(): NeonIcons.draw_tower(btn_icon, module_id, 8.5))
-			btn_content.add_child(btn_icon)
-
-			var btn_label := UIFactory.label(module_name, 12, Color.WHITE if equipped else MODULE_INFO[module_id][2], true)
-			btn_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			btn_content.add_child(btn_label)
-
-			choices.add_child(action)
+	ModulesScreen.append_tower_slots(self, parent)
 
 func append_slot_expansion(parent: VBoxContainer, laboratory := false) -> void:
-	var index: int = store.unlocked_tower_slots
-	if index >= 7:
-		parent.add_child(UIFactory.label("✓ EXPANSÃO CONCLUÍDA • 7/7 slots liberados", 17, LIME))
-		return
-	if not store.slot_visible(index):
-		if not laboratory:
-			var hint := UIFactory.label("◇ Próximo slot: alcance a wave %d para descobrir." % store.SLOT_WAVES[index], 18, MUTED)
-			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			parent.add_child(hint)
-		return
-	var card := UIFactory.panel(parent, CYAN)
-	card.add_child(UIFactory.label("EXPANSÃO  •  SLOT %d" % (index + 1), 17, CYAN, true))
-	var cost: Dictionary = store.slot_cost(index)
-	var piece_index: int = cost.piece_index
-	var costs := UIFactory.label("DESCOBERTO • Custo: %d %s • Você tem: %d" % [int(cost.amount), PIECE_SHORT[piece_index], store.pieces[piece_index]], 17, MUTED)
-	costs.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	card.add_child(costs)
-	var available: bool = store.can_research_slot(index)
-	var action := UIFactory.button("PESQUISAR SLOT %d" % (index + 1) if available else "PESQUISAR • PEÇAS INSUFICIENTES", func(): buy_tower_slot(index), CYAN)
-	action.name = "ResearchSlot%d" % index
-	action.disabled = not available
-	card.add_child(action)
+	ModulesScreen.append_slot_expansion(self, parent, laboratory)
 
 func append_module_status(parent: VBoxContainer) -> void:
-	if not module_status.is_empty():
-		var status := UIFactory.label(module_status, 17, AMBER)
-		status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		parent.add_child(status)
+	ModulesScreen.append_module_status(self, parent)
 
 func buy_tower_module(module_id: String) -> void:
 	var previous_pieces: Array = store.pieces.duplicate()
@@ -822,66 +481,7 @@ func show_research() -> void:
 	build_research_cards()
 
 func build_research_cards() -> void:
-	for child in research_content.get_children():
-		if child.name == "DynamicResearch":
-			research_content.remove_child(child)
-			child.queue_free()
-	var dynamic := VBoxContainer.new()
-	dynamic.name = "DynamicResearch"
-	dynamic.add_theme_constant_override("separation", 10)
-	research_content.add_child(dynamic)
-	UIFactory.center_label(dynamic, pieces_text(), 16, AMBER, true)
-	append_hide_completed_button(dynamic)
-	section_header_with_icon(dynamic, "PESQUISAS DE ATAQUE E DEFESA", "attack", CYAN)
-	var combat_shown := 0
-	var tower_shown := 0
-	var shield_shown := 0
-	for i in RESEARCH_NAMES.size():
-		if i == 18:
-			if combat_shown == 0 and hide_completed_research:
-				UIFactory.center_label(dynamic, "✓ Todas as pesquisas de ataque e defesa foram concluídas.", 15, LIME)
-			section_header_with_icon(dynamic, "ESPECIALIZAÇÃO DE TORRETAS", "towers", PINK)
-		elif i == 25:
-			if tower_shown == 0 and hide_completed_research:
-				UIFactory.center_label(dynamic, "✓ Todas as especializações de torretas foram concluídas.", 15, LIME)
-			section_header_with_icon(dynamic, "TECNOLOGIA DE ESCUDOS", "defense", CYAN)
-		var level: int = store.research[i]
-		var maximum: int = store.RESEARCH_MAX[i]
-		if hide_completed_research and level >= maximum:
-			continue
-		if i < 18:
-			combat_shown += 1
-		elif i < 25:
-			tower_shown += 1
-		else:
-			shield_shown += 1
-		var cost: int = store.research_cost(i)
-		var p_idx: int = store.piece_index_for_research(i)
-		var words := "%s  %s  •  Nv.%d/%d\n%s\n" % [PIECE_SHORT[p_idx], RESEARCH_NAMES[i], level, maximum, RESEARCH_DESCS[i]]
-		words += "✓ PESQUISA CONCLUÍDA" if level >= maximum else "Custo: %d %s   •   Você tem: %d" % [cost, PIECE_SHORT[p_idx], store.pieces[p_idx]]
-		var btn_color: Color = MODULE_INFO[MODULE_IDS[i - 18]][2] if (i >= 18 and i < 25) else COLORS[p_idx]
-		var research_button := UIFactory.button(words, func(): buy_research(i), btn_color)
-		research_button.name = "Research%d" % (i + 1)
-		research_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		research_button.custom_minimum_size.y = 78
-		research_button.disabled = not store.can_research(i)
-		if i >= 18 and i < 25:
-			var tower_mod_id: String = MODULE_IDS[i - 18]
-			research_button.draw.connect(func(): NeonIcons.draw_tower(research_button, tower_mod_id, 13.0, Vector2(research_button.size.x - 36.0, research_button.size.y * 0.5)))
-		else:
-			var r_icon := research_icon_id(i)
-			research_button.draw.connect(func(): NeonIcons.draw_ui(research_button, r_icon, 13.0, Vector2(research_button.size.x - 36.0, research_button.size.y * 0.5), btn_color))
-		dynamic.add_child(research_button)
-	if shield_shown == 0 and hide_completed_research:
-		UIFactory.center_label(dynamic, "✓ Todas as pesquisas de tecnologia de escudos foram concluídas.", 15, LIME)
-	append_module_cards(dynamic)
-	append_slot_expansion(dynamic, true)
-	append_module_status(dynamic)
-	var close := UIFactory.button("VOLTAR AO MENU", close_research, CYAN)
-	close.name = "CloseResearch"
-	dynamic.add_child(close)
-	contain_modal_focus()
-	focus_first_modal_action()
+	ResearchScreen.build(self)
 
 func research_icon_id(index: int) -> String:
 	return GameData.research_icon(index)
@@ -908,60 +508,7 @@ func close_research() -> void:
 func show_codex() -> void:
 	phase = "codex"
 	var content := modal()
-	content.custom_minimum_size.x = minf(760, size.x - 48)
-	UIFactory.center_label(content, "◈  CODEX DOS INIMIGOS", 23, AMBER, true)
-	UIFactory.center_label(content, "Descobertas registradas durante suas expedições ao Void.", 18, Color("cfc7dd"))
-	for enemy_id in CODEX_ORDER:
-		var known: bool = store.enemy_stats.has(enemy_id) and store.enemy_stats[enemy_id].discovered
-		if not known:
-			var unknown := UIFactory.button("◇  ???\nContinue avançando pelas waves para descobrir.", func(): pass, Color("42364f"))
-			unknown.disabled = true
-			unknown.custom_minimum_size.y = 62
-			content.add_child(unknown)
-			continue
-		var info: Array = ENEMY_INFO[enemy_id]
-		var stats: Dictionary = store.enemy_stats[enemy_id]
-		var is_special_card: bool = enemy_id.begins_with("elite") or enemy_id.begins_with("boss")
-		var border_color: Color = AMBER if is_special_card else CYAN
-
-		var card_frame := PanelContainer.new()
-		card_frame.add_theme_stylebox_override("panel", UIFactory.box(border_color, Color("140b29"), 12))
-		card_frame.custom_minimum_size.y = 96
-		content.add_child(card_frame)
-
-		var card_row := HBoxContainer.new()
-		card_row.add_theme_constant_override("separation", 16)
-		card_frame.add_child(card_row)
-
-		var icon := Control.new()
-		icon.custom_minimum_size = Vector2(76, 76)
-		icon.draw.connect(func(): NeonIcons.draw_enemy(icon, enemy_id))
-		card_row.add_child(icon)
-
-		var text_col := VBoxContainer.new()
-		text_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		text_col.add_theme_constant_override("separation", 2)
-		card_row.add_child(text_col)
-
-		var title_lbl := UIFactory.label(info[0], 18, border_color, true)
-		text_col.add_child(title_lbl)
-
-		var line1 := "Abates: %d   •   Peças: %d   •   Maior wave: %d" % [stats.kills, stats.pieces, stats.max_wave]
-		var lbl1 := UIFactory.label(line1, 15, Color.WHITE)
-		text_col.add_child(lbl1)
-
-		var line2 := "Drop: %s   •   Fraqueza: %s" % [info[1], info[2]]
-		var lbl2 := UIFactory.label(line2, 14, MUTED)
-		text_col.add_child(lbl2)
-
-		var line3 := "%s   •   Pesquisa: %s" % [info[3], info[4]]
-		var lbl3 := UIFactory.label(line3, 14, MUTED)
-		text_col.add_child(lbl3)
-
-	var close := UIFactory.button("VOLTAR AO MENU", close_codex, AMBER)
-	close.name = "CloseCodex"
-	content.add_child(close)
-	close.grab_focus()
+	CodexScreen.build(self, content)
 
 func close_codex() -> void:
 	phase = "menu"
@@ -1146,55 +693,7 @@ func refresh_hud() -> void:
 	mini_stats.text = "%s abates   |   %s   |   %s dmg   |   %s/s" % [NumberFormat.format_int(state.kills), time_text(state.play_time), NumberFormat.format_int(state.click_damage()), NumberFormat.format_int(state.auto_dps())]
 	nova_button.text = "NOVA!\nESPAÇO" if state.charge >= 100 else "NOVA\n%d%%" % state.charge
 	nova_button.disabled = state.charge < 100
-	for item in shop_items:
-		var btn: Button = item["button"]
-		if not is_instance_valid(btn):
-			continue
-		if item["kind"] == "tower_slot":
-			var slot_idx: int = int(item["slot_index"])
-			if slot_idx < 0 or slot_idx >= state.tower_loadout.size():
-				continue
-			var mod_id: String = state.tower_loadout[slot_idx]
-			var info: Array = MODULE_INFO.get(mod_id, MODULE_INFO["plasma"])
-			var lvl: int = state.tower_slot_level(slot_idx)
-			var c: int = state.tower_slot_cost(slot_idx)
-			var status_line: String = "COMPRAR TORRE  •  Ativa disparo" if lvl == 0 else "%s dano/s  •  Evoluir torre" % NumberFormat.format_int(state.slot_dps(slot_idx))
-			btn.text = "SLOT %d: %s  •  %s\n%s\n%s   ◈ %s" % [
-				slot_idx + 1,
-				info[0].to_upper(),
-				"INATIVA" if lvl == 0 else ("Nv.%d" % lvl),
-				status_line,
-				"▰".repeat(mini(lvl, 10)) + "▱".repeat(maxi(0, 10 - lvl)),
-				NumberFormat.format(float(c), 1)
-			]
-			btn.disabled = state.gold < c
-			btn.queue_redraw()
-		else:
-			var upg_id: String = item["id"]
-			var uinfo: Array = IN_GAME_UPG_INFO[upg_id]
-			var lvl: int = state.upg_level(upg_id)
-			var max_lvl: int = int(state.UPGRADE_DEFS[upg_id].get("max_level", 999))
-			var c: int = state.upg_cost(upg_id)
-			var detail: String = uinfo[1]
-			if upg_id == "click_dmg":
-				detail = "%s dano/clique (+25%% a cada 5 nv)" % NumberFormat.format_int(state.click_damage())
-			if upg_id in ["shield_cap", "shield_regen", "shield_pulse"] and not state.shield_unlocked():
-				btn.text = "%s  •  BLOQUEADO\nRequer pesquisa: Gerador de Escudo Quântico\nDesbloqueie no Laboratório" % uinfo[0]
-				btn.disabled = true
-			elif lvl >= max_lvl:
-				btn.text = "%s  •  Nv.%d (MÁX)\n%s\n✓ NÍVEL MÁXIMO ATINGIDO" % [uinfo[0], lvl, detail]
-				btn.disabled = true
-			else:
-				var lvl_text := ("Nv.%d/%d" % [lvl, max_lvl]) if max_lvl < 900 else ("Nv.%d" % lvl)
-				btn.text = "%s  •  %s\n%s\n%s   ◈ %s" % [
-					uinfo[0],
-					lvl_text,
-					detail,
-					"▰".repeat(mini(lvl, 10)) + "▱".repeat(maxi(0, 10 - lvl)),
-					NumberFormat.format(float(c), 1)
-				]
-				btn.disabled = not state.can_buy_upgrade(upg_id)
-			btn.queue_redraw()
+	ShopView.refresh_items(self)
 
 func _process(dt: float) -> void:
 	state.tick(dt)
