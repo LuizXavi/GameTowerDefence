@@ -75,9 +75,7 @@ func _ready() -> void:
 		store.load_data()
 	state.configure_research(store.research)
 	state.configure_tower_loadout(store.tower_loadout.slice(0, store.unlocked_tower_slots))
-	var ui_theme := Theme.new()
-	ui_theme.default_font = BODY
-	ui_theme.default_font_size = 18
+	theme = preload("res://ui/neon_theme.tres")
 	for kind in ["click", "crit", "kill", "leak", "buy", "deny", "wave", "bomb", "gameover", "start", "shield"]:
 		sfx[kind] = load("res://assets/audio/" + kind + ".wav")
 	# Síntese procedural de efeitos sonoros especiais em tempo real
@@ -107,130 +105,41 @@ func _ready() -> void:
 	responsive()
 	show_menu()
 
-func box(color: Color = Color("8b5cf6"), fill: Color = Color("110727"), radius: int = 16) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = fill
-	style.border_color = Color(color, 0.3)
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(radius)
-	style.content_margin_left = 16
-	style.content_margin_right = 16
-	style.content_margin_top = 12
-	style.content_margin_bottom = 12
-	return style
-
-func label(words: String, font_size := 18, color := Color.WHITE, display := false) -> Label:
-	var node := Label.new()
-	node.text = words
-	node.add_theme_font_size_override("font_size", font_size)
-	node.add_theme_color_override("font_color", color)
-	if display:
-		node.add_theme_font_override("font", DISPLAY)
-	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return node
-
-func button(words: String, callback: Callable, color := CYAN, primary := false) -> Button:
-	var node := Button.new()
-	node.text = words
-	node.custom_minimum_size.y = 44
-	node.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	node.add_theme_font_override("font", DISPLAY)
-	node.add_theme_font_size_override("font_size", 12)
-	node.add_theme_stylebox_override("normal", box(color, Color("5122a1") if primary else Color("140b29"), 12))
-	if primary:
-		var gradient_style := StyleBoxTexture.new()
-		gradient_style.texture = preload("res://assets/button_gradient.svg")
-		for side in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
-			gradient_style.set_texture_margin(side, 16)
-			gradient_style.set_content_margin(side, 14)
-		node.add_theme_stylebox_override("normal", gradient_style)
-	var hover := box(color, Color("281448"), 12)
-	hover.border_color = color
-	hover.shadow_color = Color(color, 0.2)
-	hover.shadow_size = 12
-	node.add_theme_stylebox_override("hover", hover)
-	node.add_theme_stylebox_override("pressed", box(color, Color("38204d"), 12))
-	node.add_theme_stylebox_override("focus", box(color, Color(0, 0, 0, 0), 12))
-	node.add_theme_stylebox_override("disabled", box(Color("42364f"), Color("100a20"), 12))
-	node.add_theme_color_override("font_disabled_color", Color("756d83"))
-	node.pressed.connect(callback)
-	return node
-
-func panel(parent: Node, color := Color("8b5cf6")) -> VBoxContainer:
-	var frame := PanelContainer.new()
-	frame.add_theme_stylebox_override("panel", box(color))
-	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	parent.add_child(frame)
-	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", 8)
-	frame.add_child(content)
-	return content
-
-func margin(parent: Node, amount: int) -> MarginContainer:
-	var node := MarginContainer.new()
-	for side in ["left", "right", "top", "bottom"]:
-		node.add_theme_constant_override("margin_" + side, amount)
-	parent.add_child(node)
-	return node
-
-func center_label(parent: Node, words: String, font_size: int, color: Color, display := false) -> Label:
-	var node := label(words, font_size, color, display)
-	node.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	parent.add_child(node)
-	return node
-
-func spacer(parent: Node, height: float) -> void:
-	var node := Control.new()
-	node.custom_minimum_size.y = height
-	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.add_child(node)
-
-func make_bar(color: Color) -> ProgressBar:
-	var node := ProgressBar.new()
-	node.show_percentage = false
-	node.custom_minimum_size = Vector2(100, 8)
-	node.add_theme_stylebox_override("background", box(Color.TRANSPARENT, Color("282136"), 8))
-	var fill := box(Color.TRANSPARENT, color, 8)
-	fill.content_margin_top = 0
-	fill.content_margin_bottom = 0
-	node.add_theme_stylebox_override("fill", fill)
-	return node
-
 func build_game() -> void:
 	game = VBoxContainer.new()
 	game.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	game.add_theme_constant_override("separation", 0)
 	add_child(game)
 	var header_panel := PanelContainer.new()
-	header_panel.add_theme_stylebox_override("panel", box(Color("8b5cf6"), Color("0b0420"), 0))
+	header_panel.add_theme_stylebox_override("panel", UIFactory.box(Color("8b5cf6"), Color("0b0420"), 0))
 	game.add_child(header_panel)
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 22)
 	header_panel.add_child(header)
-	var logo := label("NEON VOID\nDEFESA INCREMENTAL", 12, CYAN, true)
+	var logo := UIFactory.label("NEON VOID\nDEFESA INCREMENTAL", 12, CYAN, true)
 	logo.name = "Logo"
 	header.add_child(logo)
-	hud_score = label("PONTOS\n0", 17, Color.WHITE, true)
+	hud_score = UIFactory.label("PONTOS\n0", 17, Color.WHITE, true)
 	header.add_child(hud_score)
-	hud_gold = label("◈ 0", 17, LIME, true)
+	hud_gold = UIFactory.label("◈ 0", 17, LIME, true)
 	header.add_child(hud_gold)
-	hud_pieces = label("■0 ▲0 ⬢0 ✦0", 12, AMBER, true)
+	hud_pieces = UIFactory.label("■0 ▲0 ⬢0 ✦0", 12, AMBER, true)
 	header.add_child(hud_pieces)
-	hud_wave = label("WAVE 1", 13, PINK, true)
+	hud_wave = UIFactory.label("WAVE 1", 13, PINK, true)
 	header.add_child(hud_wave)
-	wave_bar = make_bar(PINK)
+	wave_bar = UIFactory.make_bar(PINK)
 	wave_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	wave_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	header.add_child(wave_bar)
-	hp_bar = make_bar(CYAN)
+	hp_bar = UIFactory.make_bar(CYAN)
 	hp_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	header.add_child(hp_bar)
-	hud_hp = label("100", 13, CYAN, true)
+	hud_hp = UIFactory.label("100", 13, CYAN, true)
 	header.add_child(hud_hp)
-	var mute := button("SOM", toggle_mute)
+	var mute := UIFactory.button("SOM", toggle_mute)
 	header.add_child(mute)
 	mute_buttons.append(mute)
-	header.add_child(button("Ⅱ", pause_game))
+	header.add_child(UIFactory.button("Ⅱ", pause_game))
 	body = BoxContainer.new()
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_theme_constant_override("separation", 0)
@@ -244,14 +153,14 @@ func build_game() -> void:
 	arena.state = state
 	arena.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	arena_wrap.add_child(arena)
-	mini_stats = label("", 15, MUTED)
+	mini_stats = UIFactory.label("", 15, MUTED)
 	mini_stats.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	mini_stats.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	mini_stats.position = Vector2(-330, 12)
 	mini_stats.size.x = 310
 	mini_stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	arena_wrap.add_child(mini_stats)
-	nova_button = button("NOVA\n20%", func(): state.nova(), PINK, true)
+	nova_button = UIFactory.button("NOVA\n20%", func(): state.nova(), PINK, true)
 	nova_button.name = "Nova"
 	nova_button.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	nova_button.offset_left = -104
@@ -261,14 +170,14 @@ func build_game() -> void:
 	arena_wrap.add_child(nova_button)
 	var shop_panel := PanelContainer.new()
 	shop_panel.name = "Upgrades"
-	shop_panel.add_theme_stylebox_override("panel", box(Color("8b5cf6"), Color("0b0420"), 0))
+	shop_panel.add_theme_stylebox_override("panel", UIFactory.box(Color("8b5cf6"), Color("0b0420"), 0))
 	shop_panel.custom_minimum_size.x = 308
 	body.add_child(shop_panel)
 	shop = VBoxContainer.new()
 	shop.add_theme_constant_override("separation", 10)
 	shop_panel.add_child(shop)
-	shop.add_child(label("↑  EVOLUÇÕES", 15, Color.WHITE, true))
-	shop.add_child(label("Gaste ouro por categoria.", 16, MUTED))
+	shop.add_child(UIFactory.label("↑  EVOLUÇÕES", 15, Color.WHITE, true))
+	shop.add_child(UIFactory.label("Gaste ouro por categoria.", 16, MUTED))
 	shop_tabs_row = HBoxContainer.new()
 	shop_tabs_row.name = "ShopTabs"
 	shop_tabs_row.add_theme_constant_override("separation", 6)
@@ -283,12 +192,12 @@ func build_game() -> void:
 		var tlabel: String = tdef[1]
 		var tcol: Color = tdef[2]
 		var tname: String = tdef[3]
-		var tbtn := button(tlabel, func(): select_shop_tab(tid), tcol, shop_tab == tid)
+		var tbtn := UIFactory.button(tlabel, func(): select_shop_tab(tid), tcol, shop_tab == tid)
 		tbtn.name = tname
 		tbtn.custom_minimum_size.y = 38
 		tbtn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tbtn.add_theme_font_size_override("font_size", 11)
-		tbtn.draw.connect(func(): draw_neon_ui_icon(tbtn, tid, 7.5, Vector2(18.0, tbtn.size.y * 0.5), Color.WHITE if shop_tab == tid else tcol))
+		tbtn.draw.connect(func(): NeonIcons.draw_ui(tbtn, tid, 7.5, Vector2(18.0, tbtn.size.y * 0.5), Color.WHITE if shop_tab == tid else tcol))
 		shop_tabs_row.add_child(tbtn)
 	shop_scroll = ScrollContainer.new()
 	shop_scroll.name = "ShopScroll"
@@ -304,12 +213,12 @@ func build_game() -> void:
 	shop_grid.add_theme_constant_override("h_separation", 10)
 	shop_scroll.add_child(shop_grid)
 	rebuild_shop_cards()
-	var note := label("1–4  atalho rápido\nESPAÇO  Pulso Nova\nP / ESC  pausar", 16, MUTED)
+	var note := UIFactory.label("1–4  atalho rápido\nESPAÇO  Pulso Nova\nP / ESC  pausar", 16, MUTED)
 	note.name = "Note"
 	shop.add_child(note)
-	var help := panel(shop, CYAN)
+	var help := UIFactory.panel(shop, CYAN)
 	help.get_parent().name = "TipPanel"
-	var words := label("COMBOS = MAIS PODER\nCompre cada torre na aba TORRES\ne pesquise Escudos no Laboratório.", 15, MUTED)
+	var words := UIFactory.label("COMBOS = MAIS PODER\nCompre cada torre na aba TORRES\ne pesquise Escudos no Laboratório.", 15, MUTED)
 	help.add_child(words)
 
 func select_shop_tab(tab_id: String) -> void:
@@ -322,7 +231,7 @@ func select_shop_tab(tab_id: String) -> void:
 				var tid: String = tab_map[child.name]
 				var col: Color = tab_colors[tid]
 				var active := (tid == shop_tab)
-				child.add_theme_stylebox_override("normal", box(col, Color("3b1778") if active else Color("140b29"), 10))
+				child.add_theme_stylebox_override("normal", UIFactory.box(col, Color("3b1778") if active else Color("140b29"), 10))
 				child.add_theme_color_override("font_color", Color.WHITE if active else col)
 				child.queue_redraw()
 	rebuild_shop_cards()
@@ -352,7 +261,7 @@ func rebuild_shop_cards() -> void:
 			var mod_id: String = state.tower_loadout[slot_idx]
 			var info: Array = MODULE_INFO.get(mod_id, MODULE_INFO["plasma"])
 			var col: Color = info[2]
-			var buy := button("", func(): buy_in_game_tower_slot(slot_idx), col)
+			var buy := UIFactory.button("", func(): buy_in_game_tower_slot(slot_idx), col)
 			buy.name = "TowerSlot%d" % (slot_idx + 1)
 			buy.alignment = HORIZONTAL_ALIGNMENT_LEFT
 			buy.custom_minimum_size.y = 76 if narrow else 92
@@ -360,7 +269,7 @@ func rebuild_shop_cards() -> void:
 			buy.add_theme_font_override("font", BODY)
 			buy.add_theme_font_size_override("font_size", 16)
 			buy.add_theme_color_override("font_color", col)
-			buy.draw.connect(func(): draw_tower_module_icon(buy, mod_id, 13.0, Vector2(buy.size.x - 32.0, buy.size.y * 0.5)))
+			buy.draw.connect(func(): NeonIcons.draw_tower(buy, mod_id, 13.0, Vector2(buy.size.x - 32.0, buy.size.y * 0.5)))
 			shop_grid.add_child(buy)
 			upgrades.append(buy)
 			shop_items.append({"kind": "tower_slot", "slot_index": slot_idx, "button": buy})
@@ -369,7 +278,7 @@ func rebuild_shop_cards() -> void:
 		card_index += 1
 		var uinfo: Array = IN_GAME_UPG_INFO[upg_id]
 		var ucol: Color = uinfo[2]
-		var buy := button("", func(): buy_in_game_upgrade(upg_id), ucol)
+		var buy := UIFactory.button("", func(): buy_in_game_upgrade(upg_id), ucol)
 		buy.name = "Upgrade%d" % card_index
 		buy.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		buy.custom_minimum_size.y = 76 if narrow else 92
@@ -379,7 +288,7 @@ func rebuild_shop_cards() -> void:
 		buy.add_theme_color_override("font_color", ucol)
 		buy.draw.connect(func():
 			var is_locked_shield: bool = (upg_id in ["shield_cap", "shield_regen", "shield_pulse"] and not state.shield_unlocked())
-			draw_neon_ui_icon(buy, "lock" if is_locked_shield else str(upg_id), 12.5, Vector2(buy.size.x - 32.0, buy.size.y * 0.5), Color("756d83") if is_locked_shield else ucol)
+			NeonIcons.draw_ui(buy, "lock" if is_locked_shield else str(upg_id), 12.5, Vector2(buy.size.x - 32.0, buy.size.y * 0.5), Color("756d83") if is_locked_shield else ucol)
 		)
 		shop_grid.add_child(buy)
 		upgrades.append(buy)
@@ -408,51 +317,51 @@ func build_menu() -> void:
 	centering.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	centering.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.add_child(centering)
-	var margins := margin(centering, 28)
+	var margins := UIFactory.margin(centering, 28)
 	var stack := VBoxContainer.new()
 	stack.name = "MenuContent"
 	stack.custom_minimum_size.x = minf(960, maxf(480, size.x - 70))
 	stack.add_theme_constant_override("separation", 7)
 	margins.add_child(stack)
 	if store.best > 0:
-		center_label(stack, "♛  RECORDE: %d" % store.best, 12, AMBER, true)
-	center_label(stack, "//  D E F E S A  I N C R E M E N T A L  //", 12, CYAN, true)
-	var title := center_label(stack, "NEON\nVOID", 82, Color.WHITE, true)
+		UIFactory.center_label(stack, "♛  RECORDE: %d" % store.best, 12, AMBER, true)
+	UIFactory.center_label(stack, "//  D E F E S A  I N C R E M E N T A L  //", 12, CYAN, true)
+	var title := UIFactory.center_label(stack, "NEON\nVOID", 82, Color.WHITE, true)
 	title.add_theme_constant_override("line_spacing", -14)
 	var title_material := ShaderMaterial.new()
 	title_material.shader = preload("res://shaders/title.gdshader")
 	title.material = title_material
-	center_label(stack, "Clique. Evolua. Sobreviva.", 24, Color("d4cee0"))
-	spacer(stack, 10)
-	var start := button("▶  JOGAR AGORA", start_game, PINK, true)
+	UIFactory.center_label(stack, "Clique. Evolua. Sobreviva.", 24, Color("d4cee0"))
+	UIFactory.spacer(stack, 10)
+	var start := UIFactory.button("▶  JOGAR AGORA", start_game, PINK, true)
 	start.name = "Start"
 	start.custom_minimum_size = Vector2(328, 58)
 	start.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	start.add_theme_font_size_override("font_size", 18)
 	stack.add_child(start)
-	var modules_button := button("⌖  MÓDULOS DA TORRE", show_modules, PINK)
+	var modules_button := UIFactory.button("⌖  MÓDULOS DA TORRE", show_modules, PINK)
 	modules_button.name = "Modules"
 	modules_button.custom_minimum_size = Vector2(328, 48)
 	modules_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	stack.add_child(modules_button)
-	center_label(stack, "Slots liberados: %d/7" % store.unlocked_tower_slots, 16, CYAN)
-	var loadout := center_label(stack, tower_loadout_text(), 17, MUTED)
+	UIFactory.center_label(stack, "Slots liberados: %d/7" % store.unlocked_tower_slots, 16, CYAN)
+	var loadout := UIFactory.center_label(stack, tower_loadout_text(), 17, MUTED)
 	loadout.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var research_button := button("⌬  LABORATÓRIO DE PESQUISAS", show_research, CYAN)
+	var research_button := UIFactory.button("⌬  LABORATÓRIO DE PESQUISAS", show_research, CYAN)
 	research_button.name = "Research"
 	research_button.custom_minimum_size = Vector2(328, 48)
 	research_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	stack.add_child(research_button)
-	var codex_button := button("◈  CODEX DOS INIMIGOS", show_codex, AMBER)
+	var codex_button := UIFactory.button("◈  CODEX DOS INIMIGOS", show_codex, AMBER)
 	codex_button.name = "Codex"
 	codex_button.custom_minimum_size = Vector2(328, 44)
 	codex_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	stack.add_child(codex_button)
-	center_label(stack, pieces_text(), 14, AMBER, true)
-	center_label(stack, "ou pressione ENTER", 14, MUTED)
-	spacer(stack, 5)
-	center_label(stack, "✧  Dica: Combos aumentam dano e ouro — não erre!", 18, Color("d9cdb8"))
-	spacer(stack, 12)
+	UIFactory.center_label(stack, pieces_text(), 14, AMBER, true)
+	UIFactory.center_label(stack, "ou pressione ENTER", 14, MUTED)
+	UIFactory.spacer(stack, 5)
+	UIFactory.center_label(stack, "✧  Dica: Combos aumentam dano e ouro — não erre!", 18, Color("d9cdb8"))
+	UIFactory.spacer(stack, 12)
 	var cards := BoxContainer.new()
 	cards.name = "Cards"
 	cards.vertical = size.x < 700
@@ -461,10 +370,10 @@ func build_menu() -> void:
 	var headings := ["1 • DESTRUA", "2 • EVOLUA", "3 • SOBREVIVA"]
 	var descriptions := ["Toque/clique nos inimigos antes que atinjam sua base. Combos dão mais dano e ouro.", "Gaste ouro em Clique, Torreta Auto, Crítico e Escudo. Custo sobe, poder explode.", "Segure as waves e o BOSS. Pulso Nova (ESPAÇO) limpa a tela em emergência."]
 	for i in 3:
-		var content := panel(cards, [PINK, LIME, CYAN][i])
-		content.add_child(label(["⌖", "↑", "✧"][i], 24, [PINK, LIME, CYAN][i], true))
-		content.add_child(label(headings[i], 13, [PINK, LIME, CYAN][i], true))
-		var desc := label(descriptions[i], 18, Color("bfb7cf"))
+		var content := UIFactory.panel(cards, [PINK, LIME, CYAN][i])
+		content.add_child(UIFactory.label(["⌖", "↑", "✧"][i], 24, [PINK, LIME, CYAN][i], true))
+		content.add_child(UIFactory.label(headings[i], 13, [PINK, LIME, CYAN][i], true))
+		var desc := UIFactory.label(descriptions[i], 18, Color("bfb7cf"))
 		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		content.add_child(desc)
 	var lower := BoxContainer.new()
@@ -472,26 +381,26 @@ func build_menu() -> void:
 	lower.vertical = size.x < 1000
 	lower.add_theme_constant_override("separation", 12)
 	stack.add_child(lower)
-	var controls := panel(lower, CYAN)
-	controls.add_child(label("CONTROLES", 12, CYAN, true))
-	controls.add_child(label("Mouse / Touch     Toque nos inimigos para atirar\n1–4   Upgrades        ESPAÇO   Nova\nP / ESC   Pausa       R   Reiniciar", 18, Color("bfb7cf")))
+	var controls := UIFactory.panel(lower, CYAN)
+	controls.add_child(UIFactory.label("CONTROLES", 12, CYAN, true))
+	controls.add_child(UIFactory.label("Mouse / Touch     Toque nos inimigos para atirar\n1–4   Upgrades        ESPAÇO   Nova\nP / ESC   Pausa       R   Reiniciar", 18, Color("bfb7cf")))
 	ranking(lower, true)
-	spacer(stack, 8)
-	var mute := button("Som: OFF" if store.muted else "Som: ON", toggle_mute)
+	UIFactory.spacer(stack, 8)
+	var mute := UIFactory.button("Som: OFF" if store.muted else "Som: ON", toggle_mute)
 	mute.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	stack.add_child(mute)
 	mute_buttons.append(mute)
-	center_label(stack, "v1.0 • Godot • recorde local", 13, Color("726781"))
+	UIFactory.center_label(stack, "v1.0 • Godot • recorde local", 13, Color("726781"))
 
 func ranking(parent: Node, compact := false) -> Control:
-	var content := panel(parent, AMBER)
-	content.add_child(label("♛  RANKING LOCAL                         TOP 10", 11, AMBER, true))
+	var content := UIFactory.panel(parent, AMBER)
+	content.add_child(UIFactory.label("♛  RANKING LOCAL                         TOP 10", 11, AMBER, true))
 	if store.scores.is_empty():
-		content.add_child(label("Nenhum recorde ainda.\nSeja o primeiro a dominar o Void!", 18, MUTED))
+		content.add_child(UIFactory.label("Nenhum recorde ainda.\nSeja o primeiro a dominar o Void!", 18, MUTED))
 	else:
 		for i in mini(store.scores.size(), 3 if compact else 10):
 			var entry: Dictionary = store.scores[i]
-			content.add_child(label("#%d   %-10s     W%d     %d" % [i + 1, entry.name, entry.wave, entry.score], 15, AMBER if i == 0 else Color("cfc7dd")))
+			content.add_child(UIFactory.label("#%d   %-10s     W%d     %d" % [i + 1, entry.name, entry.wave, entry.score], 15, AMBER if i == 0 else Color("cfc7dd")))
 	return content.get_parent()
 
 func responsive() -> void:
@@ -564,9 +473,9 @@ func show_modules() -> void:
 	module_status = ""
 	modules_content = modal()
 	modules_content.custom_minimum_size.x = minf(620, size.x - 112)
-	var title := center_label(modules_content, "⌖  MÓDULOS DA TORRE", 23, PINK, true)
+	var title := UIFactory.center_label(modules_content, "⌖  MÓDULOS DA TORRE", 23, PINK, true)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var intro := center_label(modules_content, "Pesquise módulos e libere até 7 slots.\nEscolha um módulo por slot antes da partida.\nMódulos podem se repetir; cada slot dispara sozinho.", 18, MUTED)
+	var intro := UIFactory.center_label(modules_content, "Pesquise módulos e libere até 7 slots.\nEscolha um módulo por slot antes da partida.\nMódulos podem se repetir; cada slot dispara sozinho.", 18, MUTED)
 	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	build_module_cards()
 
@@ -579,12 +488,12 @@ func build_module_cards() -> void:
 	dynamic.name = "DynamicModules"
 	dynamic.add_theme_constant_override("separation", 10)
 	modules_content.add_child(dynamic)
-	center_label(dynamic, pieces_text(), 16, AMBER, true)
+	UIFactory.center_label(dynamic, pieces_text(), 16, AMBER, true)
 	append_tower_slots(dynamic)
 	append_slot_expansion(dynamic)
 	append_module_cards(dynamic)
 	append_module_status(dynamic)
-	var close := button("VOLTAR AO MENU", close_modules, PINK)
+	var close := UIFactory.button("VOLTAR AO MENU", close_modules, PINK)
 	close.name = "CloseModules"
 	dynamic.add_child(close)
 	contain_modal_focus()
@@ -597,9 +506,9 @@ func section_header_with_icon(parent: Node, title_text: String, icon_id: String,
 	var icon_ctrl := Control.new()
 	icon_ctrl.custom_minimum_size = Vector2(24, 24)
 	icon_ctrl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon_ctrl.draw.connect(func(): draw_neon_ui_icon(icon_ctrl, icon_id, 8.5, icon_ctrl.size * 0.5, color))
+	icon_ctrl.draw.connect(func(): NeonIcons.draw_ui(icon_ctrl, icon_id, 8.5, icon_ctrl.size * 0.5, color))
 	row.add_child(icon_ctrl)
-	var lbl := label(title_text, 15, color, true)
+	var lbl := UIFactory.label(title_text, 15, color, true)
 	row.add_child(lbl)
 	parent.add_child(row)
 	return row
@@ -607,12 +516,12 @@ func section_header_with_icon(parent: Node, title_text: String, icon_id: String,
 func append_hide_completed_button(parent: VBoxContainer) -> void:
 	var toggle_text := "      OCULTAR PESQUISAS CONCLUÍDAS: ATIVO" if hide_completed_research else "      OCULTAR PESQUISAS CONCLUÍDAS: INATIVO"
 	var toggle_col := LIME if hide_completed_research else MUTED
-	var toggle_btn := button(toggle_text, toggle_hide_completed_research, toggle_col)
+	var toggle_btn := UIFactory.button(toggle_text, toggle_hide_completed_research, toggle_col)
 	toggle_btn.name = "ToggleHideCompleted"
 	toggle_btn.custom_minimum_size.y = 40
 	toggle_btn.draw.connect(func():
 		var icon_x := maxf(24.0, toggle_btn.size.x * 0.5 - 190.0)
-		draw_neon_ui_icon(toggle_btn, "eye_on" if hide_completed_research else "eye_off", 8.5, Vector2(icon_x, toggle_btn.size.y * 0.5), LIME if hide_completed_research else CYAN)
+		NeonIcons.draw_ui(toggle_btn, "eye_on" if hide_completed_research else "eye_off", 8.5, Vector2(icon_x, toggle_btn.size.y * 0.5), LIME if hide_completed_research else CYAN)
 	)
 	parent.add_child(toggle_btn)
 
@@ -642,7 +551,7 @@ func append_module_cards(parent: VBoxContainer) -> void:
 		if hide_completed_research and unlocked:
 			continue
 		shown_count += 1
-		var card := panel(parent, info[2])
+		var card := UIFactory.panel(parent, info[2])
 
 		var card_row := HBoxContainer.new()
 		card_row.add_theme_constant_override("separation", 14)
@@ -650,7 +559,7 @@ func append_module_cards(parent: VBoxContainer) -> void:
 
 		var icon := Control.new()
 		icon.custom_minimum_size = Vector2(58, 58)
-		icon.draw.connect(func(): draw_tower_module_icon(icon, module_id))
+		icon.draw.connect(func(): NeonIcons.draw_tower(icon, module_id))
 		card_row.add_child(icon)
 
 		var text_col := VBoxContainer.new()
@@ -658,46 +567,46 @@ func append_module_cards(parent: VBoxContainer) -> void:
 		text_col.add_theme_constant_override("separation", 3)
 		card_row.add_child(text_col)
 
-		var heading := label(info[0], 17, info[2], true)
+		var heading := UIFactory.label(info[0], 17, info[2], true)
 		heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		text_col.add_child(heading)
-		var desc := label(info[1], 16, Color("d4cee0"))
+		var desc := UIFactory.label(info[1], 16, Color("d4cee0"))
 		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		text_col.add_child(desc)
 
 		var action: Button
 		if unlocked:
-			var status := label("✓ PESQUISADO • disponível em todos os slots", 15, LIME)
+			var status := UIFactory.label("✓ PESQUISADO • disponível em todos os slots", 15, LIME)
 			status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			card.add_child(status)
 			continue
 		else:
 			var cost: Dictionary = store.module_cost(module_id)
 			var index: int = cost.piece_index
-			var costs := label("BLOQUEADO • Custo: %d %s • Você tem: %d" % [int(cost.amount), PIECE_SHORT[index], store.pieces[index]], 16, MUTED)
+			var costs := UIFactory.label("BLOQUEADO • Custo: %d %s • Você tem: %d" % [int(cost.amount), PIECE_SHORT[index], store.pieces[index]], 16, MUTED)
 			costs.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			card.add_child(costs)
-			action = button("PESQUISAR" if store.can_research_module(module_id) else "PESQUISAR • PEÇAS INSUFICIENTES", func(): buy_tower_module(module_id), info[2])
+			action = UIFactory.button("PESQUISAR" if store.can_research_module(module_id) else "PESQUISAR • PEÇAS INSUFICIENTES", func(): buy_tower_module(module_id), info[2])
 			action.disabled = not store.can_research_module(module_id)
 		action.name = "Module_" + module_id
 		card.add_child(action)
 	if shown_count == 0 and hide_completed_research:
-		center_label(parent, "✓ Todos os módulos descobertos já foram pesquisados.", 15, LIME)
+		UIFactory.center_label(parent, "✓ Todos os módulos descobertos já foram pesquisados.", 15, LIME)
 	if undiscovered:
 		var next_wave := 5
 		for mid in MODULE_IDS:
 			if not store.module_visible(mid):
 				next_wave = int(store.MODULE_WAVES[mid])
 				break
-		var hint := label("◇  Novo módulo: alcance a wave %d para descobrir." % next_wave, 18, MUTED)
+		var hint := UIFactory.label("◇  Novo módulo: alcance a wave %d para descobrir." % next_wave, 18, MUTED)
 		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		parent.add_child(hint)
 
 func append_tower_slots(parent: VBoxContainer) -> void:
-	center_label(parent, "SLOTS LIBERADOS: %d/7" % store.unlocked_tower_slots, 16, CYAN, true)
+	UIFactory.center_label(parent, "SLOTS LIBERADOS: %d/7" % store.unlocked_tower_slots, 16, CYAN, true)
 	for index in store.unlocked_tower_slots:
 		var selected: String = store.tower_loadout[index]
-		var card := panel(parent, MODULE_INFO[selected][2])
+		var card := UIFactory.panel(parent, MODULE_INFO[selected][2])
 
 		var head_row := HBoxContainer.new()
 		head_row.add_theme_constant_override("separation", 10)
@@ -706,10 +615,10 @@ func append_tower_slots(parent: VBoxContainer) -> void:
 		var slot_icon := Control.new()
 		slot_icon.custom_minimum_size = Vector2(32, 32)
 		slot_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		slot_icon.draw.connect(func(): draw_tower_module_icon(slot_icon, selected, 11.0))
+		slot_icon.draw.connect(func(): NeonIcons.draw_tower(slot_icon, selected, 11.0))
 		head_row.add_child(slot_icon)
 
-		var heading := label("SLOT %d  •  %s" % [index + 1, MODULE_INFO[selected][0]], 16, MODULE_INFO[selected][2], true)
+		var heading := UIFactory.label("SLOT %d  •  %s" % [index + 1, MODULE_INFO[selected][0]], 16, MODULE_INFO[selected][2], true)
 		heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		heading.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		head_row.add_child(heading)
@@ -734,7 +643,7 @@ func append_tower_slots(parent: VBoxContainer) -> void:
 			}
 			var module_name: String = str(module_names.get(module_id, module_id.to_upper()))
 			var equipped: bool = selected == module_id
-			var action := button("", func(): equip_tower_module(index, module_id), MODULE_INFO[module_id][2])
+			var action := UIFactory.button("", func(): equip_tower_module(index, module_id), MODULE_INFO[module_id][2])
 			action.name = "Slot%d_%s" % [index, module_id]
 			action.tooltip_text = "Equipado neste slot" if equipped else "Equipar %s no slot %d" % [MODULE_INFO[module_id][0], index + 1]
 			action.disabled = equipped
@@ -749,106 +658,49 @@ func append_tower_slots(parent: VBoxContainer) -> void:
 			action.add_child(btn_content)
 
 			if equipped:
-				var check := label("✓", 13, LIME, true)
+				var check := UIFactory.label("✓", 13, LIME, true)
 				check.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				btn_content.add_child(check)
 
 			var btn_icon := Control.new()
 			btn_icon.custom_minimum_size = Vector2(26, 26)
 			btn_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			btn_icon.draw.connect(func(): draw_tower_module_icon(btn_icon, module_id, 8.5))
+			btn_icon.draw.connect(func(): NeonIcons.draw_tower(btn_icon, module_id, 8.5))
 			btn_content.add_child(btn_icon)
 
-			var btn_label := label(module_name, 12, Color.WHITE if equipped else MODULE_INFO[module_id][2], true)
+			var btn_label := UIFactory.label(module_name, 12, Color.WHITE if equipped else MODULE_INFO[module_id][2], true)
 			btn_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			btn_content.add_child(btn_label)
 
 			choices.add_child(action)
 
-func draw_tower_module_icon(control: Control, module_id: String, base_radius: float = 16.0, custom_center: Vector2 = Vector2(-1, -1)) -> void:
-	var center: Vector2 = custom_center if custom_center.x >= 0.0 else control.size * 0.5
-	var color: Color = MODULE_INFO.get(module_id, ["", "", PINK])[2]
-	var dir := Vector2.UP # Mirando para cima
-	var scale_factor: float = base_radius / 16.0
-
-	# Anel externo da torreta com fundo escuro
-	var outer_r: float = base_radius + 4.0 * scale_factor
-	control.draw_circle(center, outer_r, Color("0b061c"))
-	control.draw_arc(center, outer_r, 0.0, TAU, 24, Color(color, 0.35), maxf(1.0, 1.5 * scale_factor), true)
-	control.draw_circle(center, base_radius, Color("140933"))
-	control.draw_arc(center, base_radius, 0.0, TAU, 24, color, maxf(1.0, 2.0 * scale_factor), true)
-
-	# Silhuetas distintivas de cada arma
-	match module_id:
-		"plasma":
-			# Canhão principal de plasma frontal + núcleo brilhante
-			control.draw_line(center, center + dir * (base_radius + 9.0 * scale_factor), color, maxf(1.5, 4.0 * scale_factor), true)
-			control.draw_line(center, center + dir * (base_radius + 9.0 * scale_factor), Color.WHITE, maxf(1.0, 1.5 * scale_factor), true)
-			control.draw_circle(center, maxf(1.5, 4.0 * scale_factor), Color.WHITE)
-		"cryo":
-			# Canhão ciano com aletas refrigeradoras em cruz
-			control.draw_line(center, center + dir * (base_radius + 8.0 * scale_factor), color, maxf(1.5, 3.5 * scale_factor), true)
-			var wing: Vector2 = dir.orthogonal() * (7.0 * scale_factor)
-			control.draw_line(center + dir * (6.0 * scale_factor) - wing, center + dir * (6.0 * scale_factor) + wing, color, maxf(1.0, 2.0 * scale_factor), true)
-			control.draw_line(center + dir * (12.0 * scale_factor) - wing * 0.6, center + dir * (12.0 * scale_factor) + wing * 0.6, Color.WHITE, maxf(1.0, 1.5 * scale_factor), true)
-		"arc":
-			# Bobina tesla dupla para condutores de choque
-			for side in [-1, 1]:
-				var offset: Vector2 = dir.orthogonal() * (float(side) * 6.0 * scale_factor)
-				control.draw_line(center + offset, center + offset + dir * (base_radius + 8.0 * scale_factor), color, maxf(1.0, 2.5 * scale_factor), true)
-				control.draw_circle(center + offset + dir * (base_radius + 8.0 * scale_factor), maxf(1.2, 2.5 * scale_factor), Color.WHITE)
-			control.draw_line(center - dir.orthogonal() * (6.0 * scale_factor), center + dir.orthogonal() * (6.0 * scale_factor), Color(color, 0.7), maxf(1.0, 1.5 * scale_factor), true)
-		"pulse":
-			# Emissor sísmico com anéis concêntricos de choque
-			control.draw_arc(center, base_radius * 0.5, 0.0, TAU, 16, Color.WHITE, maxf(1.0, 2.0 * scale_factor), true)
-			control.draw_arc(center, base_radius + 7.0 * scale_factor, 0.0, TAU, 20, Color(color, 0.8), maxf(1.0, 2.0 * scale_factor), true)
-			control.draw_circle(center, maxf(1.5, 3.0 * scale_factor), color)
-		"laser":
-			# Projetor óptico com lentes convergentes pontiagudas
-			control.draw_line(center - dir.orthogonal() * (5.0 * scale_factor), center + dir * (base_radius + 10.0 * scale_factor), color, maxf(1.0, 2.5 * scale_factor), true)
-			control.draw_line(center + dir.orthogonal() * (5.0 * scale_factor), center + dir * (base_radius + 10.0 * scale_factor), color, maxf(1.0, 2.5 * scale_factor), true)
-			control.draw_line(center, center + dir * (base_radius + 10.0 * scale_factor), Color.WHITE, maxf(1.0, 2.0 * scale_factor), true)
-			control.draw_circle(center + dir * (base_radius + 10.0 * scale_factor), maxf(1.5, 3.0 * scale_factor), Color("ff88aa"))
-		"vortex":
-			# Singularidade giratória com anéis espirais duplos
-			control.draw_arc(center, base_radius * 0.6, 0.0, TAU * 0.8, 16, color, maxf(1.2, 2.5 * scale_factor), true)
-			control.draw_arc(center, base_radius + 6.0 * scale_factor, PI * 0.5, PI * 0.5 + TAU * 0.8, 20, Color(color, 0.8), maxf(1.0, 2.0 * scale_factor), true)
-			control.draw_circle(center, maxf(1.5, 4.0 * scale_factor), Color("050014"))
-		"railgun":
-			# Trilhos magnéticos paralelos com bobinas de aceleração
-			var rail_norm: Vector2 = dir.orthogonal() * (4.0 * scale_factor)
-			control.draw_line(center - rail_norm, center - rail_norm + dir * (base_radius + 11.0 * scale_factor), color, maxf(1.0, 2.0 * scale_factor), true)
-			control.draw_line(center + rail_norm, center + rail_norm + dir * (base_radius + 11.0 * scale_factor), color, maxf(1.0, 2.0 * scale_factor), true)
-			control.draw_line(center + dir * (5.0 * scale_factor) - rail_norm * 1.3, center + dir * (5.0 * scale_factor) + rail_norm * 1.3, Color.WHITE, maxf(1.0, 1.5 * scale_factor), true)
-			control.draw_line(center + dir * (11.0 * scale_factor) - rail_norm * 1.3, center + dir * (11.0 * scale_factor) + rail_norm * 1.3, Color.WHITE, maxf(1.0, 1.5 * scale_factor), true)
-
 func append_slot_expansion(parent: VBoxContainer, laboratory := false) -> void:
 	var index: int = store.unlocked_tower_slots
 	if index >= 7:
-		parent.add_child(label("✓ EXPANSÃO CONCLUÍDA • 7/7 slots liberados", 17, LIME))
+		parent.add_child(UIFactory.label("✓ EXPANSÃO CONCLUÍDA • 7/7 slots liberados", 17, LIME))
 		return
 	if not store.slot_visible(index):
 		if not laboratory:
-			var hint := label("◇ Próximo slot: alcance a wave %d para descobrir." % store.SLOT_WAVES[index], 18, MUTED)
+			var hint := UIFactory.label("◇ Próximo slot: alcance a wave %d para descobrir." % store.SLOT_WAVES[index], 18, MUTED)
 			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			parent.add_child(hint)
 		return
-	var card := panel(parent, CYAN)
-	card.add_child(label("EXPANSÃO  •  SLOT %d" % (index + 1), 17, CYAN, true))
+	var card := UIFactory.panel(parent, CYAN)
+	card.add_child(UIFactory.label("EXPANSÃO  •  SLOT %d" % (index + 1), 17, CYAN, true))
 	var cost: Dictionary = store.slot_cost(index)
 	var piece_index: int = cost.piece_index
-	var costs := label("DESCOBERTO • Custo: %d %s • Você tem: %d" % [int(cost.amount), PIECE_SHORT[piece_index], store.pieces[piece_index]], 17, MUTED)
+	var costs := UIFactory.label("DESCOBERTO • Custo: %d %s • Você tem: %d" % [int(cost.amount), PIECE_SHORT[piece_index], store.pieces[piece_index]], 17, MUTED)
 	costs.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	card.add_child(costs)
 	var available: bool = store.can_research_slot(index)
-	var action := button("PESQUISAR SLOT %d" % (index + 1) if available else "PESQUISAR • PEÇAS INSUFICIENTES", func(): buy_tower_slot(index), CYAN)
+	var action := UIFactory.button("PESQUISAR SLOT %d" % (index + 1) if available else "PESQUISAR • PEÇAS INSUFICIENTES", func(): buy_tower_slot(index), CYAN)
 	action.name = "ResearchSlot%d" % index
 	action.disabled = not available
 	card.add_child(action)
 
 func append_module_status(parent: VBoxContainer) -> void:
 	if not module_status.is_empty():
-		var status := label(module_status, 17, AMBER)
+		var status := UIFactory.label(module_status, 17, AMBER)
 		status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		parent.add_child(status)
 
@@ -963,9 +815,9 @@ func show_research() -> void:
 	module_status = ""
 	research_content = modal()
 	research_content.custom_minimum_size.x = minf(680, size.x - 112)
-	var title := center_label(research_content, "⌬  LABORATÓRIO DE PESQUISAS", 23, CYAN, true)
+	var title := UIFactory.center_label(research_content, "⌬  LABORATÓRIO DE PESQUISAS", 23, CYAN, true)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var intro := center_label(research_content, "Inimigos podem soltar peças da própria estrutura.\n■ 30%   ▲ 22%   ⬢ 40%   ✦ Boss: 100% (2 peças)\nUse cada família para liberar melhorias permanentes.", 18, Color("cfc7dd"))
+	var intro := UIFactory.center_label(research_content, "Inimigos podem soltar peças da própria estrutura.\n■ 30%   ▲ 22%   ⬢ 40%   ✦ Boss: 100% (2 peças)\nUse cada família para liberar melhorias permanentes.", 18, Color("cfc7dd"))
 	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	build_research_cards()
 
@@ -978,7 +830,7 @@ func build_research_cards() -> void:
 	dynamic.name = "DynamicResearch"
 	dynamic.add_theme_constant_override("separation", 10)
 	research_content.add_child(dynamic)
-	center_label(dynamic, pieces_text(), 16, AMBER, true)
+	UIFactory.center_label(dynamic, pieces_text(), 16, AMBER, true)
 	append_hide_completed_button(dynamic)
 	section_header_with_icon(dynamic, "PESQUISAS DE ATAQUE E DEFESA", "attack", CYAN)
 	var combat_shown := 0
@@ -987,11 +839,11 @@ func build_research_cards() -> void:
 	for i in RESEARCH_NAMES.size():
 		if i == 18:
 			if combat_shown == 0 and hide_completed_research:
-				center_label(dynamic, "✓ Todas as pesquisas de ataque e defesa foram concluídas.", 15, LIME)
+				UIFactory.center_label(dynamic, "✓ Todas as pesquisas de ataque e defesa foram concluídas.", 15, LIME)
 			section_header_with_icon(dynamic, "ESPECIALIZAÇÃO DE TORRETAS", "towers", PINK)
 		elif i == 25:
 			if tower_shown == 0 and hide_completed_research:
-				center_label(dynamic, "✓ Todas as especializações de torretas foram concluídas.", 15, LIME)
+				UIFactory.center_label(dynamic, "✓ Todas as especializações de torretas foram concluídas.", 15, LIME)
 			section_header_with_icon(dynamic, "TECNOLOGIA DE ESCUDOS", "defense", CYAN)
 		var level: int = store.research[i]
 		var maximum: int = store.RESEARCH_MAX[i]
@@ -1008,24 +860,24 @@ func build_research_cards() -> void:
 		var words := "%s  %s  •  Nv.%d/%d\n%s\n" % [PIECE_SHORT[p_idx], RESEARCH_NAMES[i], level, maximum, RESEARCH_DESCS[i]]
 		words += "✓ PESQUISA CONCLUÍDA" if level >= maximum else "Custo: %d %s   •   Você tem: %d" % [cost, PIECE_SHORT[p_idx], store.pieces[p_idx]]
 		var btn_color: Color = MODULE_INFO[MODULE_IDS[i - 18]][2] if (i >= 18 and i < 25) else COLORS[p_idx]
-		var research_button := button(words, func(): buy_research(i), btn_color)
+		var research_button := UIFactory.button(words, func(): buy_research(i), btn_color)
 		research_button.name = "Research%d" % (i + 1)
 		research_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		research_button.custom_minimum_size.y = 78
 		research_button.disabled = not store.can_research(i)
 		if i >= 18 and i < 25:
 			var tower_mod_id: String = MODULE_IDS[i - 18]
-			research_button.draw.connect(func(): draw_tower_module_icon(research_button, tower_mod_id, 13.0, Vector2(research_button.size.x - 36.0, research_button.size.y * 0.5)))
+			research_button.draw.connect(func(): NeonIcons.draw_tower(research_button, tower_mod_id, 13.0, Vector2(research_button.size.x - 36.0, research_button.size.y * 0.5)))
 		else:
 			var r_icon := research_icon_id(i)
-			research_button.draw.connect(func(): draw_neon_ui_icon(research_button, r_icon, 13.0, Vector2(research_button.size.x - 36.0, research_button.size.y * 0.5), btn_color))
+			research_button.draw.connect(func(): NeonIcons.draw_ui(research_button, r_icon, 13.0, Vector2(research_button.size.x - 36.0, research_button.size.y * 0.5), btn_color))
 		dynamic.add_child(research_button)
 	if shield_shown == 0 and hide_completed_research:
-		center_label(dynamic, "✓ Todas as pesquisas de tecnologia de escudos foram concluídas.", 15, LIME)
+		UIFactory.center_label(dynamic, "✓ Todas as pesquisas de tecnologia de escudos foram concluídas.", 15, LIME)
 	append_module_cards(dynamic)
 	append_slot_expansion(dynamic, true)
 	append_module_status(dynamic)
-	var close := button("VOLTAR AO MENU", close_research, CYAN)
+	var close := UIFactory.button("VOLTAR AO MENU", close_research, CYAN)
 	close.name = "CloseResearch"
 	dynamic.add_child(close)
 	contain_modal_focus()
@@ -1033,184 +885,6 @@ func build_research_cards() -> void:
 
 func research_icon_id(index: int) -> String:
 	return GameData.research_icon(index)
-
-func draw_neon_ui_icon(control: Control, icon_id: String, base_radius: float = 12.0, custom_center: Vector2 = Vector2(-1, -1), color: Color = CYAN) -> void:
-	var center: Vector2 = custom_center if custom_center.x >= 0.0 else control.size * 0.5
-	var s: float = base_radius / 12.0
-	var outer_r: float = base_radius + 3.5 * s
-	# Halo neon escuro e anel de moldura geométrica
-	control.draw_circle(center, outer_r, Color("0b061c"))
-	control.draw_arc(center, outer_r, 0.0, TAU, 24, Color(color, 0.32), maxf(1.0, 1.4 * s), true)
-	control.draw_circle(center, base_radius, Color("140933"))
-	control.draw_arc(center, base_radius, 0.0, TAU, 24, Color(color, 0.75), maxf(1.0, 1.6 * s), true)
-
-	match icon_id:
-		"attack", "click_dmg":
-			# Mira de plasma com losango energético central e 4 hastes
-			for k in 4:
-				var dir := Vector2.from_angle(k * PI * 0.5)
-				control.draw_line(center + dir * (4.0 * s), center + dir * (base_radius + 2.5 * s), color, maxf(1.2, 2.0 * s), true)
-			var diamond := PackedVector2Array([
-				center + Vector2(0, -4.5 * s),
-				center + Vector2(4.5 * s, 0),
-				center + Vector2(0, 4.5 * s),
-				center + Vector2(-4.5 * s, 0)
-			])
-			control.draw_colored_polygon(diamond, Color.WHITE)
-		"towers":
-			# Torreta dupla com base hexagonal e canhões gêmeos
-			for side in [-1.0, 1.0]:
-				var bx: float = side * 3.2 * s
-				control.draw_line(center + Vector2(bx, 2.0 * s), center + Vector2(bx, -base_radius - 1.5 * s), color, maxf(1.2, 2.2 * s), true)
-				control.draw_circle(center + Vector2(bx, -base_radius - 1.5 * s), maxf(1.2, 1.8 * s), Color.WHITE)
-			control.draw_arc(center + Vector2(0, 2.0 * s), 5.0 * s, 0.0, TAU, 16, Color.WHITE, maxf(1.0, 1.6 * s), true)
-		"defense", "shield_cap":
-			# Escudo hexagonal energético com núcleo brilhante
-			var pts := PackedVector2Array([
-				center + Vector2(0, -8.5 * s),
-				center + Vector2(7.0 * s, -4.0 * s),
-				center + Vector2(5.8 * s, 4.5 * s),
-				center + Vector2(0, 8.8 * s),
-				center + Vector2(-5.8 * s, 4.5 * s),
-				center + Vector2(-7.0 * s, -4.0 * s),
-				center + Vector2(0, -8.5 * s)
-			])
-			control.draw_colored_polygon(pts.slice(0, 6), Color(color, 0.25))
-			control.draw_polyline(pts, color, maxf(1.3, 2.0 * s), true)
-			control.draw_circle(center, maxf(1.5, 2.5 * s), Color.WHITE)
-		"eye_on", "eye_off":
-			# Visor cibernético neon (olho geométrico)
-			var top_arc := PackedVector2Array([
-				center + Vector2(-8.5 * s, 0),
-				center + Vector2(-3.5 * s, -5.0 * s),
-				center + Vector2(3.5 * s, -5.0 * s),
-				center + Vector2(8.5 * s, 0),
-				center + Vector2(3.5 * s, 5.0 * s),
-				center + Vector2(-3.5 * s, 5.0 * s),
-				center + Vector2(-8.5 * s, 0)
-			])
-			control.draw_polyline(top_arc, color, maxf(1.2, 1.8 * s), true)
-			control.draw_circle(center, maxf(1.5, 2.6 * s), Color.WHITE if icon_id == "eye_on" else color)
-			if icon_id == "eye_off":
-				control.draw_line(center + Vector2(-7.0 * s, 6.5 * s), center + Vector2(7.0 * s, -6.5 * s), PINK, maxf(1.4, 2.2 * s), true)
-		"lock":
-			# Cadeado holográfico geométrico
-			control.draw_arc(center + Vector2(0, -2.5 * s), 4.2 * s, PI, TAU, 16, color, maxf(1.2, 2.0 * s), true)
-			var rect := Rect2(center + Vector2(-5.5 * s, -2.0 * s), Vector2(11.0 * s, 8.5 * s))
-			control.draw_rect(rect, Color("0b061c"), true)
-			control.draw_rect(rect, color, false, maxf(1.2, 1.8 * s))
-			control.draw_circle(center + Vector2(0, 2.2 * s), maxf(1.2, 1.8 * s), Color.WHITE)
-		"crit_chance":
-			# Estrela crítica de 4 pontas
-			var star := PackedVector2Array()
-			for k in 8:
-				var ang: float = k * PI * 0.25 - PI * 0.5
-				var r: float = (8.5 * s) if (k % 2 == 0) else (3.0 * s)
-				star.append(center + Vector2.from_angle(ang) * r)
-			control.draw_colored_polygon(star, color)
-			control.draw_circle(center, maxf(1.4, 2.2 * s), Color.WHITE)
-		"crit_mult":
-			# Duplo chevron ascendente de potência letal
-			for idx in [-1, 1]:
-				var y_off: float = idx * 2.8 * s
-				var chev := PackedVector2Array([
-					center + Vector2(-5.5 * s, y_off + 2.5 * s),
-					center + Vector2(0, y_off - 3.0 * s),
-					center + Vector2(5.5 * s, y_off + 2.5 * s)
-				])
-				control.draw_polyline(chev, Color.WHITE if idx == -1 else color, maxf(1.3, 2.2 * s), true)
-		"combo_drive":
-			# Raio de corrente de combo
-			var bolt := PackedVector2Array([
-				center + Vector2(2.0 * s, -8.0 * s),
-				center + Vector2(-4.5 * s, -0.5 * s),
-				center + Vector2(1.5 * s, -0.5 * s),
-				center + Vector2(-2.0 * s, 8.0 * s)
-			])
-			control.draw_polyline(bolt, Color.WHITE, maxf(1.4, 2.2 * s), true)
-		"click_splash":
-			# Anéis concêntricos de impacto em área
-			control.draw_arc(center, 4.2 * s, 0.0, TAU, 16, Color.WHITE, maxf(1.2, 1.8 * s), true)
-			control.draw_arc(center, 8.0 * s, 0.0, TAU, 20, color, maxf(1.0, 1.6 * s), true)
-			control.draw_circle(center, maxf(1.4, 2.0 * s), color)
-		"nova_overdrive":
-			# Supernova de 8 raios
-			for k in 8:
-				var dir := Vector2.from_angle(k * PI * 0.25)
-				var len_r: float = (8.5 * s) if (k % 2 == 0) else (5.5 * s)
-				control.draw_line(center, center + dir * len_r, Color.WHITE if (k % 2 == 0) else color, maxf(1.2, 1.8 * s), true)
-			control.draw_circle(center, maxf(1.8, 2.8 * s), Color.WHITE)
-		"tower_haste":
-			# Setas duplas de cadência acelerada
-			for idx in [-1, 1]:
-				var x_off: float = idx * 2.6 * s
-				var arr := PackedVector2Array([
-					center + Vector2(x_off - 2.5 * s, -5.0 * s),
-					center + Vector2(x_off + 3.0 * s, 0),
-					center + Vector2(x_off - 2.5 * s, 5.0 * s)
-				])
-				control.draw_polyline(arr, Color.WHITE if idx == 1 else color, maxf(1.3, 2.0 * s), true)
-		"tower_range":
-			# Radar de longo alcance
-			control.draw_arc(center + Vector2(0, 3.0 * s), 5.0 * s, -PI * 0.85, -PI * 0.15, 14, color, maxf(1.2, 1.8 * s), true)
-			control.draw_arc(center + Vector2(0, 3.0 * s), 8.8 * s, -PI * 0.85, -PI * 0.15, 18, Color.WHITE, maxf(1.2, 1.8 * s), true)
-			control.draw_circle(center + Vector2(0, 3.5 * s), maxf(1.5, 2.4 * s), color)
-		"tower_pierce":
-			# Lança perfurante anti-titã
-			control.draw_line(center + Vector2(-7.0 * s, 7.0 * s), center + Vector2(7.0 * s, -7.0 * s), Color.WHITE, maxf(1.4, 2.2 * s), true)
-			var tip := PackedVector2Array([
-				center + Vector2(1.5 * s, -7.0 * s),
-				center + Vector2(7.0 * s, -7.0 * s),
-				center + Vector2(7.0 * s, -1.5 * s)
-			])
-			control.draw_polyline(tip, color, maxf(1.4, 2.2 * s), true)
-		"tower_synergy":
-			# Tríade sincronizada de nós de bateria
-			var nodes := PackedVector2Array()
-			for k in 3:
-				var p := center + Vector2.from_angle(k * TAU / 3.0 - PI * 0.5) * (6.2 * s)
-				nodes.append(p)
-			nodes.append(nodes[0])
-			control.draw_polyline(nodes, color, maxf(1.1, 1.6 * s), true)
-			for k in 3:
-				control.draw_circle(nodes[k], maxf(1.6, 2.4 * s), Color.WHITE)
-		"base_hull", "hull_vitality":
-			# Cruz de integridade estrutural de titânio
-			var arm: float = 6.5 * s
-			control.draw_line(center + Vector2(-arm, 0), center + Vector2(arm, 0), color, maxf(1.8, 3.2 * s), true)
-			control.draw_line(center + Vector2(0, -arm), center + Vector2(0, arm), color, maxf(1.8, 3.2 * s), true)
-			control.draw_circle(center, maxf(1.5, 2.2 * s), Color.WHITE)
-		"nano_regen":
-			# Órbita de nanorreparo
-			control.draw_line(center + Vector2(-4.5 * s, 0), center + Vector2(4.5 * s, 0), Color.WHITE, maxf(1.4, 2.2 * s), true)
-			control.draw_line(center + Vector2(0, -4.5 * s), center + Vector2(0, 4.5 * s), Color.WHITE, maxf(1.4, 2.2 * s), true)
-			for k in 3:
-				var orb := center + Vector2.from_angle(k * TAU / 3.0) * (7.5 * s)
-				control.draw_circle(orb, maxf(1.3, 2.0 * s), color)
-		"reactive_plating":
-			# Placas de blindagem reativa em losango duplo
-			for scale_r in [4.5, 8.0]:
-				var d := PackedVector2Array([
-					center + Vector2(0, -scale_r * s),
-					center + Vector2(scale_r * s, 0),
-					center + Vector2(0, scale_r * s),
-					center + Vector2(-scale_r * s, 0),
-					center + Vector2(0, -scale_r * s)
-				])
-				control.draw_polyline(d, Color.WHITE if scale_r < 6.0 else color, maxf(1.2, 1.8 * s), true)
-		"shield_regen":
-			# Anel de recarga harmônica de escudo
-			control.draw_arc(center, 6.5 * s, 0.3, PI - 0.3, 14, color, maxf(1.3, 2.0 * s), true)
-			control.draw_arc(center, 6.5 * s, PI + 0.3, TAU - 0.3, 14, Color.WHITE, maxf(1.3, 2.0 * s), true)
-			control.draw_circle(center, maxf(1.6, 2.5 * s), color)
-		"shield_pulse":
-			# Escudo com onda de repulsão externa
-			control.draw_arc(center, 4.5 * s, 0.0, TAU, 16, Color.WHITE, maxf(1.2, 1.8 * s), true)
-			control.draw_arc(center, 8.2 * s, -PI * 0.75, -PI * 0.25, 14, color, maxf(1.4, 2.2 * s), true)
-			control.draw_arc(center, 8.2 * s, PI * 0.25, PI * 0.75, 14, color, maxf(1.4, 2.2 * s), true)
-		_:
-			control.draw_circle(center, maxf(2.0, 3.5 * s), Color.WHITE)
-
 
 func buy_research(index: int) -> void:
 	var previous_pieces: Array[int] = store.pieces.duplicate()
@@ -1235,12 +909,12 @@ func show_codex() -> void:
 	phase = "codex"
 	var content := modal()
 	content.custom_minimum_size.x = minf(760, size.x - 48)
-	center_label(content, "◈  CODEX DOS INIMIGOS", 23, AMBER, true)
-	center_label(content, "Descobertas registradas durante suas expedições ao Void.", 18, Color("cfc7dd"))
+	UIFactory.center_label(content, "◈  CODEX DOS INIMIGOS", 23, AMBER, true)
+	UIFactory.center_label(content, "Descobertas registradas durante suas expedições ao Void.", 18, Color("cfc7dd"))
 	for enemy_id in CODEX_ORDER:
 		var known: bool = store.enemy_stats.has(enemy_id) and store.enemy_stats[enemy_id].discovered
 		if not known:
-			var unknown := button("◇  ???\nContinue avançando pelas waves para descobrir.", func(): pass, Color("42364f"))
+			var unknown := UIFactory.button("◇  ???\nContinue avançando pelas waves para descobrir.", func(): pass, Color("42364f"))
 			unknown.disabled = true
 			unknown.custom_minimum_size.y = 62
 			content.add_child(unknown)
@@ -1251,7 +925,7 @@ func show_codex() -> void:
 		var border_color: Color = AMBER if is_special_card else CYAN
 
 		var card_frame := PanelContainer.new()
-		card_frame.add_theme_stylebox_override("panel", box(border_color, Color("140b29"), 12))
+		card_frame.add_theme_stylebox_override("panel", UIFactory.box(border_color, Color("140b29"), 12))
 		card_frame.custom_minimum_size.y = 96
 		content.add_child(card_frame)
 
@@ -1261,7 +935,7 @@ func show_codex() -> void:
 
 		var icon := Control.new()
 		icon.custom_minimum_size = Vector2(76, 76)
-		icon.draw.connect(func(): draw_codex_enemy_icon(icon, enemy_id))
+		icon.draw.connect(func(): NeonIcons.draw_enemy(icon, enemy_id))
 		card_row.add_child(icon)
 
 		var text_col := VBoxContainer.new()
@@ -1269,223 +943,25 @@ func show_codex() -> void:
 		text_col.add_theme_constant_override("separation", 2)
 		card_row.add_child(text_col)
 
-		var title_lbl := label(info[0], 18, border_color, true)
+		var title_lbl := UIFactory.label(info[0], 18, border_color, true)
 		text_col.add_child(title_lbl)
 
 		var line1 := "Abates: %d   •   Peças: %d   •   Maior wave: %d" % [stats.kills, stats.pieces, stats.max_wave]
-		var lbl1 := label(line1, 15, Color.WHITE)
+		var lbl1 := UIFactory.label(line1, 15, Color.WHITE)
 		text_col.add_child(lbl1)
 
 		var line2 := "Drop: %s   •   Fraqueza: %s" % [info[1], info[2]]
-		var lbl2 := label(line2, 14, MUTED)
+		var lbl2 := UIFactory.label(line2, 14, MUTED)
 		text_col.add_child(lbl2)
 
 		var line3 := "%s   •   Pesquisa: %s" % [info[3], info[4]]
-		var lbl3 := label(line3, 14, MUTED)
+		var lbl3 := UIFactory.label(line3, 14, MUTED)
 		text_col.add_child(lbl3)
 
-	var close := button("VOLTAR AO MENU", close_codex, AMBER)
+	var close := UIFactory.button("VOLTAR AO MENU", close_codex, AMBER)
 	close.name = "CloseCodex"
 	content.add_child(close)
 	close.grab_focus()
-
-func draw_codex_enemy_icon(control: Control, enemy_id: String) -> void:
-	var center := control.size * 0.5
-	var radius := 24.0
-	var sides := 4
-	var color := VoidState.COLORS[0]
-	var variant := ""
-	var is_elite := false
-	var is_boss := false
-	var has_cannon := false
-	var has_dual_cannon := false
-	var has_teleport := false
-	var has_summon := false
-
-	match enemy_id:
-		"square":
-			sides = 4; color = VoidState.COLORS[0]
-		"armored_square":
-			sides = 4; color = VoidState.COLORS[0]; variant = "armored"
-		"splitter":
-			sides = 4; color = VoidState.COLORS[0]; variant = "splitter"
-		"triangle":
-			sides = 3; color = VoidState.COLORS[1]
-		"ghost_triangle":
-			sides = 3; color = VoidState.COLORS[1]; variant = "ghost"
-		"thief":
-			sides = 3; color = VoidState.COLORS[1]; variant = "thief"
-		"pentagon":
-			sides = 5; color = VoidState.COLORS[4]
-		"hexagon":
-			sides = 6; color = VoidState.COLORS[2]
-		"regen_hexagon":
-			sides = 6; color = VoidState.COLORS[2]; variant = "regen"
-		"heptagon":
-			sides = 7; color = VoidState.COLORS[5]
-		"octagon":
-			sides = 8; color = VoidState.COLORS[6]
-		"nonagon":
-			sides = 9; color = VoidState.COLORS[7]
-		"decagon":
-			sides = 10; color = VoidState.COLORS[8]
-		"hendecagon":
-			sides = 11; color = VoidState.COLORS[9]
-		"dodecagon":
-			sides = 12; color = VoidState.COLORS[10]
-		"star4":
-			sides = 4; color = VoidState.COLORS[11]
-		"star5":
-			sides = 5; color = VoidState.COLORS[12]
-		"ring_prism":
-			sides = 6; color = VoidState.COLORS[13]
-		"spiral_singularity":
-			sides = 12; color = VoidState.COLORS[14]
-		"titan_tetrahedron":
-			sides = 4; color = VoidState.COLORS[15]
-		"void_shooter":
-			sides = 6; color = VoidState.COLORS[16]; has_cannon = true
-		"quantum_teleporter":
-			sides = 6; color = VoidState.COLORS[17]; has_teleport = true
-		"hive_summoner":
-			sides = 8; color = VoidState.COLORS[18]; has_summon = true
-		"plasma_artillery":
-			sides = 10; color = VoidState.COLORS[19]; has_dual_cannon = true
-		"rift_weaver":
-			sides = 7; color = VoidState.COLORS[20]; has_teleport = true; has_summon = true
-		"elite":
-			sides = 5; color = AMBER; is_elite = true
-		"elite_vanguard":
-			sides = 6; color = Color("ffb02e"); is_elite = true; variant = "armored"
-		"elite_phantom":
-			sides = 5; color = Color("00f5d4"); is_elite = true; has_teleport = true
-		"elite_artillery":
-			sides = 6; color = Color("ff4d6d"); is_elite = true; has_cannon = true
-		"elite_overlord":
-			sides = 8; color = Color("e056fd"); is_elite = true; has_summon = true
-		"elite_berserker":
-			sides = 7; color = Color("ff7f50"); is_elite = true
-		"elite_storm":
-			sides = 6; color = Color("fee440"); is_elite = true; has_cannon = true; has_teleport = true
-		"boss":
-			sides = 8; color = Color("ffb02e"); is_boss = true; has_dual_cannon = true
-		"boss_colossus":
-			sides = 10; color = Color("ff3b30"); is_boss = true; has_summon = true; variant = "regen"
-		"boss_primordial":
-			sides = 12; color = Color("00f2fe"); is_boss = true; has_teleport = true; has_dual_cannon = true
-		"boss_nexus":
-			sides = 8; color = Color("c471ed"); is_boss = true; has_summon = true
-		"boss_leviathan":
-			sides = 16; color = Color("00ff87"); is_boss = true; has_dual_cannon = true; variant = "armored"
-		"boss_omega":
-			sides = 10; color = Color("ff007f"); is_boss = true; has_teleport = true; has_summon = true; has_dual_cannon = true
-
-	var rot: float = -PI / 2.0 if sides == 3 else 0.0
-	var points := PackedVector2Array()
-	var outer := PackedVector2Array()
-
-	if enemy_id == "star4":
-		for i in 8:
-			var angle: float = rot + i * PI / 4.0
-			var r: float = radius if (i % 2 == 0) else radius * 0.45
-			points.append(center + Vector2.from_angle(angle) * r)
-			outer.append(center + Vector2.from_angle(angle) * (r + 4))
-	elif enemy_id == "star5":
-		for i in 10:
-			var angle: float = rot + i * PI / 5.0
-			var r: float = radius if (i % 2 == 0) else radius * 0.48
-			points.append(center + Vector2.from_angle(angle) * r)
-			outer.append(center + Vector2.from_angle(angle) * (r + 4))
-	elif enemy_id == "quantum_teleporter":
-		for i in 12:
-			var angle: float = rot + i * PI / 6.0
-			var r: float = radius if (i % 2 == 0) else radius * 0.46
-			points.append(center + Vector2.from_angle(angle) * r)
-			outer.append(center + Vector2.from_angle(angle) * (r + 4))
-	elif enemy_id == "rift_weaver":
-		for i in 14:
-			var angle: float = rot + i * PI / 7.0
-			var r: float = radius if (i % 2 == 0) else radius * 0.44
-			points.append(center + Vector2.from_angle(angle) * r)
-			outer.append(center + Vector2.from_angle(angle) * (r + 4))
-	elif enemy_id in ["boss_nexus", "boss_omega"]:
-		var star_pts: int = 20 if enemy_id == "boss_omega" else 16
-		for i in star_pts:
-			var angle: float = rot + i * TAU / float(star_pts)
-			var r: float = radius if (i % 2 == 0) else radius * 0.56
-			points.append(center + Vector2.from_angle(angle) * r)
-			outer.append(center + Vector2.from_angle(angle) * (r + 5))
-	else:
-		for i in sides:
-			var dir := Vector2.from_angle(rot + i * TAU / sides)
-			points.append(center + dir * radius)
-			outer.append(center + dir * (radius + 5))
-
-	control.draw_colored_polygon(outer, Color(color, 0.2))
-	var body_color := color.darkened(0.5)
-	control.draw_colored_polygon(points, body_color)
-
-	var num_pts: int = points.size()
-	for i in num_pts:
-		var edge_color := color.darkened(0.55)
-		control.draw_polygon(
-			PackedVector2Array([center, points[i], points[(i + 1) % num_pts]]),
-			PackedColorArray([color, edge_color, edge_color])
-		)
-
-	var loop := points.duplicate()
-	loop.append(points[0])
-	control.draw_polyline(loop, color, 2.5, true)
-	control.draw_circle(center, maxf(2.5, radius * 0.22), Color(1, 1, 1, 0.9))
-
-	# Acessórios específicos
-	if enemy_id == "ring_prism":
-		control.draw_arc(center, radius + 7, 0, TAU, 24, Color(color, 0.7), 2.0, true)
-	elif enemy_id == "spiral_singularity":
-		control.draw_arc(center, radius + 8, 0, TAU * 0.8, 28, Color(color, 0.8), 2.5, true)
-		control.draw_circle(center, 4.0, Color("050014"))
-	elif enemy_id == "titan_tetrahedron":
-		control.draw_arc(center, radius + 9, 0, TAU, 32, Color(color, 0.85), 2.5, true)
-
-	if has_cannon:
-		var b_start: Vector2 = center + Vector2(0, radius * 0.55)
-		var b_end: Vector2 = center + Vector2(0, radius + 8.0)
-		control.draw_line(b_start, b_end, color, 3.0, true)
-		control.draw_circle(b_end, 2.5, Color.WHITE)
-	if has_dual_cannon:
-		for s in [-1.0, 1.0]:
-			var bs: Vector2 = center + Vector2(s * radius * 0.4, radius * 0.5)
-			var be: Vector2 = bs + Vector2(0, 8.0)
-			control.draw_line(bs, be, color, 2.5, true)
-			control.draw_circle(be, 2.0, Color.WHITE)
-	if has_teleport:
-		control.draw_arc(center, radius + 5, 0.2, PI - 0.2, 14, Color("00f5d4", 0.9), 2.0, true)
-		control.draw_arc(center, radius + 5, PI + 0.2, TAU - 0.2, 14, Color("00f5d4", 0.9), 2.0, true)
-	if has_summon:
-		for k in 3:
-			var orb_ang: float = float(k) * TAU / 3.0 - PI / 2.0
-			var orb_pos: Vector2 = center + Vector2.from_angle(orb_ang) * (radius + 7.5)
-			control.draw_circle(orb_pos, 3.0, color)
-			control.draw_circle(orb_pos, 1.4, Color.WHITE)
-
-	# Acessórios de variantes
-	if variant == "armored":
-		control.draw_arc(center, radius + 7, 0, TAU, 16, Color(0.8, 0.85, 1, 0.8), 2.5, true)
-	elif variant == "regen":
-		control.draw_arc(center, radius + 6, -PI / 2, -PI / 2 + TAU * 0.75, 24, Color(0.71, 1, 0.18, 0.85), 2.0, true)
-	elif variant == "ghost":
-		control.draw_arc(center, radius + 5, 0, TAU, 16, Color(VoidState.COLORS[1], 0.4), 1.5, true)
-	elif variant == "splitter":
-		control.draw_circle(center + Vector2(-radius * 0.4, 0), 2.5, Color.WHITE)
-		control.draw_circle(center + Vector2(radius * 0.4, 0), 2.5, Color.WHITE)
-	elif variant == "thief":
-		var font: Font = DISPLAY
-		control.draw_string(font, center + Vector2(-4, 5), "$", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color("ffb02e"))
-	if is_elite:
-		control.draw_arc(center, radius + 9, 0, TAU * 0.75, 28, color.lightened(0.2), 2.5, true)
-	elif is_boss:
-		control.draw_arc(center, radius + 9, 0, TAU, 32, Color(color, 0.75), 2.2, true)
-		control.draw_arc(center, radius + 12, 0, TAU * 0.65, 24, Color(color.lightened(0.3), 0.55), 1.5, true)
 
 func close_codex() -> void:
 	phase = "menu"
@@ -1543,8 +1019,8 @@ func modal() -> VBoxContainer:
 	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.add_child(center)
-	var margins := margin(center, 24)
-	var content := panel(margins, CYAN)
+	var margins := UIFactory.margin(center, 24)
+	var content := UIFactory.panel(margins, CYAN)
 	content.custom_minimum_size.x = 480
 	content.add_theme_constant_override("separation", 14)
 	return content
@@ -1567,14 +1043,14 @@ func pause_game() -> void:
 	phase = "paused"
 	state.paused = true
 	var content := modal()
-	center_label(content, "Ⅱ", 38, CYAN, true)
-	center_label(content, "PAUSADO", 28, Color.WHITE, true)
-	center_label(content, "%d PONTOS     W%d     %d OURO" % [state.score, state.wave, state.gold], 14, LIME, true)
-	var resume := button("▶  CONTINUAR", pause_game, LIME, true)
+	UIFactory.center_label(content, "Ⅱ", 38, CYAN, true)
+	UIFactory.center_label(content, "PAUSADO", 28, Color.WHITE, true)
+	UIFactory.center_label(content, "%d PONTOS     W%d     %d OURO" % [state.score, state.wave, state.gold], 14, LIME, true)
+	var resume := UIFactory.button("▶  CONTINUAR", pause_game, LIME, true)
 	content.add_child(resume)
-	content.add_child(button("REINICIAR", start_game))
-	content.add_child(button("MENU", show_menu))
-	center_label(content, "P / ESC para continuar • R reinicia", 16, MUTED)
+	content.add_child(UIFactory.button("REINICIAR", start_game))
+	content.add_child(UIFactory.button("MENU", show_menu))
+	UIFactory.center_label(content, "P / ESC para continuar • R reinicia", 16, MUTED)
 	resume.grab_focus()
 
 func game_over() -> void:
@@ -1584,28 +1060,28 @@ func game_over() -> void:
 	store.best = maxi(store.best, state.score)
 	var persisted: bool = true if test_mode else store.save_data()
 	var content := modal()
-	center_label(content, "BASE DESTRUÍDA", 27, Color("ff5577"), true)
+	UIFactory.center_label(content, "BASE DESTRUÍDA", 27, Color("ff5577"), true)
 	if record:
-		center_label(content, "♛  NOVO RECORDE!", 14, AMBER, true)
-	center_label(content, str(state.score), 48, Color.WHITE, true)
-	center_label(content, "P O N T U A Ç Ã O  F I N A L", 12, MUTED)
-	center_label(content, "W%d     %d ABATES     %d OURO\nx%d COMBO     %s" % [state.wave, state.kills, state.total_gold, state.max_combo, time_text(state.play_time)], 17, CYAN)
-	center_label(content, "PEÇAS COLETADAS   " + pieces_text(state.run_pieces), 14, AMBER, true)
+		UIFactory.center_label(content, "♛  NOVO RECORDE!", 14, AMBER, true)
+	UIFactory.center_label(content, str(state.score), 48, Color.WHITE, true)
+	UIFactory.center_label(content, "P O N T U A Ç Ã O  F I N A L", 12, MUTED)
+	UIFactory.center_label(content, "W%d     %d ABATES     %d OURO\nx%d COMBO     %s" % [state.wave, state.kills, state.total_gold, state.max_combo, time_text(state.play_time)], 17, CYAN)
+	UIFactory.center_label(content, "PEÇAS COLETADAS   " + pieces_text(state.run_pieces), 14, AMBER, true)
 	if store.qualifies(state.score):
-		center_label(content, "TOP 10 — REGISTRE SEU NOME", 12, AMBER, true)
+		UIFactory.center_label(content, "TOP 10 — REGISTRE SEU NOME", 12, AMBER, true)
 		player_name = LineEdit.new()
 		player_name.placeholder_text = "SEU NOME"
 		player_name.max_length = 10
 		player_name.custom_minimum_size.y = 42
 		content.add_child(player_name)
-		var save_button := button("SALVAR", submit_score, AMBER, true)
+		var save_button := UIFactory.button("SALVAR", submit_score, AMBER, true)
 		save_button.name = "SaveScore"
 		content.add_child(save_button)
 		player_name.text_submitted.connect(func(_text): submit_score())
 		player_name.grab_focus()
-	save_status = center_label(content, "" if persisted else "Não foi possível salvar o recorde no disco.", 15, AMBER)
-	content.add_child(button("JOGAR NOVAMENTE", start_game, PINK, true))
-	content.add_child(button("VOLTAR AO MENU", show_menu))
+	save_status = UIFactory.center_label(content, "" if persisted else "Não foi possível salvar o recorde no disco.", 15, AMBER)
+	content.add_child(UIFactory.button("JOGAR NOVAMENTE", start_game, PINK, true))
+	content.add_child(UIFactory.button("VOLTAR AO MENU", show_menu))
 	final_ranking = ranking(content)
 
 func submit_score() -> void:

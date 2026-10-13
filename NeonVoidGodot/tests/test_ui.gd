@@ -3,7 +3,7 @@ extends SceneTree
 const WATCHDOG_SECONDS := 180.0
 
 var app: Control
-var capture_dir := ProjectSettings.globalize_path("res://").path_join("../screenshots/")
+var capture_dir := ProjectSettings.globalize_path("res://").path_join("../screenshots").simplify_path() + "/"
 
 func _initialize() -> void:
 	DirAccess.make_dir_recursive_absolute(capture_dir)
