@@ -52,3 +52,5 @@ O agente deve aplicar rigorosamente as regras definidas em:
 - `.agent/skills/skill_godot_ui_system.md` (Responsividade, containers e UIFactory)
 - `.agent/skills/skill_godot_rendering_vfx.md` (Vetor procedural via _draw e partículas leves)
 - `.agent/skills/skill_godot_persistence.md` (Migração de esquemas e integridade JSON)
+- `.agents/skills/` (gameplay, módulos, persistência, pesquisas, roguelite, UI, balanceamento e QA)
+
