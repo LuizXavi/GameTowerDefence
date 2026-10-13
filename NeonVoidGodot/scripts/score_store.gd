@@ -6,12 +6,7 @@ var best := 0
 var muted := false
 var writable := true
 var pieces: Array[int] = [0, 0, 0, 0]
-var research: Array[int] = [
-	0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0
-]
+var research: Array[int] = GameData.empty_research()
 var enemy_stats: Dictionary = {}
 var highest_wave := 1
 var tower_modules: Dictionary = {"plasma": true, "cryo": false, "arc": false, "pulse": false, "laser": false, "vortex": false, "railgun": false}
@@ -24,45 +19,14 @@ var equipped_module: String:
 		if module_unlocked(value):
 			tower_loadout[0] = value
 
-const RESEARCH_MAX := [
-	5, 5, 5, 3, 5, 5, 5, 3,
-	5, 5, 5, 5, 5, 5, 5, 5, 5, 3,
-	5, 5, 5, 5, 5, 5, 5,
-	5, 5, 5
-]
-const RESEARCH_BASE_COSTS := [
-	5, 5, 4, 2, 8, 8, 7, 3,
-	6, 6, 7, 3, 5, 6, 5, 6, 6, 4,
-	6, 6, 7, 7, 3, 8, 4,
-	4, 5, 3
-]
-const RESEARCH_PIECE_INDEX := [
-	0, 1, 2, 3, 0, 1, 2, 3,
-	0, 1, 0, 3, 1, 2, 2, 1, 2, 3,
-	0, 1, 0, 2, 3, 2, 3,
-	2, 1, 3
-]
+const RESEARCH_MAX := GameData.RESEARCH_MAX
+const RESEARCH_BASE_COSTS := GameData.RESEARCH_BASE_COSTS
+const RESEARCH_PIECE_INDEX := GameData.RESEARCH_PIECE_INDEX
 const SCHEMA_VERSION := 10
-const SLOT_WAVES := [1, 3, 6, 10, 15, 22, 30]
-const SLOT_COSTS := [
-	{"piece_index": -1, "amount": 0},
-	{"piece_index": 0, "amount": 6},
-	{"piece_index": 1, "amount": 8},
-	{"piece_index": 2, "amount": 10},
-	{"piece_index": 3, "amount": 3},
-	{"piece_index": 2, "amount": 18},
-	{"piece_index": 3, "amount": 6},
-]
-const MODULE_WAVES := {"plasma": 1, "cryo": 5, "arc": 10, "pulse": 15, "laser": 20, "vortex": 25, "railgun": 30}
-const MODULE_COSTS := {
-	"plasma": {"piece_index": -1, "amount": 0},
-	"cryo": {"piece_index": 1, "amount": 8},
-	"arc": {"piece_index": 0, "amount": 12},
-	"pulse": {"piece_index": 2, "amount": 14},
-	"laser": {"piece_index": 3, "amount": 4},
-	"vortex": {"piece_index": 2, "amount": 20},
-	"railgun": {"piece_index": 3, "amount": 6},
-}
+const SLOT_WAVES := GameData.SLOT_WAVES
+const SLOT_COSTS := GameData.SLOT_COSTS
+const MODULE_WAVES := GameData.MODULE_WAVES
+const MODULE_COSTS := GameData.MODULE_COSTS
 
 func migrate(data: Dictionary) -> Dictionary:
 	var migrated := data.duplicate(true)

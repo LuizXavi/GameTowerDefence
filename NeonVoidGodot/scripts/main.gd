@@ -4,102 +4,23 @@ const Arena = preload("res://scenes/arena.tscn")
 const Store = preload("res://scripts/score_store.gd")
 const DISPLAY = preload("res://assets/fonts/DisplayBold.tres")
 const BODY = preload("res://assets/fonts/Rajdhani.ttf")
-const PINK = Color("ff2bd6")
-const CYAN = Color("22e6ff")
-const LIME = Color("b6ff2e")
-const AMBER = Color("ffb02e")
-const MUTED = Color("a49cb7")
-const NAMES = ["Clique Plasma", "Torreta Auto", "Núcleo Crítico", "Escudo Base"]
-const DESCS = ["+3 dano por clique", "DPS automático", "+4,5% chance crítico", "+15 máx • cura 30"]
-const COLORS = [PINK, LIME, AMBER, CYAN]
-const PIECE_NAMES = ["FRAGMENTO QUADRADO", "FRAGMENTO TRIANGULAR", "LIGA HEXAGONAL", "NÚCLEO DE BOSS"]
-const PIECE_SHORT = ["■", "▲", "⬢", "✦"]
-const RESEARCH_NAMES = [
-	"Análise de Plasma", "Roteamento Autônomo", "Liga da Base", "Reator Nova",
-	"Foco Crítico", "Sincronia de Combate", "Extração Quântica", "Singularidade Nova",
-	"Perfuração Cinética", "Acelerador de Cadência", "Execução Implacável", "Caçador de Titãs",
-	"Estabilizador de Combo", "Blindagem Reativa", "Nanorreparo de Onda", "Cofre Quântico",
-	"Gerador de Emergência", "Magnetismo de Fragmentos",
-	"Superaquecimento de Plasma", "Zero Absoluto", "Condutores de Alta Tensão",
-	"Ressonância Tectônica", "Lente de Antimatéria", "Horizonte de Eventos", "Capacitores Hiperfônicos",
-	"Gerador de Escudo Quântico", "Recarga Harmônica de Escudo", "Barreira Reflexiva de Plasma"
-]
-const RESEARCH_DESCS = [
-	"+1 dano base por clique", "+8% DPS da torreta", "+10 vida máxima da base", "+0,3 carga/s da Nova",
-	"+2% chance e +0,2x dano crítico", "+0,8% bônus de dano/ouro por combo", "+8% ouro ganho por abate", "+25% dano destrutivo do Pulso Nova",
-	"+12% dano contra inimigos blindados", "+5% cadência de tiro de todas as torretas", "+10% dano contra inimigos abaixo de 40% HP", "+12% dano contra Elites e Bosses",
-	"+0,4s duração do combo e reduz perda ao errar", "-1 dano recebido na base por vazamento (mín. 1)", "+4 vida recuperada na base ao concluir cada wave", "+20 ouro inicial e -12% roubo de Ladrões",
-	"+10 carga inicial da Nova e +4 cura do Escudo", "+6% chance de drop de peças de inimigos",
-	"[Torre Plasma] +12% dano direto e +15% bônus de Choque Térmico",
-	"[Torre Criogênica] +10% dano e +0,25s duração de lentidão",
-	"[Torre de Arco] +10% dano e +18px alcance dos saltos elétricos",
-	"[Torre Sísmica] +12% dano radial e +6px força de empurrão",
-	"[Laser Antimatéria] +15% velocidade de rampa e +0,3x dano máximo",
-	"[Vórtice Gravitacional] +12% dano de implosão e +12px raio de atração",
-	"[Railgun Fotônico] +14% dano perfurante e recarga 4% mais rápida",
-	"[Escudo] Desbloqueia Escudo de Energia na base (+25 Escudo Máx inicial/nv)",
-	"[Escudo] +1,5/s regeneração de escudo e -0,3s atraso de recarga",
-	"[Escudo] Reduz dano recebido no escudo em 8%/nv e reflete dano em área"
-]
-const MODULE_IDS = ["plasma", "cryo", "arc", "pulse", "laser", "vortex", "railgun"]
-const MODULE_INFO = {
-	"plasma": ["Torre Plasma", "100% dano • disparo direto • Choque Térmico", PINK],
-	"cryo": ["Torre Criogênica", "75% dano • desacelera 35% por 1,5s", CYAN],
-	"arc": ["Torre de Arco", "65% dano • salta até 2 alvos (4 em estática)", AMBER],
-	"pulse": ["Torre Sísmica", "Recarga 2,5s • onda radial • knockback vertical", LIME],
-	"laser": ["Laser Antimatéria", "Feixe contínuo • rampa até 350% de dano", Color("ff3355")],
-	"vortex": ["Vórtice Gravitacional", "Atrai inimigos em 160px • Implosão com choque", Color("9933ff")],
-	"railgun": ["Railgun Fotônico", "Feixe ultra-sônico • perfura e ricocheteia", Color("33ffcc")]
-}
-const CODEX_ORDER = [
-	"square", "armored_square", "splitter", "triangle", "ghost_triangle", "thief",
-	"pentagon", "hexagon", "regen_hexagon", "heptagon", "octagon", "nonagon",
-	"decagon", "hendecagon", "dodecagon", "star4", "star5", "ring_prism",
-	"spiral_singularity", "titan_tetrahedron",
-	"void_shooter", "quantum_teleporter", "hive_summoner", "plasma_artillery", "rift_weaver",
-	"elite", "elite_vanguard", "elite_phantom", "elite_artillery", "elite_overlord", "elite_berserker", "elite_storm",
-	"boss", "boss_colossus", "boss_primordial", "boss_nexus", "boss_leviathan", "boss_omega"
-]
-const ENEMY_INFO = {
-	"square": ["QUADRADO", "30%", "Dano direto", "Blindado e Duplicador", "Análise de Plasma"],
-	"armored_square": ["QUADRADO BLINDADO", "30%", "Torreta automática", "Reduz clique a 35%", "Análise de Plasma"],
-	"splitter": ["DUPLICADOR", "30%", "Dano explosivo", "Gera dois fragmentos vivos", "Análise de Plasma"],
-	"triangle": ["TRIÂNGULO", "22%", "Clique rápido", "Fantasma e Ladrão", "Roteamento Autônomo"],
-	"ghost_triangle": ["TRIÂNGULO FANTASMA", "22%", "Ataque durante a fase sólida", "Intangível 1s a cada 3s", "Roteamento Autônomo"],
-	"thief": ["LADRÃO", "22%", "Eliminar antes da base", "Rouba 15% do ouro", "Roteamento Autônomo"],
-	"pentagon": ["PENTÁGONO", "25%", "Dano moderado", "Rápido e agressivo", "Liga da Base"],
-	"hexagon": ["HEXÁGONO", "40%", "Dano sustentado", "Regenerador", "Liga da Base"],
-	"regen_hexagon": ["HEXÁGONO REGENERADOR", "40%", "Não interromper ataques", "Regenera após 1,5s", "Liga da Base"],
-	"heptagon": ["HEPTÁGONO", "35%", "Blindagem pesada", "Escudo natural", "Liga da Base"],
-	"octagon": ["OCTÓGONO BASTIÃO", "45%", "Laser Antimatéria", "Barreira fortificada pesada", "Liga da Base"],
-	"nonagon": ["NONÁGONO VÓRTICE", "28%", "Torre Criogênica", "Avanço supersônico em rajada", "Roteamento Autônomo"],
-	"decagon": ["DECÁGONO COLOSSAL", "50%", "Railgun Fotônico", "Massa cósmica de alta densidade", "Liga da Base"],
-	"hendecagon": ["HENDECÁGONO SOMBRIO", "45%", "Vórtice Gravitacional", "Geometria assimétrica instável", "Liga da Base"],
-	"dodecagon": ["DODECÁGONO PRIMORDIAL", "60%", "Nova concentrada", "Câmara de doze faces blindadas", "Reator Nova"],
-	"star4": ["DIAMANTE DE CRISTAL", "25%", "Clique preciso", "Velocidade estelar extrema", "Análise de Plasma"],
-	"star5": ["ESTRELA CADENTE", "30%", "Torre de Arco", "Vórtice de fragmentos cintilantes", "Roteamento Autônomo"],
-	"ring_prism": ["PRISMA ANELAR", "55%", "Pulso Sísmico", "Resiste a ataques frontais", "Liga da Base"],
-	"spiral_singularity": ["SINGULARIDADE DO VAZIO", "70%", "Choque Térmico + Railgun", "Atrai tiros e distorce espaço", "Reator Nova"],
-	"titan_tetrahedron": ["TITÃ TETRAÉDRICO", "85%", "Sobrecarga total", "Construção de quatro eixos maciços", "Reator Nova"],
-	"void_shooter": ["ATIRADOR DO VAZIO", "30%", "Clique nos tiros / Pulso", "Dispara plasma contra a base", "Blindagem Reativa"],
-	"quantum_teleporter": ["TELEPORTADOR QUÂNTICO", "30%", "Torre Criogênica / Arco", "Salta horizontalmente pela arena", "Roteamento Autônomo"],
-	"hive_summoner": ["INVOCADOR DA COLMEIA", "42%", "Torre Sísmica / Vórtice", "Invoca pares de lacaios velozes", "Liga da Base"],
-	"plasma_artillery": ["ARTILHEIRO DE ANTIMATÉRIA", "42%", "Laser + Interceptação", "Dispara rajadas duplas de cerco", "Blindagem Reativa"],
-	"rift_weaver": ["TECELÃO DE FENDAS", "65%", "Foco imediato + Nova", "Teleporta e deixa lacaios na fenda", "Caçador de Titãs"],
-	"elite": ["COMANDANTE DE ELITE", "Chance dobrada", "Caçador de Titãs", "Lidera assaltos nas waves 3, 8, 13...", "Todas as linhas"],
-	"elite_vanguard": ["ELITE VANGUARDA", "Chance dobrada", "Torreta Automática", "Blindagem pesada + Regeneração", "Perfuração Cinética"],
-	"elite_phantom": ["ELITE ESPECTRAL", "Chance dobrada", "Ataque na fase visível", "Fase intangível + Teleporte Quântico", "Caçador de Titãs"],
-	"elite_artillery": ["ELITE ARTILHEIRO", "Chance dobrada", "Interceptar projéteis", "Canhão de Plasma + Blindagem", "Blindagem Reativa"],
-	"elite_overlord": ["ELITE INVOCADOR", "Chance dobrada", "Dano em área (Vórtice/Pulso)", "Invoca enxames de lacaios + Regen", "Caçador de Titãs"],
-	"elite_berserker": ["ELITE FRENÉTICO", "Chance dobrada", "Torre Criogênica + Execução", "Acelera drasticamente com HP baixo", "Execução Implacável"],
-	"elite_storm": ["ELITE TEMPESTADE", "Chance dobrada", "Railgun + Clique rápido", "Teleporta atirando contra o núcleo", "Caçador de Titãs"],
-	"boss": ["BOSS — GUARDIÃO OCTOGONAL", "100% • 2 núcleos", "Nova + Interceptar tiros", "Wave 5 • Dispara barragem tripla", "Caçador de Titãs"],
-	"boss_colossus": ["BOSS — COLOSSO DECAGONAL", "100% • 2 núcleos", "Laser + Dano em área", "Wave 10 • Invoca lacaios e regenera", "Caçador de Titãs"],
-	"boss_primordial": ["BOSS — DODECÁGONO PRIMORDIAL", "100% • 2 núcleos", "Foco rápido pós-salto", "Wave 15 • Teleporta e dispara plasma", "Caçador de Titãs"],
-	"boss_nexus": ["BOSS — NEXUS CÓSMICO", "100% • 2 núcleos", "Atacar fora da fase", "Wave 20 • Fase quântica, lacaios e tiros", "Singularidade Nova"],
-	"boss_leviathan": ["BOSS — LEVIATÃ ABISSAL", "100% • 2 núcleos", "Choque Térmico + Laser", "Wave 25 • Artilharia pesada e regeneração", "Caçador de Titãs"],
-	"boss_omega": ["BOSS — ARQUITETO ÔMEGA", "100% • 2 núcleos", "Sobrecarga total + Nova", "Wave 30+ • Teleporte, enxame e barragem", "Singularidade Nova"]
-}
+# Dados de design centralizados em res://data/game_data.gd (GameData)
+const PINK := GameData.PINK
+const CYAN := GameData.CYAN
+const LIME := GameData.LIME
+const AMBER := GameData.AMBER
+const MUTED := GameData.MUTED
+const NAMES := GameData.LEGACY_UPGRADE_NAMES
+const DESCS := GameData.LEGACY_UPGRADE_DESCS
+const COLORS := GameData.PIECE_COLORS
+const PIECE_NAMES := GameData.PIECE_NAMES
+const PIECE_SHORT := GameData.PIECE_SHORT
+const RESEARCH_NAMES := GameData.RESEARCH_NAMES
+const RESEARCH_DESCS := GameData.RESEARCH_DESCS
+const MODULE_IDS := GameData.MODULE_IDS
+const MODULE_INFO := GameData.MODULE_INFO
+const CODEX_ORDER := GameData.CODEX_ORDER
+const ENEMY_INFO := GameData.ENEMY_INFO
 var state := VoidState.new()
 var store = Store.new()
 var phase := "menu"
@@ -140,29 +61,10 @@ var module_status := ""
 var modal_return_focus: Control
 var hide_completed_research := false
 
-const UPG_ATTACK_IDS := ["click_dmg", "crit_chance", "crit_mult", "combo_drive", "click_splash", "nova_overdrive"]
-const UPG_TOWER_IDS := ["tower_haste", "tower_range", "tower_pierce", "tower_synergy"]
-const UPG_DEFENSE_IDS := ["base_hull", "hull_vitality", "nano_regen", "reactive_plating", "shield_cap", "shield_regen", "shield_pulse"]
-
-const IN_GAME_UPG_INFO := {
-	"click_dmg": ["CLIQUE PLASMA", "+Dano por clique (+25% a cada 5 nv)", Color("ff2bd6")],
-	"crit_chance": ["NÚCLEO CRÍTICO", "+4% chance de acerto crítico (máx 75%)", Color("facc15")],
-	"crit_mult": ["MULTIPLICADOR LETAL", "+0.25x multiplicador de dano crítico", Color("f97316")],
-	"combo_drive": ["FRENESI DE COMBO", "+Bônus de dano e duração de combo", Color("ec4899")],
-	"click_splash": ["ONDA DE IMPACTO", "Cliques causam dano em área (115px)", Color("a855f7")],
-	"nova_overdrive": ["SOBRECARGA NOVA", "+20% recarga e +12% dano do Pulso Nova", Color("22d3ee")],
-	"tower_haste": ["ACELERADOR DE CADÊNCIA", "+12% velocidade de disparo das torres", Color("a3e635")],
-	"tower_range": ["BOBINAS DE ALCANCE", "+8% alcance de todas as torres", Color("22d3ee")],
-	"tower_pierce": ["MUNIÇÃO ANTI-TITÃ", "+18% dano das torres em Elites e Bosses", Color("facc15")],
-	"tower_synergy": ["SINCRONIA DE BATERIA", "+6% dano por cada torre ativa", Color("a855f7")],
-	"base_hull": ["ESTRUTURA DA BASE", "+2 Vida máx e +1 Vida imediata", Color("22d3ee")],
-	"hull_vitality": ["REFORÇO DE TITÂNIO", "+4 Vida máx e +3 Vida imediata", Color("a3e635")],
-	"nano_regen": ["NANORREPARO CONTÍNUO", "Regenera +1 Vida da base periodicamente", Color("34d399")],
-	"reactive_plating": ["BLINDAGEM DE ABSORÇÃO", "+15% chance de bloquear 1 dano no casco", Color("facc15")],
-	"shield_cap": ["CAPACITOR DE ESCUDO", "+35 Escudo máx e recarga imediata", Color("38bdf8")],
-	"shield_regen": ["REATOR DE ESCUDO", "+1.8 Escudo/s de regeneração contínua", Color("22d3ee")],
-	"shield_pulse": ["CAMPO DE REPULSÃO", "Ao quebrar escudo, empurra e dá dano", Color("818cf8")]
-}
+const UPG_ATTACK_IDS := GameData.UPG_ATTACK_IDS
+const UPG_TOWER_IDS := GameData.UPG_TOWER_IDS
+const UPG_DEFENSE_IDS := GameData.UPG_DEFENSE_IDS
+const IN_GAME_UPG_INFO := GameData.UPGRADE_INFO
 
 func _ready() -> void:
 	get_window().min_size = Vector2i(640, 640)
@@ -1130,38 +1032,7 @@ func build_research_cards() -> void:
 	focus_first_modal_action()
 
 func research_icon_id(index: int) -> String:
-	match index:
-		0, 8:
-			return "click_dmg"
-		1:
-			return "tower_haste"
-		2, 11:
-			return "base_hull"
-		3, 7, 17:
-			return "combo_drive"
-		4:
-			return "crit_chance"
-		5:
-			return "crit_mult"
-		6, 16:
-			return "nova_overdrive"
-		9:
-			return "tower_pierce"
-		10:
-			return "tower_synergy"
-		12:
-			return "nano_regen"
-		13, 14:
-			return "reactive_plating"
-		15:
-			return "hull_vitality"
-		25:
-			return "shield_cap"
-		26:
-			return "shield_regen"
-		27:
-			return "shield_pulse"
-	return "attack"
+	return GameData.research_icon(index)
 
 func draw_neon_ui_icon(control: Control, icon_id: String, base_radius: float = 12.0, custom_center: Vector2 = Vector2(-1, -1), color: Color = CYAN) -> void:
 	var center: Vector2 = custom_center if custom_center.x >= 0.0 else control.size * 0.5

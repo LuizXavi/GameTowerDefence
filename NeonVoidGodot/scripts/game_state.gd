@@ -8,54 +8,13 @@ signal piece_dropped(kind: int, amount: int, position: Vector2, enemy_id: String
 signal enemy_discovered(enemy_id: String)
 signal enemy_defeated(enemy_id: String, at_wave: int)
 
-const COLORS = [
-	Color("ff2bd6"), # 0: square (rosa)
-	Color("22e6ff"), # 1: triangle (ciano)
-	Color("b6ff2e"), # 2: hexagon (lima)
-	Color("ffb02e"), # 3: boss (dourado/âmbar)
-	Color("b43aff"), # 4: pentagon (roxo)
-	Color("38ef7d"), # 5: heptagon (esmeralda)
-	Color("ff3b30"), # 6: octagon (vermelho vivo)
-	Color("ff9500"), # 7: nonagon (laranja solar)
-	Color("00c7be"), # 8: decagon (turquesa)
-	Color("5856d6"), # 9: hendecagon (índigo cósmico)
-	Color("ff2d55"), # 10: dodecagon (carmesim estelar)
-	Color("af52de"), # 11: star4 (diamante/estrela 4 pontas violeta)
-	Color("ffd60a"), # 12: star5 (estrela cadente dourada)
-	Color("30d158"), # 13: ring_prism (prisma anelar verde elétrico)
-	Color("64d2ff"), # 14: spiral_singularity (singularidade ciano gelo)
-	Color("bf5af2"), # 15: titan_tetrahedron (titã tetraédrico)
-	Color("ff5e3a"), # 16: void_shooter (atirador do vazio laranja-fogo)
-	Color("00f5d4"), # 17: quantum_teleporter (teleportador quântico água-marinha)
-	Color("f72585"), # 18: hive_summoner (invocador da colmeia magenta neon)
-	Color("ff1744"), # 19: plasma_artillery (artilheiro de antimatéria rubi)
-	Color("9d4edd")  # 20: rift_weaver (tecelão de fendas violeta profundo)
-]
-const FAMILY_IDS = [
-	"square", "triangle", "hexagon", "boss", "pentagon", "heptagon",
-	"octagon", "nonagon", "decagon", "hendecagon", "dodecagon",
-	"star4", "star5", "ring_prism", "spiral_singularity", "titan_tetrahedron",
-	"void_shooter", "quantum_teleporter", "hive_summoner", "plasma_artillery", "rift_weaver"
-]
-const ELITE_MODIFIERS = ["armor", "haste", "regen", "phase", "shooter", "teleporter", "summoner", "berserk"]
-const ELITE_TYPES = [
-	{"id": "elite_vanguard", "name": "ELITE VANGUARDA", "mods": ["armor", "regen"], "color": Color("ffb02e"), "hp_mult": 2.4, "speed_mult": 0.92},
-	{"id": "elite_phantom", "name": "ELITE ESPECTRAL", "mods": ["phase", "teleporter"], "color": Color("00f5d4"), "hp_mult": 1.85, "speed_mult": 1.25},
-	{"id": "elite_artillery", "name": "ELITE ARTILHEIRO", "mods": ["shooter", "armor"], "color": Color("ff4d6d"), "hp_mult": 2.1, "speed_mult": 0.95},
-	{"id": "elite_overlord", "name": "ELITE INVOCADOR", "mods": ["summoner", "regen"], "color": Color("e056fd"), "hp_mult": 2.25, "speed_mult": 0.88},
-	{"id": "elite_berserker", "name": "ELITE FRENÉTICO", "mods": ["haste", "berserk"], "color": Color("ff7f50"), "hp_mult": 1.95, "speed_mult": 1.38},
-	{"id": "elite_storm", "name": "ELITE TEMPESTADE", "mods": ["teleporter", "shooter"], "color": Color("fee440"), "hp_mult": 2.0, "speed_mult": 1.18}
-]
-const BOSS_TYPES = [
-	{"id": "boss", "name": "GUARDIÃO OCTOGONAL", "sides": 8, "color": Color("ffb02e"), "hp_mult": 1.0, "speed_mult": 1.0, "ability": "shooter"},
-	{"id": "boss_colossus", "name": "COLOSSO DECAGONAL", "sides": 10, "color": Color("ff3b30"), "hp_mult": 1.25, "speed_mult": 0.88, "ability": "summoner_regen"},
-	{"id": "boss_primordial", "name": "DODECÁGONO PRIMORDIAL", "sides": 12, "color": Color("00f2fe"), "hp_mult": 1.35, "speed_mult": 1.05, "ability": "teleporter_shooter"},
-	{"id": "boss_nexus", "name": "NEXUS CÓSMICO", "sides": 16, "color": Color("c471ed"), "hp_mult": 1.5, "speed_mult": 1.0, "ability": "nexus"},
-	{"id": "boss_leviathan", "name": "LEVIATÃ ABISSAL", "sides": 16, "color": Color("00ff87"), "hp_mult": 1.75, "speed_mult": 0.82, "ability": "siege_regen"},
-	{"id": "boss_omega", "name": "ARQUITETO ÔMEGA", "sides": 20, "color": Color("ff007f"), "hp_mult": 2.0, "speed_mult": 1.1, "ability": "omega"}
-]
-const TOWER_MODULE_IDS = ["plasma", "cryo", "arc", "pulse", "laser", "vortex", "railgun"]
-const MAX_TOWER_SLOTS := 7
+const COLORS := GameData.ENEMY_COLORS
+const FAMILY_IDS := GameData.FAMILY_IDS
+const ELITE_MODIFIERS := GameData.ELITE_MODIFIERS
+const ELITE_TYPES := GameData.ELITE_TYPES
+const BOSS_TYPES := GameData.BOSS_TYPES
+const TOWER_MODULE_IDS := GameData.MODULE_IDS
+const MAX_TOWER_SLOTS := GameData.MAX_TOWER_SLOTS
 const AUTO_INTERVAL := 0.28
 const ARC_CHAIN_RADIUS := 160.0
 const CRYO_SLOW_DURATION := 1.5
@@ -64,25 +23,7 @@ const PULSE_INTERVAL := 2.5
 const PULSE_KNOCKBACK_FORCE := 38.0
 var tower_module: String = "plasma"
 
-const UPGRADE_DEFS = {
-	"click_dmg": {"base": 15, "scale": 1.58},
-	"crit_chance": {"base": 90, "scale": 1.80},
-	"crit_mult": {"base": 65, "scale": 1.70},
-	"combo_drive": {"base": 55, "scale": 1.65},
-	"click_splash": {"base": 80, "scale": 1.75},
-	"nova_overdrive": {"base": 75, "scale": 1.72},
-	"tower_haste": {"base": 60, "scale": 1.70},
-	"tower_range": {"base": 70, "scale": 1.72},
-	"tower_pierce": {"base": 85, "scale": 1.75},
-	"tower_synergy": {"base": 95, "scale": 1.78},
-	"base_hull": {"base": 70, "scale": 1.72},
-	"hull_vitality": {"base": 60, "scale": 1.68},
-	"nano_regen": {"base": 65, "scale": 1.70},
-	"reactive_plating": {"base": 80, "scale": 1.75},
-	"shield_cap": {"base": 75, "scale": 1.72, "requires_shield": true},
-	"shield_regen": {"base": 85, "scale": 1.75, "requires_shield": true},
-	"shield_pulse": {"base": 95, "scale": 1.80, "requires_shield": true}
-}
+const UPGRADE_DEFS := GameData.UPGRADE_DEFS
 
 func interval_for_module(module_id: String) -> float:
 	var base := AUTO_INTERVAL
@@ -141,12 +82,7 @@ var beam_time: float:
 var beam_chain: Array[Vector2]:
 	get: return tower_slots[0].beam_chain
 	set(value): tower_slots[0].beam_chain = value
-var research: Array[int] = [
-	0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0
-]
+var research: Array[int] = GameData.empty_research()
 var run_pieces: Array[int] = [0, 0, 0, 0]
 
 func _init() -> void:
@@ -319,14 +255,8 @@ func tower_position(slot_index: int) -> Vector2:
 	return Vector2(bounds.x * (slot_index + 1.0) / (tower_slots.size() + 1.0), bounds.y - 40)
 
 func configure_research(res_levels: Array) -> void:
-	var max_res: Array[int] = [
-		5, 5, 5, 3, 5, 5, 5, 3,
-		5, 5, 5, 5, 5, 5, 5, 5, 5, 3,
-		5, 5, 5, 5, 5, 5, 5,
-		5, 5, 5
-	]
-	for i in max_res.size():
-		research[i] = clampi(int(res_levels[i]) if i < res_levels.size() else 0, 0, max_res[i])
+	for i in GameData.RESEARCH_COUNT:
+		research[i] = clampi(int(res_levels[i]) if i < res_levels.size() else 0, 0, GameData.RESEARCH_MAX[i])
 
 func reset() -> void:
 	gold = research[15] * 20
