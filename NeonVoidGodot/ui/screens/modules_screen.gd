@@ -78,12 +78,22 @@ static func append_module_cards(app: Control, parent: VBoxContainer) -> void:
 			continue
 		else:
 			var cost: Dictionary = app.store.module_cost(module_id)
-			var index: int = cost.piece_index
-			var costs := UIFactory.label("BLOQUEADO • Custo: %d %s • Você tem: %d" % [int(cost.amount), PIECE_SHORT[index], app.store.pieces[index]], 16, MUTED)
+			var index: int = int(cost.piece_index)
+			var duration: float = app.store.get_module_research_duration(module_id)
+			var is_active: bool = app.store.active_research.get("type") == "module" and str(app.store.active_research.get("target", "")) == module_id
+			var is_busy: bool = app.store.is_researching() and not is_active
+			var costs := UIFactory.label("BLOQUEADO • Custo: %d %s • Tempo: %ds • Você tem: %d" % [int(cost.amount), PIECE_SHORT[index], int(duration), app.store.pieces[index]], 16, MUTED)
 			costs.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			card.add_child(costs)
-			action = UIFactory.button("PESQUISAR" if app.store.can_research_module(module_id) else "PESQUISAR • PEÇAS INSUFICIENTES", func(): app.buy_tower_module(module_id), info[2])
-			action.disabled = not app.store.can_research_module(module_id)
+			var btn_text := "PESQUISAR NO LABORATÓRIO"
+			if is_active:
+				btn_text = "⚡ EM SÍNTESE • %.1fs" % app.store.active_research_remaining()
+			elif is_busy:
+				btn_text = "LABORATÓRIO OCUPADO"
+			elif not app.store.can_research_module(module_id):
+				btn_text = "PESQUISAR • PEÇAS INSUFICIENTES"
+			action = UIFactory.button(btn_text, func(): app.buy_tower_module(module_id), info[2])
+			action.disabled = not (app.store.can_research_module(module_id) and not is_busy)
 		action.name = "Module_" + module_id
 		card.add_child(action)
 	if shown_count == 0 and app.hide_completed_research:
@@ -184,12 +194,25 @@ static func append_slot_expansion(app: Control, parent: VBoxContainer, laborator
 	var card := UIFactory.panel(parent, CYAN)
 	card.add_child(UIFactory.label("EXPANSÃO  •  SLOT %d" % (index + 1), 17, CYAN, true))
 	var cost: Dictionary = app.store.slot_cost(index)
-	var piece_index: int = cost.piece_index
-	var costs := UIFactory.label("DESCOBERTO • Custo: %d %s • Você tem: %d" % [int(cost.amount), PIECE_SHORT[piece_index], app.store.pieces[piece_index]], 17, MUTED)
+	var piece_index: int = int(cost.piece_index)
+	var duration: float = app.store.get_slot_research_duration(index)
+	var is_active: bool = app.store.active_research.get("type") == "slot" and int(app.store.active_research.get("target", -1)) == index
+	var is_busy: bool = app.store.is_researching() and not is_active
+	var available: bool = app.store.can_research_slot(index) and not is_busy
+
+	var costs := UIFactory.label("DESCOBERTO • Custo: %d %s • Tempo: %ds • Você tem: %d" % [int(cost.amount), PIECE_SHORT[piece_index], int(duration), app.store.pieces[piece_index]], 17, MUTED)
 	costs.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	card.add_child(costs)
-	var available: bool = app.store.can_research_slot(index)
-	var action := UIFactory.button("PESQUISAR SLOT %d" % (index + 1) if available else "PESQUISAR • PEÇAS INSUFICIENTES", func(): app.buy_tower_slot(index), CYAN)
+
+	var btn_text := "PESQUISAR SLOT %d (%ds)" % [index + 1, int(duration)]
+	if is_active:
+		btn_text = "⚡ EM SÍNTESE • %.1fs" % app.store.active_research_remaining()
+	elif is_busy:
+		btn_text = "LABORATÓRIO OCUPADO"
+	elif not app.store.can_research_slot(index):
+		btn_text = "PESQUISAR • PEÇAS INSUFICIENTES"
+
+	var action := UIFactory.button(btn_text, func(): app.buy_tower_slot(index), CYAN)
 	action.name = "ResearchSlot%d" % index
 	action.disabled = not available
 	card.add_child(action)

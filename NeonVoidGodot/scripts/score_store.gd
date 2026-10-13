@@ -8,6 +8,8 @@ var muted := false
 var writable := true
 var pieces: Array[int] = [0, 0, 0, 0]
 var research: Array[int] = GameData.empty_research()
+var lab_research: Array[int] = [0, 0, 0]
+var active_research: Dictionary = {}
 var enemy_stats: Dictionary = {}
 var highest_wave := 1
 var tower_modules: Dictionary = {"plasma": true, "cryo": false, "arc": false, "pulse": false, "laser": false, "vortex": false, "railgun": false}
@@ -23,7 +25,7 @@ var equipped_module: String:
 const RESEARCH_MAX := GameData.RESEARCH_MAX
 const RESEARCH_BASE_COSTS := GameData.RESEARCH_BASE_COSTS
 const RESEARCH_PIECE_INDEX := GameData.RESEARCH_PIECE_INDEX
-const SCHEMA_VERSION := 10
+const SCHEMA_VERSION := 11
 const SLOT_WAVES := GameData.SLOT_WAVES
 const SLOT_COSTS := GameData.SLOT_COSTS
 const MODULE_WAVES := GameData.MODULE_WAVES
@@ -93,11 +95,20 @@ func migrate(data: Dictionary) -> Dictionary:
 		migrated["research"] = cur_res8
 		version = 9
 	if version == 9:
-		migrated["version"] = SCHEMA_VERSION
+		migrated["version"] = 10
 		var cur_res9: Array = migrated.get("research", [])
-		while cur_res9.size() < RESEARCH_MAX.size():
+		while cur_res9.size() < 28:
 			cur_res9.append(0)
 		migrated["research"] = cur_res9
+		version = 10
+	if version == 10:
+		migrated["version"] = SCHEMA_VERSION
+		var cur_lab: Variant = migrated.get("lab_research")
+		if not cur_lab is Array or cur_lab.size() != GameData.LAB_RESEARCH_COUNT:
+			migrated["lab_research"] = [0, 0, 0]
+		if not migrated.get("active_research") is Dictionary:
+			migrated["active_research"] = {}
+		version = 11
 	return migrated
 
 func valid(data: Variant) -> bool:
@@ -126,6 +137,14 @@ func valid(data: Variant) -> bool:
 	for i in RESEARCH_MAX.size():
 		if int(data.research[i]) > RESEARCH_MAX[i]:
 			return false
+	if not data.get("lab_research") is Array or data.get("lab_research").size() != GameData.LAB_RESEARCH_COUNT:
+		return false
+	for i in GameData.LAB_RESEARCH_COUNT:
+		var value: Variant = data.lab_research[i]
+		if (not value is float and not value is int) or not is_finite(float(value)) or value < 0 or int(value) > GameData.LAB_RESEARCH_MAX[i]:
+			return false
+	if not data.get("active_research") is Dictionary:
+		return false
 	if not data.get("enemy_stats") is Dictionary:
 		return false
 	for enemy_id in data.enemy_stats:
@@ -178,7 +197,7 @@ func is_legacy_schema(data: Variant) -> bool:
 	if not data is Dictionary:
 		return false
 	var version: Variant = data.get("version")
-	return (version is int or version is float) and is_finite(float(version)) and float(version) == floor(float(version)) and int(version) in [1, 2, 3, 4, 5, 6, 7, 8, 9]
+	return (version is int or version is float) and is_finite(float(version)) and float(version) == floor(float(version)) and int(version) in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
 func load_data() -> void:
 	var data: Variant = read_data(path)
@@ -206,6 +225,8 @@ func load_data() -> void:
 		muted = data.muted
 		pieces.assign(data.pieces.map(func(value): return int(value)))
 		research.assign(data.research.map(func(value): return int(value)))
+		lab_research.assign(data.get("lab_research", [0, 0, 0]).map(func(value): return int(value)))
+		active_research = data.get("active_research", {}).duplicate(true)
 		enemy_stats = data.enemy_stats.duplicate(true)
 		highest_wave = int(data.highest_wave)
 		tower_modules = data.tower_modules.duplicate(true)
@@ -217,7 +238,21 @@ func load_data() -> void:
 func save_data() -> bool:
 	if not writable:
 		return false
-	var data := {"version": SCHEMA_VERSION, "scores": scores, "best": best, "muted": muted, "pieces": pieces, "research": research, "enemy_stats": enemy_stats, "highest_wave": highest_wave, "tower_modules": tower_modules, "unlocked_tower_slots": unlocked_tower_slots, "tower_loadout": tower_loadout}
+	var data := {
+		"version": SCHEMA_VERSION,
+		"scores": scores,
+		"best": best,
+		"muted": muted,
+		"pieces": pieces,
+		"research": research,
+		"lab_research": lab_research,
+		"active_research": active_research,
+		"enemy_stats": enemy_stats,
+		"highest_wave": highest_wave,
+		"tower_modules": tower_modules,
+		"unlocked_tower_slots": unlocked_tower_slots,
+		"tower_loadout": tower_loadout
+	}
 	if not valid(data):
 		return false
 	var previous: Variant = read_data(path)
@@ -240,11 +275,75 @@ func save_data() -> bool:
 func qualifies(value: int) -> bool:
 	return value > 0 and (scores.size() < 10 or value > scores[-1].score)
 
+func lab_time_multiplier() -> float:
+	var reduction: float = 0.18 * lab_research[0] + 0.08 * lab_research[2]
+	return maxf(0.1, 1.0 - reduction)
+
+func lab_cost_multiplier() -> float:
+	var reduction: float = 0.10 * lab_research[1]
+	return maxf(0.5, 1.0 - reduction)
+
+func is_researching() -> bool:
+	return not active_research.is_empty()
+
+func active_research_progress() -> float:
+	if active_research.is_empty():
+		return 0.0
+	var total: float = maxf(0.01, float(active_research.get("total_time", 1.0)))
+	return clampf(float(active_research.get("elapsed", 0.0)) / total, 0.0, 1.0)
+
+func active_research_remaining() -> float:
+	if active_research.is_empty():
+		return 0.0
+	var total: float = float(active_research.get("total_time", 1.0))
+	var elapsed: float = float(active_research.get("elapsed", 0.0))
+	return maxf(0.0, total - elapsed)
+
+func active_research_name() -> String:
+	if active_research.is_empty():
+		return ""
+	var type: String = str(active_research.get("type", ""))
+	var target: Variant = active_research.get("target")
+	match type:
+		"research":
+			var idx := int(target)
+			return GameData.RESEARCH_NAMES[idx] if idx >= 0 and idx < GameData.RESEARCH_NAMES.size() else "Pesquisa"
+		"lab":
+			var idx := int(target)
+			return GameData.LAB_RESEARCH_NAMES[idx] if idx >= 0 and idx < GameData.LAB_RESEARCH_NAMES.size() else "Laboratório"
+		"module":
+			var mid := str(target)
+			return str(GameData.MODULE_INFO.get(mid, ["Módulo", "", Color.WHITE])[0])
+		"slot":
+			return "Slot %d" % (int(target) + 1)
+	return ""
+
+func apply_resonance_cashback(p_idx: int) -> void:
+	if lab_research.size() > 2 and lab_research[2] > 0 and p_idx >= 0 and p_idx < pieces.size():
+		pieces[p_idx] += 1
+
+func get_research_duration(index: int) -> float:
+	var base: float = GameData.RESEARCH_BASE_TIMES[index] if index >= 0 and index < GameData.RESEARCH_BASE_TIMES.size() else 10.0
+	return maxf(1.0, base * lab_time_multiplier())
+
+func get_lab_research_duration(index: int) -> float:
+	var base: float = GameData.LAB_RESEARCH_BASE_TIMES[index] if index >= 0 and index < GameData.LAB_RESEARCH_BASE_TIMES.size() else 12.0
+	return maxf(1.0, base * lab_time_multiplier())
+
+func get_module_research_duration(module_id: String) -> float:
+	var base: float = float(GameData.MODULE_BASE_TIMES.get(module_id, 20.0))
+	return maxf(1.0, base * lab_time_multiplier())
+
+func get_slot_research_duration(index: int) -> float:
+	var base: float = float(GameData.SLOT_BASE_TIMES[index]) if index >= 0 and index < GameData.SLOT_BASE_TIMES.size() else 20.0
+	return maxf(1.0, base * lab_time_multiplier())
+
 func research_cost(index: int) -> int:
 	if index < 0 or index >= RESEARCH_MAX.size():
 		return 0
 	var base: int = RESEARCH_BASE_COSTS[index]
-	return base + research[index] * base
+	var raw: int = base + research[index] * base
+	return maxi(1, int(round(float(raw) * lab_cost_multiplier())))
 
 func piece_index_for_research(index: int) -> int:
 	if index < 0 or index >= RESEARCH_PIECE_INDEX.size():
@@ -257,13 +356,64 @@ func can_research(index: int) -> bool:
 	var p_idx := piece_index_for_research(index)
 	return pieces[p_idx] >= research_cost(index)
 
-func buy_research(index: int) -> bool:
+func start_research(index: int, instant := false) -> bool:
 	if not can_research(index):
+		return false
+	if not instant and is_researching():
 		return false
 	var p_idx := piece_index_for_research(index)
 	pieces[p_idx] -= research_cost(index)
-	research[index] += 1
+	if instant:
+		research[index] += 1
+		apply_resonance_cashback(p_idx)
+		return true
+	active_research = {
+		"type": "research",
+		"target": index,
+		"elapsed": 0.0,
+		"total_time": get_research_duration(index),
+		"piece_index": p_idx
+	}
 	return true
+
+func buy_research(index: int) -> bool:
+	return start_research(index, true)
+
+func lab_research_cost(index: int) -> int:
+	if index < 0 or index >= GameData.LAB_RESEARCH_COUNT:
+		return 0
+	var base: int = GameData.LAB_RESEARCH_BASE_COSTS[index]
+	var raw: int = base + lab_research[index] * base
+	return maxi(1, int(round(float(raw) * lab_cost_multiplier())))
+
+func can_lab_research(index: int) -> bool:
+	if index < 0 or index >= GameData.LAB_RESEARCH_COUNT or lab_research[index] >= GameData.LAB_RESEARCH_MAX[index]:
+		return false
+	var p_idx: int = int(GameData.LAB_RESEARCH_PIECE_INDEX[index])
+	return pieces[p_idx] >= lab_research_cost(index)
+
+func start_lab_research(index: int, instant := false) -> bool:
+	if not can_lab_research(index):
+		return false
+	if not instant and is_researching():
+		return false
+	var p_idx: int = int(GameData.LAB_RESEARCH_PIECE_INDEX[index])
+	pieces[p_idx] -= lab_research_cost(index)
+	if instant:
+		lab_research[index] += 1
+		apply_resonance_cashback(p_idx)
+		return true
+	active_research = {
+		"type": "lab",
+		"target": index,
+		"elapsed": 0.0,
+		"total_time": get_lab_research_duration(index),
+		"piece_index": p_idx
+	}
+	return true
+
+func buy_lab_research(index: int) -> bool:
+	return start_lab_research(index, true)
 
 func record_wave_reached(value: int) -> bool:
 	if value <= highest_wave:
@@ -280,7 +430,9 @@ func module_unlocked(module_id: String) -> bool:
 func module_cost(module_id: String) -> Dictionary:
 	if not MODULE_COSTS.has(module_id):
 		return {}
-	return MODULE_COSTS[module_id].duplicate(true)
+	var cost: Dictionary = MODULE_COSTS[module_id].duplicate(true)
+	cost.amount = maxi(1, int(round(float(cost.amount) * lab_cost_multiplier())))
+	return cost
 
 func can_research_module(module_id: String) -> bool:
 	if not writable or not module_visible(module_id) or module_unlocked(module_id):
@@ -288,13 +440,29 @@ func can_research_module(module_id: String) -> bool:
 	var cost := module_cost(module_id)
 	return not cost.is_empty() and int(cost.piece_index) >= 0 and pieces[int(cost.piece_index)] >= int(cost.amount)
 
-func research_module(module_id: String) -> bool:
+func start_module_research(module_id: String, instant := false) -> bool:
 	if not can_research_module(module_id):
 		return false
+	if not instant and is_researching():
+		return false
 	var cost := module_cost(module_id)
-	pieces[int(cost.piece_index)] -= int(cost.amount)
-	tower_modules[module_id] = true
+	var p_idx: int = int(cost.piece_index)
+	pieces[p_idx] -= int(cost.amount)
+	if instant:
+		tower_modules[module_id] = true
+		apply_resonance_cashback(p_idx)
+		return true
+	active_research = {
+		"type": "module",
+		"target": module_id,
+		"elapsed": 0.0,
+		"total_time": get_module_research_duration(module_id),
+		"piece_index": p_idx
+	}
 	return true
+
+func research_module(module_id: String) -> bool:
+	return start_module_research(module_id, true)
 
 func equip_module(module_id: String) -> bool:
 	return equip_module_in_slot(0, module_id)
@@ -305,7 +473,9 @@ func slot_visible(index: int) -> bool:
 func slot_cost(index: int) -> Dictionary:
 	if index < 0 or index >= SLOT_COSTS.size():
 		return {}
-	return SLOT_COSTS[index].duplicate(true)
+	var cost: Dictionary = SLOT_COSTS[index].duplicate(true)
+	cost.amount = maxi(1, int(round(float(cost.amount) * lab_cost_multiplier())))
+	return cost
 
 func can_research_slot(index: int) -> bool:
 	if not writable or index != unlocked_tower_slots or not slot_visible(index):
@@ -313,13 +483,65 @@ func can_research_slot(index: int) -> bool:
 	var cost := slot_cost(index)
 	return not cost.is_empty() and int(cost.piece_index) >= 0 and pieces[int(cost.piece_index)] >= int(cost.amount)
 
-func research_slot(index: int) -> bool:
+func start_slot_research(index: int, instant := false) -> bool:
 	if not can_research_slot(index):
 		return false
+	if not instant and is_researching():
+		return false
 	var cost := slot_cost(index)
-	pieces[int(cost.piece_index)] -= int(cost.amount)
-	unlocked_tower_slots += 1
+	var p_idx: int = int(cost.piece_index)
+	pieces[p_idx] -= int(cost.amount)
+	if instant:
+		unlocked_tower_slots += 1
+		apply_resonance_cashback(p_idx)
+		return true
+	active_research = {
+		"type": "slot",
+		"target": index,
+		"elapsed": 0.0,
+		"total_time": get_slot_research_duration(index),
+		"piece_index": p_idx
+	}
 	return true
+
+func research_slot(index: int) -> bool:
+	return start_slot_research(index, true)
+
+func tick_research(dt: float) -> bool:
+	if active_research.is_empty():
+		return false
+	active_research.elapsed = float(active_research.get("elapsed", 0.0)) + dt
+	var total_time := float(active_research.get("total_time", 1.0))
+	if float(active_research.elapsed) >= total_time:
+		complete_active_research()
+		return true
+	return false
+
+func complete_active_research() -> void:
+	if active_research.is_empty():
+		return
+	var type: String = str(active_research.get("type", ""))
+	var target: Variant = active_research.get("target")
+	var p_idx: int = int(active_research.get("piece_index", 0))
+	match type:
+		"research":
+			var idx := int(target)
+			if idx >= 0 and idx < research.size() and research[idx] < RESEARCH_MAX[idx]:
+				research[idx] += 1
+		"lab":
+			var idx := int(target)
+			if idx >= 0 and idx < lab_research.size() and lab_research[idx] < GameData.LAB_RESEARCH_MAX[idx]:
+				lab_research[idx] += 1
+		"module":
+			var mid := str(target)
+			if tower_modules.has(mid):
+				tower_modules[mid] = true
+		"slot":
+			var s_idx := int(target)
+			if s_idx == unlocked_tower_slots:
+				unlocked_tower_slots += 1
+	apply_resonance_cashback(p_idx)
+	active_research = {}
 
 func equip_module_in_slot(index: int, module_id: String) -> bool:
 	if not writable or index < 0 or index >= unlocked_tower_slots or not module_unlocked(module_id):

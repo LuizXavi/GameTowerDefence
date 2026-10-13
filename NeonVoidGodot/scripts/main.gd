@@ -60,6 +60,7 @@ var modules_content: VBoxContainer
 var module_status := ""
 var modal_return_focus: Control
 var hide_completed_research := false
+var research_tab: String = "lab"
 
 const UPG_ATTACK_IDS := GameData.UPG_ATTACK_IDS
 const UPG_TOWER_IDS := GameData.UPG_TOWER_IDS
@@ -70,6 +71,7 @@ func _ready() -> void:
 	get_window().min_size = Vector2i(640, 640)
 	test_mode = "--test-mode" in OS.get_cmdline_user_args()
 	if test_mode:
+		research_tab = "attack"
 		store.path = "user://test_ui_records.json"
 	else:
 		store.load_data()
@@ -390,16 +392,17 @@ func append_module_status(parent: VBoxContainer) -> void:
 func buy_tower_module(module_id: String) -> void:
 	var previous_pieces: Array = store.pieces.duplicate()
 	var previous_modules: Dictionary = store.tower_modules.duplicate(true)
-	if not store.research_module(module_id):
+	if not store.start_module_research(module_id, test_mode):
 		play_sound("deny")
 		return
 	if not test_mode and not store.save_data():
 		store.pieces.assign(previous_pieces)
 		store.tower_modules = previous_modules
+		store.active_research = {}
 		module_status = "Falha ao salvar. Peças preservadas; tente novamente."
 		play_sound("deny")
 	else:
-		module_status = "✓ Módulo pesquisado. Escolha em qualquer slot na seleção de módulos."
+		module_status = "✓ Síntese iniciada no Laboratório." if not test_mode else "✓ Módulo pesquisado. Escolha em qualquer slot na seleção de módulos."
 		play_sound("buy")
 	refresh_module_screen("Module_" + module_id)
 
@@ -407,19 +410,20 @@ func buy_tower_slot(index: int) -> void:
 	var previous_pieces: Array = store.pieces.duplicate()
 	var previous_slots: int = store.unlocked_tower_slots
 	var previous_loadout: Array = store.tower_loadout.duplicate()
-	if not store.research_slot(index):
+	if not store.start_slot_research(index, test_mode):
 		play_sound("deny")
 		return
 	if not test_mode and not store.save_data():
 		store.pieces.assign(previous_pieces)
 		store.unlocked_tower_slots = previous_slots
 		store.tower_loadout.assign(previous_loadout)
+		store.active_research = {}
 		module_status = "Falha ao salvar. Peças e slots preservados; tente novamente."
 		play_sound("deny")
 	else:
-		module_status = "✓ Slot %d liberado com Plasma. Escolha seu módulo antes da partida." % (index + 1)
+		module_status = "✓ Expansão iniciada no Laboratório." if not test_mode else "✓ Slot %d liberado com Plasma. Escolha seu módulo antes da partida." % (index + 1)
 		play_sound("buy")
-	refresh_module_screen("Slot%d_plasma" % index if phase == "modules" else "ResearchSlot%d" % store.unlocked_tower_slots)
+	refresh_module_screen("Slot%d_plasma" % index if phase == "modules" else "ResearchSlot%d" % index)
 
 func equip_tower_module(index: int, module_id: String) -> void:
 	var previous: Array = store.tower_loadout.duplicate()
@@ -488,14 +492,24 @@ func record_wave_progress() -> void:
 
 func show_research() -> void:
 	phase = "research"
+	if test_mode:
+		research_tab = "attack"
+	elif research_tab.is_empty():
+		research_tab = "lab"
 	module_status = ""
 	research_content = modal()
 	research_content.custom_minimum_size.x = minf(680, size.x - 112)
 	var title := UIFactory.center_label(research_content, "⌬  LABORATÓRIO DE PESQUISAS", 23, CYAN, true)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var intro := UIFactory.center_label(research_content, "Inimigos podem soltar peças da própria estrutura.\n■ 30%   ▲ 22%   ⬢ 40%   ✦ Boss: 100% (2 peças)\nUse cada família para liberar melhorias permanentes.", 18, Color("cfc7dd"))
+	var intro := UIFactory.center_label(research_content, "Inimigos podem soltar fragmentos da própria estrutura (■ ▲ ⬢ ✦).\nCada síntese requer processamento nos reatores do laboratório.", 17, Color("cfc7dd"))
 	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	build_research_cards(true)
+
+func select_research_tab(tab_name: String) -> void:
+	if research_tab == tab_name:
+		return
+	research_tab = tab_name
+	build_research_cards(false)
 
 func build_research_cards(initial_focus := false) -> void:
 	ResearchScreen.build(self, initial_focus)
@@ -507,17 +521,37 @@ func buy_research(index: int) -> void:
 	var saved_scroll := get_modal_scroll_v()
 	var previous_pieces: Array[int] = store.pieces.duplicate()
 	var previous_research: Array[int] = store.research.duplicate()
-	if not store.buy_research(index):
+	if not store.start_research(index, test_mode):
 		play_sound("deny")
 		return
 	if not test_mode and not store.save_data():
 		store.pieces.assign(previous_pieces)
 		store.research.assign(previous_research)
+		store.active_research = {}
 		play_sound("deny")
 		return
-	state.configure_research(store.research)
+	if test_mode:
+		state.configure_research(store.research)
 	play_sound("buy")
 	var action_name := "Research%d" % (index + 1)
+	build_research_cards(false)
+	restore_modal_scroll_v(saved_scroll, action_name)
+
+func buy_lab_research(index: int) -> void:
+	var saved_scroll := get_modal_scroll_v()
+	var previous_pieces: Array[int] = store.pieces.duplicate()
+	var previous_lab: Array[int] = store.lab_research.duplicate()
+	if not store.start_lab_research(index, test_mode):
+		play_sound("deny")
+		return
+	if not test_mode and not store.save_data():
+		store.pieces.assign(previous_pieces)
+		store.lab_research.assign(previous_lab)
+		store.active_research = {}
+		play_sound("deny")
+		return
+	play_sound("buy")
+	var action_name := "LabResearch%d" % (index + 1)
 	build_research_cards(false)
 	restore_modal_scroll_v(saved_scroll, action_name)
 
@@ -718,6 +752,17 @@ func refresh_hud() -> void:
 func _process(dt: float) -> void:
 	state.tick(dt)
 	update_time += dt
+	if store.tick_research(dt):
+		play_sound("buy")
+		if phase == "research":
+			build_research_cards(false)
+		elif phase == "modules":
+			build_module_cards(false)
+		refresh_hud()
+		if not test_mode:
+			store.save_data()
+	elif phase == "research" and store.is_researching():
+		ResearchScreen.update_progress(self)
 	if update_time >= 0.1 and phase == "playing":
 		update_time = 0
 		refresh_hud()

@@ -409,6 +409,30 @@ func _init() -> void:
 	var hp_before_leak: int = game.hp
 	game.apply_base_damage(1, Vector2(300, 600))
 	check(game.hp == hp_before_leak and game.shield < game.max_shield, "Energy Shield absorbs base damage before hull HP")
+	# Testes do Sistema de Laboratório (Schema 11, Upgrades do Lab, Fila/Timer e Descontos)
+	var lab_store = load("res://scripts/score_store.gd").new()
+	var lab_path := "user://test_lab_%d.json" % Time.get_ticks_usec()
+	lab_store.path = lab_path
+	lab_store.pieces.assign([50, 50, 50, 50])
+	check(lab_store.lab_research.size() == 3 and not lab_store.is_researching(), "Laboratory initializes with 3 research slots and idle state")
+	check(lab_store.buy_lab_research(0), "Buying Synthesis Accelerator upgrades lab")
+	check(lab_store.lab_research[0] == 1 and lab_store.lab_time_multiplier() < 1.0, "Synthesis Accelerator reduces research duration")
+	check(lab_store.buy_lab_research(1), "Buying Fragment Efficiency upgrades lab")
+	check(lab_store.lab_research[1] == 1 and lab_store.lab_cost_multiplier() < 1.0, "Fragment Efficiency reduces piece cost")
+	check(lab_store.buy_lab_research(2), "Buying Resonance Matrix upgrades lab")
+	check(lab_store.lab_research[2] == 1, "Resonance Matrix activates bonus cashback")
+	check(lab_store.start_research(0, false), "Starting timed research enters synthesis state")
+	check(lab_store.is_researching() and not lab_store.start_research(1, false), "Laboratory blocks concurrent researches while busy")
+	var initial_remaining: float = lab_store.active_research_remaining()
+	check(not lab_store.tick_research(0.5), "Research remains active before full duration")
+	check(lab_store.active_research_remaining() < initial_remaining, "Research timer advances accurately")
+	var pieces_before_complete: int = lab_store.pieces[0]
+	check(lab_store.tick_research(initial_remaining), "Research completes upon reaching full duration")
+	check(not lab_store.is_researching() and lab_store.research[0] == 1, "Completed research applies rank")
+	check(lab_store.pieces[0] == pieces_before_complete + 1, "Resonance Matrix refunds 1 piece upon completion")
+	for suffix in ["", ".bak", ".tmp"]:
+		if FileAccess.file_exists(lab_path + suffix):
+			DirAccess.remove_absolute(lab_path + suffix)
 	for suffix in ["", ".bak", ".tmp"]:
 		if FileAccess.file_exists(store.path + suffix):
 			DirAccess.remove_absolute(store.path + suffix)

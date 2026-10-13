@@ -114,6 +114,67 @@ const RESEARCH_ICONS := {
 }
 
 # ---------------------------------------------------------------------------
+# Pesquisas de melhoria do próprio Laboratório
+# ---------------------------------------------------------------------------
+const LAB_RESEARCH_COUNT := 3
+const LAB_RESEARCH_NAMES := [
+	"Acelerador de Síntese",
+	"Eficiência de Fragmentos",
+	"Matriz de Ressonância"
+]
+const LAB_RESEARCH_DESCS := [
+	"Reduz o tempo de todas as pesquisas no laboratório em 18% por nível",
+	"Reduz o custo de peças de todas as pesquisas no laboratório em 10% por nível",
+	"Reduz mais 8% de tempo e reembolsa 1 peça bônus ao concluir pesquisas"
+]
+const LAB_RESEARCH_MAX := [5, 5, 4]
+const LAB_RESEARCH_BASE_COSTS := [5, 6, 4]
+const LAB_RESEARCH_PIECE_INDEX := [0, 1, 2] # 0: Quadrado, 1: Triângulo, 2: Hexágono
+const LAB_RESEARCH_BASE_TIMES := [12.0, 15.0, 20.0]
+const LAB_RESEARCH_ICONS := ["tower_haste", "combo_drive", "nova_overdrive"]
+
+# ---------------------------------------------------------------------------
+# Tempos base de pesquisa (em segundos)
+# ---------------------------------------------------------------------------
+const RESEARCH_BASE_TIMES := [
+	8.0, 10.0, 10.0, 12.0,
+	12.0, 14.0, 14.0, 16.0,
+	14.0, 15.0, 16.0, 18.0,
+	12.0, 14.0, 15.0, 16.0,
+	18.0, 20.0,
+	16.0, 18.0, 18.0,
+	20.0, 22.0, 24.0, 26.0,
+	20.0, 22.0, 25.0
+]
+const MODULE_BASE_TIMES := {
+	"plasma": 0.0,
+	"cryo": 18.0,
+	"arc": 22.0,
+	"pulse": 26.0,
+	"laser": 30.0,
+	"vortex": 35.0,
+	"railgun": 40.0
+}
+const SLOT_BASE_TIMES := [0.0, 15.0, 20.0, 25.0, 30.0, 36.0, 45.0]
+
+# ---------------------------------------------------------------------------
+# Abas do Laboratório de Pesquisas
+# ---------------------------------------------------------------------------
+const RESEARCH_TABS := ["lab", "attack", "defense", "economy", "towers"]
+const RESEARCH_TAB_LABELS := {
+	"lab": "🔬 LABORATÓRIO",
+	"attack": "⚔ ATAQUE",
+	"defense": "🛡 DEFESA",
+	"economy": "◈ ECONOMIA",
+	"towers": "⌖ TORRES"
+}
+const RESEARCH_TAB_INDICES := {
+	"attack": [0, 4, 8, 9, 10, 11, 18, 19, 20, 21, 22, 23, 24],
+	"defense": [2, 13, 14, 25, 26, 27],
+	"economy": [1, 3, 5, 6, 7, 12, 15, 16, 17]
+}
+
+# ---------------------------------------------------------------------------
 # Módulos de torre
 # ---------------------------------------------------------------------------
 const MODULE_IDS := ["plasma", "cryo", "arc", "pulse", "laser", "vortex", "railgun"]
