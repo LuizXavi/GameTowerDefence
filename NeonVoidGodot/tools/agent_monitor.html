@@ -168,10 +168,18 @@
           const data = await res.json();
           if (data && data.agents) {
             AGENTS.forEach(a => {
-              if (data.agents[a.id]) {
-                const s = data.agents[a.id];
-                a.state = s.state;
-                if (s.task) a.task = s.task;
+              const key = data.agents[a.id] ? a.id : (
+                a.id === "orchestrator" ? "neon_director" :
+                a.id === "gameplay" ? "neon_gameplay_expert" :
+                a.id === "persistence" ? "neon_meta_persistence" :
+                a.id === "ui_vfx" ? "neon_ui_vfx_specialist" :
+                a.id === "qa" ? "neon_qa_validator" : null
+              );
+              if (key && data.agents[key]) {
+                const s = data.agents[key];
+                a.state = (s.status === "trabalhando" || s.state === "work") ? "work" : "leisure";
+                if (s.current_task) a.task = s.current_task;
+                else if (s.task) a.task = s.task;
               }
             });
             updateCounters();

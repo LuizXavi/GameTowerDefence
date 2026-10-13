@@ -5,9 +5,11 @@
 # Backup and temp files
 *.tmp
 *.bak
+*.log
 user://*
 records_v1.json*
 test_ui_records.json*
+.godot_ai_update/
 
 # Python
 __pycache__/
@@ -16,7 +18,8 @@ __pycache__/
 # Archives
 *.zip
 
-# OS / Editor
+# OS / Editor / Local tools
 .DS_Store
 Thumbs.db
 *.import
+.gemini/
