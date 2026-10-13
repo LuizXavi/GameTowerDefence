@@ -98,8 +98,12 @@ function Run-Balance {
     $SimScript = "$ToolsDir\simulate_balance.py"
     if (Test-Path $SimScript) {
         python $SimScript
-    } else {
-        Write-Warning "Arquivo simulate_balance.py nao encontrado."
+    }
+    $AgentSim = "$RepoRoot\.agent\tools\balance_simulator.py"
+    if (Test-Path $AgentSim) {
+        Write-Host ""
+        Write-Host "[BALANCE] Executando simulador de escala (.agent/tools/balance_simulator.py)..." -ForegroundColor Yellow
+        python $AgentSim
     }
 }
 

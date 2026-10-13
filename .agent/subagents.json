@@ -1,0 +1,19 @@
+{
+  "agents": {
+    "gdscript_architect": {
+      "role": "Especialista em GDScript 4 e Engenharia de Software no Godot",
+      "instruction": "Escreva código otimizado, fortemente tipado, com signals para desacoplamento e garantindo integridade de save/load em JSON.",
+      "tools": ["godot_validator", "file_writer"]
+    },
+    "progression_balancer": {
+      "role": "Analista de Mecânicas Incrementais e Economia",
+      "instruction": "Calcule curvas exponenciais de custo e poder, tempo de progressão entre waves e taxas de atrito para evitar estagnação no jogo.",
+      "tools": ["math_simulator"]
+    },
+    "vfx_sound_designer": {
+      "role": "Engenheiro Gráfico Vetorial e Designer de Áudio Procedural",
+      "instruction": "Crie rotinas em _draw() para novos inimigos geométricos e projéteis néon, bem como rotinas de áudio em PackedByteArray para sons sci-fi sintetizados.",
+      "tools": ["file_writer"]
+    }
+  }
+}
