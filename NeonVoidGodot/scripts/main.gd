@@ -1727,27 +1727,31 @@ func _process(dt: float) -> void:
 		update_time = 0
 		refresh_hud()
 
+const UPGRADE_ACTIONS := ["upgrade_1", "upgrade_2", "upgrade_3", "upgrade_4"]
+
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
-	var key: int = event.keycode
-	if key == KEY_ENTER and phase in ["menu", "gameover"]:
+	if event.is_action("confirm") and phase in ["menu", "gameover"]:
 		start_game()
-	elif key == KEY_ESCAPE and phase == "research":
+	elif event.is_action("cancel") and phase == "research":
 		close_research()
-	elif key == KEY_ESCAPE and phase == "modules":
+	elif event.is_action("cancel") and phase == "modules":
 		close_modules()
-	elif key == KEY_ESCAPE and phase == "codex":
+	elif event.is_action("cancel") and phase == "codex":
 		close_codex()
-	elif key == KEY_R and phase in ["playing", "paused", "gameover"]:
+	elif event.is_action("restart") and phase in ["playing", "paused", "gameover"]:
 		start_game()
-	elif key in [KEY_P, KEY_ESCAPE]:
+	elif event.is_action("pause"):
 		pause_game()
-	elif key == KEY_M:
+	elif event.is_action("mute"):
 		toggle_mute()
 	elif phase == "playing":
-		if key == KEY_SPACE:
+		if event.is_action("nova"):
 			state.nova()
-		elif key >= KEY_1 and key <= KEY_4:
-			state.buy(key - KEY_1)
+		else:
+			for i in UPGRADE_ACTIONS.size():
+				if event.is_action(UPGRADE_ACTIONS[i]):
+					state.buy(i)
+					break
 	get_viewport().set_input_as_handled()
