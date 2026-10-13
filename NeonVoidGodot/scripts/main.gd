@@ -309,10 +309,35 @@ func show_modules() -> void:
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var intro := UIFactory.center_label(modules_content, "Pesquise módulos e libere até 7 slots.\nEscolha um módulo por slot antes da partida.\nMódulos podem se repetir; cada slot dispara sozinho.", 18, MUTED)
 	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	build_module_cards()
+	build_module_cards(true)
 
-func build_module_cards() -> void:
-	ModulesScreen.build(self)
+func build_module_cards(initial_focus := false) -> void:
+	ModulesScreen.build(self, initial_focus)
+
+func get_modal_scroll_v() -> int:
+	if not is_instance_valid(overlay):
+		return 0
+	var scroll := overlay.find_child("ModalScroll", true, false) as ScrollContainer
+	return scroll.scroll_vertical if scroll != null else 0
+
+func restore_modal_scroll_v(saved_v: int, target_action: String = "") -> void:
+	if not is_instance_valid(overlay):
+		return
+	var scroll := overlay.find_child("ModalScroll", true, false) as ScrollContainer
+	if scroll == null:
+		return
+	scroll.scroll_vertical = saved_v
+	var restore_cb := func():
+		if not is_instance_valid(scroll):
+			return
+		scroll.scroll_vertical = saved_v
+		if not target_action.is_empty():
+			var btn := overlay.find_child(target_action, true, false) as Button
+			if btn != null and not btn.disabled:
+				btn.grab_focus()
+			elif is_instance_valid(btn):
+				scroll.ensure_control_visible(btn)
+	restore_cb.call_deferred()
 
 func section_header_with_icon(parent: Node, title_text: String, icon_id: String, color: Color) -> HBoxContainer:
 	var row := HBoxContainer.new()
@@ -341,15 +366,14 @@ func append_hide_completed_button(parent: VBoxContainer) -> void:
 	parent.add_child(toggle_btn)
 
 func toggle_hide_completed_research() -> void:
+	var saved_scroll := get_modal_scroll_v()
 	hide_completed_research = not hide_completed_research
 	play_sound("click")
 	if phase == "research":
-		build_research_cards()
+		build_research_cards(false)
 	elif phase == "modules":
-		build_module_cards()
-	var toggle_btn := overlay.find_child("ToggleHideCompleted", true, false) as Button
-	if toggle_btn != null:
-		toggle_btn.grab_focus()
+		build_module_cards(false)
+	restore_modal_scroll_v(saved_scroll, "ToggleHideCompleted")
 
 func append_module_cards(parent: VBoxContainer) -> void:
 	ModulesScreen.append_module_cards(self, parent)
@@ -412,19 +436,12 @@ func equip_tower_module(index: int, module_id: String) -> void:
 	refresh_module_screen("Slot%d_%s" % [index, module_id])
 
 func refresh_module_screen(action_name: String) -> void:
+	var saved_scroll := get_modal_scroll_v()
 	if phase == "research":
-		build_research_cards()
+		build_research_cards(false)
 	else:
-		build_module_cards()
-	var action := overlay.find_child(action_name, true, false) as Button
-	if action != null:
-		if not action.disabled:
-			action.grab_focus()
-		elif action_name.begins_with("Slot"):
-			for choice in action.get_parent().get_children():
-				if choice is Button and not choice.disabled:
-					choice.grab_focus()
-					break
+		build_module_cards(false)
+	restore_modal_scroll_v(saved_scroll, action_name)
 
 func close_modules() -> void:
 	show_menu()
@@ -478,15 +495,16 @@ func show_research() -> void:
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var intro := UIFactory.center_label(research_content, "Inimigos podem soltar peças da própria estrutura.\n■ 30%   ▲ 22%   ⬢ 40%   ✦ Boss: 100% (2 peças)\nUse cada família para liberar melhorias permanentes.", 18, Color("cfc7dd"))
 	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	build_research_cards()
+	build_research_cards(true)
 
-func build_research_cards() -> void:
-	ResearchScreen.build(self)
+func build_research_cards(initial_focus := false) -> void:
+	ResearchScreen.build(self, initial_focus)
 
 func research_icon_id(index: int) -> String:
 	return GameData.research_icon(index)
 
 func buy_research(index: int) -> void:
+	var saved_scroll := get_modal_scroll_v()
 	var previous_pieces: Array[int] = store.pieces.duplicate()
 	var previous_research: Array[int] = store.research.duplicate()
 	if not store.buy_research(index):
@@ -499,7 +517,9 @@ func buy_research(index: int) -> void:
 		return
 	state.configure_research(store.research)
 	play_sound("buy")
-	build_research_cards()
+	var action_name := "Research%d" % (index + 1)
+	build_research_cards(false)
+	restore_modal_scroll_v(saved_scroll, action_name)
 
 func close_research() -> void:
 	show_menu()

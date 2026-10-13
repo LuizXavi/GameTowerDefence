@@ -11,7 +11,7 @@ const PIECE_SHORT := GameData.PIECE_SHORT
 const MODULE_IDS := GameData.MODULE_IDS
 const MODULE_INFO := GameData.MODULE_INFO
 
-static func build(app: Control) -> void:
+static func build(app: Control, initial_focus := false) -> void:
 	for child in app.modules_content.get_children():
 		if child.name == "DynamicModules":
 			app.modules_content.remove_child(child)
@@ -29,7 +29,8 @@ static func build(app: Control) -> void:
 	close.name = "CloseModules"
 	dynamic.add_child(close)
 	app.contain_modal_focus()
-	app.focus_first_modal_action()
+	if initial_focus:
+		app.focus_first_modal_action()
 
 static func append_module_cards(app: Control, parent: VBoxContainer) -> void:
 	app.section_header_with_icon(parent, "PESQUISA DE MÓDULOS", "towers", PINK)

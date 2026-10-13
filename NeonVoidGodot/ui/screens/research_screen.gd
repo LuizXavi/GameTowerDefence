@@ -13,7 +13,7 @@ const RESEARCH_DESCS := GameData.RESEARCH_DESCS
 const MODULE_IDS := GameData.MODULE_IDS
 const MODULE_INFO := GameData.MODULE_INFO
 
-static func build(app: Control) -> void:
+static func build(app: Control, initial_focus := false) -> void:
 	for child in app.research_content.get_children():
 		if child.name == "DynamicResearch":
 			app.research_content.remove_child(child)
@@ -73,4 +73,5 @@ static func build(app: Control) -> void:
 	close.name = "CloseResearch"
 	dynamic.add_child(close)
 	app.contain_modal_focus()
-	app.focus_first_modal_action()
+	if initial_focus:
+		app.focus_first_modal_action()
