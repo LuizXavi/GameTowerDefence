@@ -1,3 +1,4 @@
+class_name SaveStore
 extends RefCounted
 
 var path := "user://records_v1.json"
