@@ -173,26 +173,46 @@ static func auto_attack(state: Object, target: Dictionary, base_damage: float, m
 	for i in targets.size():
 		state.damage_enemy(targets[i], damage * (1.0 if i == 0 else 0.45), false, "auto")
 
-static func roll_piece_drop(state: Object, enemy: Dictionary, forced_roll := -1.0) -> int:
+static func roll_piece_drop(state: Object, enemy: Dictionary, forced_roll := -1.0, forced_double_roll := -1.0) -> int:
 	if not enemy.drop_allowed:
 		return 0
 	var enemy_type: int = int(enemy.type)
 	var piece_kind: int = 0
-	var chance: float = 0.30
+	var chance: float = 0.06
 	if enemy_type in [3, 14, 15, 20]:
 		piece_kind = 3
-		chance = 1.0 if enemy_type == 3 else 0.65
+		chance = 1.0 if enemy_type == 3 else 0.18
 	elif enemy_type in [1, 4, 7, 11, 12, 16, 17]:
 		piece_kind = 1
-		chance = 0.30
+		chance = 0.05
 	elif enemy_type in [2, 5, 6, 8, 9, 10, 13, 18, 19]:
 		piece_kind = 2
-		chance = 0.42
+		chance = 0.08
 	else:
 		piece_kind = 0
-		chance = 0.32
+		chance = 0.06
 
-	chance = minf(1.0, chance + float(state.research[17]) * 0.06)
+	# Pesquisa 17: Magnetismo de Fragmentos (+3% geral por nível)
+	if state.research.size() > 17:
+		chance += float(state.research[17]) * 0.03
+
+	# Pesquisa 28: Sintonia de Espólios (+3% por nível para Quadrados e Triângulos)
+	if state.research.size() > 28 and piece_kind in [0, 1]:
+		chance += float(state.research[28]) * 0.03
+
+	# Pesquisa 29: Filtro de Matéria Rara (+5% por nível para Hexágonos e +10% em Elites)
+	if state.research.size() > 29:
+		if piece_kind == 2:
+			chance += float(state.research[29]) * 0.05
+		if enemy.elite:
+			chance += float(state.research[29]) * 0.10
+
+	# Pesquisa 30: Sobrecarga de Extração (+4% com Crítico ou Combo >= 10)
+	var overdrive_active: bool = bool(enemy.get("last_hit_crit", false)) or int(state.combo) >= 10
+	if state.research.size() > 30 and overdrive_active:
+		chance += float(state.research[30]) * 0.04
+
+	chance = minf(1.0, chance)
 	if enemy.elite:
 		chance = minf(1.0, chance * 2.0)
 	var roll: float = randf() if forced_roll < 0 else forced_roll
@@ -201,6 +221,14 @@ static func roll_piece_drop(state: Object, enemy: Dictionary, forced_roll := -1.
 	var amount: int = 2 if enemy_type == 3 else 1
 	if enemy.elite:
 		amount += 1
+
+	# Pesquisa 30: Chance de drop duplo (+25% por nível quando abate com Crítico ou Combo >= 10)
+	if state.research.size() > 30 and state.research[30] > 0 and overdrive_active:
+		var double_chance: float = float(state.research[30]) * 0.25
+		var d_roll: float = randf() if forced_double_roll < 0 else forced_double_roll
+		if d_roll < double_chance:
+			amount += 1
+
 	var anom_drop_mult: int = maxi(1, int(state.current_anomaly.get("drop_mult", 1.0)))
 	amount *= anom_drop_mult
 	state.run_pieces[piece_kind] += amount

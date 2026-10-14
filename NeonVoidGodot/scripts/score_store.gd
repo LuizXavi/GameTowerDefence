@@ -29,7 +29,7 @@ var equipped_module: String:
 const RESEARCH_MAX := GameData.RESEARCH_MAX
 const RESEARCH_BASE_COSTS := GameData.RESEARCH_BASE_COSTS
 const RESEARCH_PIECE_INDEX := GameData.RESEARCH_PIECE_INDEX
-const SCHEMA_VERSION := 12
+const SCHEMA_VERSION := 13
 const SLOT_WAVES := GameData.SLOT_WAVES
 const SLOT_COSTS := GameData.SLOT_COSTS
 const MODULE_WAVES := GameData.MODULE_WAVES
@@ -114,11 +114,18 @@ func migrate(data: Dictionary) -> Dictionary:
 			migrated["active_research"] = {}
 		version = 11
 	if version == 11:
-		migrated["version"] = SCHEMA_VERSION
+		migrated["version"] = 12
 		var cur_ach: Variant = migrated.get("achievements")
 		if not cur_ach is Array:
 			migrated["achievements"] = []
 		version = 12
+	if version == 12:
+		migrated["version"] = SCHEMA_VERSION
+		var cur_res12: Array = migrated.get("research", [])
+		while cur_res12.size() < GameData.RESEARCH_COUNT:
+			cur_res12.append(0)
+		migrated["research"] = cur_res12
+		version = 13
 	return migrated
 
 func valid(data: Variant) -> bool:
@@ -212,7 +219,7 @@ func is_legacy_schema(data: Variant) -> bool:
 	if not data is Dictionary:
 		return false
 	var version: Variant = data.get("version")
-	return (version is int or version is float) and is_finite(float(version)) and float(version) == floor(float(version)) and int(version) in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+	return (version is int or version is float) and is_finite(float(version)) and float(version) == floor(float(version)) and int(version) in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
 func load_data() -> void:
 	var data: Variant = read_data(path)
@@ -240,6 +247,8 @@ func load_data() -> void:
 		muted = data.muted
 		pieces.assign(data.pieces.map(func(value): return int(value)))
 		research.assign(data.research.map(func(value): return int(value)))
+		while research.size() < GameData.RESEARCH_COUNT:
+			research.append(0)
 		lab_research.assign(data.get("lab_research", [0, 0, 0]).map(func(value): return int(value)))
 		active_research = data.get("active_research", {}).duplicate(true)
 		achievements.clear()

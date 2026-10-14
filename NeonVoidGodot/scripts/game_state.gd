@@ -453,6 +453,7 @@ func damage_enemy(enemy: Dictionary, damage: float, critical := false, source :=
 	enemy.hp -= damage
 	enemy.hit = 0.09
 	enemy.since_hit = 0.0
+	enemy.last_hit_crit = critical
 	if source != "nova":
 		effect.emit("text", enemy.p - Vector2(0, enemy.radius + 8), COLORS[3] if critical else Color.WHITE, str(roundi(damage)) + ("!" if critical else ""))
 	if enemy.hp > 0:
@@ -497,8 +498,8 @@ func damage_enemy(enemy: Dictionary, damage: float, critical := false, source :=
 	if wave_kills >= quota():
 		next_wave()
 
-func roll_piece_drop(enemy: Dictionary, forced_roll := -1.0) -> int:
-	return TowerCombat.roll_piece_drop(self, enemy, forced_roll)
+func roll_piece_drop(enemy: Dictionary, forced_roll := -1.0, forced_double_roll := -1.0) -> int:
+	return TowerCombat.roll_piece_drop(self, enemy, forced_roll, forced_double_roll)
 
 func next_wave() -> void:
 	wave += 1

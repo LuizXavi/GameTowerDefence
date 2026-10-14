@@ -44,8 +44,9 @@ enum Research {
 	EMERGENCY_GENERATOR, FRAGMENT_MAGNETISM,
 	TOWER_PLASMA, TOWER_CRYO, TOWER_ARC, TOWER_PULSE, TOWER_LASER, TOWER_VORTEX, TOWER_RAILGUN,
 	SHIELD_GENERATOR, SHIELD_RECHARGE, SHIELD_REFLECT,
+	LOOT_TUNING, RARE_MATTER_FILTER, EXTRACTION_OVERDRIVE,
 }
-const RESEARCH_COUNT := 28
+const RESEARCH_COUNT := 31
 const RESEARCH_COMBAT_END := 18   # primeiro índice das especializações de torre
 const RESEARCH_TOWER_END := 25    # primeiro índice das pesquisas de escudo
 
@@ -57,14 +58,15 @@ const RESEARCH_NAMES := [
 	"Gerador de Emergência", "Magnetismo de Fragmentos",
 	"Superaquecimento de Plasma", "Zero Absoluto", "Condutores de Alta Tensão",
 	"Ressonância Tectônica", "Lente de Antimatéria", "Horizonte de Eventos", "Capacitores Hiperfônicos",
-	"Gerador de Escudo Quântico", "Recarga Harmônica de Escudo", "Barreira Reflexiva de Plasma"
+	"Gerador de Escudo Quântico", "Recarga Harmônica de Escudo", "Barreira Reflexiva de Plasma",
+	"Sintonia de Espólios", "Filtro de Matéria Rara", "Sobrecarga de Extração"
 ]
 const RESEARCH_DESCS := [
 	"+1 dano base por clique", "+8% DPS da torreta", "+10 vida máxima da base", "+0,3 carga/s da Nova",
 	"+2% chance e +0,2x dano crítico", "+0,8% bônus de dano/ouro por combo", "+8% ouro ganho por abate", "+25% dano destrutivo do Pulso Nova",
 	"+12% dano contra inimigos blindados", "+5% cadência de tiro de todas as torretas", "+10% dano contra inimigos abaixo de 40% HP", "+12% dano contra Elites e Bosses",
 	"+0,4s duração do combo e reduz perda ao errar", "-1 dano recebido na base por vazamento (mín. 1)", "+4 vida recuperada na base ao concluir cada wave", "+20 ouro inicial e -12% roubo de Ladrões",
-	"+10 carga inicial da Nova e +4 cura do Escudo", "+6% chance de drop de peças de inimigos",
+	"+10 carga inicial da Nova e +4 cura do Escudo", "+3% chance geral de drop de peças por nível",
 	"[Torre Plasma] +12% dano direto e +15% bônus de Choque Térmico",
 	"[Torre Criogênica] +10% dano e +0,25s duração de lentidão",
 	"[Torre de Arco] +10% dano e +18px alcance dos saltos elétricos",
@@ -74,37 +76,43 @@ const RESEARCH_DESCS := [
 	"[Railgun Fotônico] +14% dano perfurante e recarga 4% mais rápida",
 	"[Escudo] Desbloqueia Escudo de Energia na base (+25 Escudo Máx inicial/nv)",
 	"[Escudo] +1,5/s regeneração de escudo e -0,3s atraso de recarga",
-	"[Escudo] Reduz dano recebido no escudo em 8%/nv e reflete dano em área"
+	"[Escudo] Reduz dano recebido no escudo em 8%/nv e reflete dano em área",
+	"+3% chance de drop em Quadrados e Triângulos",
+	"+5% chance de drop em Hexágonos e +10% em Elites",
+	"Abates com Crítico ou Combo ≥10 têm +4% drop e 25% drop duplo"
 ]
 const RESEARCH_MAX := [
 	5, 5, 5, 3, 5, 5, 5, 3,
-	5, 5, 5, 5, 5, 5, 5, 5, 5, 3,
+	5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
 	5, 5, 5, 5, 5, 5, 5,
-	5, 5, 5
+	5, 5, 5,
+	5, 5, 3
 ]
 const RESEARCH_BASE_COSTS := [
 	5, 5, 4, 2, 8, 8, 7, 3,
 	6, 6, 7, 3, 5, 6, 5, 6, 6, 4,
 	6, 6, 7, 7, 3, 8, 4,
-	4, 5, 3
+	4, 5, 3,
+	5, 6, 3
 ]
 const RESEARCH_PIECE_INDEX := [
 	0, 1, 2, 3, 0, 1, 2, 3,
 	0, 1, 0, 3, 1, 2, 2, 1, 2, 3,
 	0, 1, 0, 2, 3, 2, 3,
-	2, 1, 3
+	2, 1, 3,
+	0, 2, 3
 ]
 ## Ícone neon (ver NeonIcons) exibido em cada card de pesquisa não-torre.
 const RESEARCH_ICONS := {
-	0: "click_dmg", 8: "click_dmg",
+	0: "click_dmg", 8: "click_dmg", 28: "click_dmg",
 	1: "tower_haste",
 	2: "base_hull", 11: "base_hull",
 	3: "combo_drive", 7: "combo_drive", 17: "combo_drive",
 	4: "crit_chance",
-	5: "crit_mult",
+	5: "crit_mult", 30: "crit_mult",
 	6: "nova_overdrive", 16: "nova_overdrive",
 	9: "tower_pierce",
-	10: "tower_synergy",
+	10: "tower_synergy", 29: "tower_synergy",
 	12: "nano_regen",
 	13: "reactive_plating", 14: "reactive_plating",
 	15: "hull_vitality",
@@ -144,7 +152,8 @@ const RESEARCH_BASE_TIMES := [
 	18.0, 20.0,
 	16.0, 18.0, 18.0,
 	20.0, 22.0, 24.0, 26.0,
-	20.0, 22.0, 25.0
+	20.0, 22.0, 25.0,
+	16.0, 20.0, 24.0
 ]
 const MODULE_BASE_TIMES := {
 	"plasma": 0.0,
@@ -171,7 +180,7 @@ const RESEARCH_TAB_LABELS := {
 const RESEARCH_TAB_INDICES := {
 	"attack": [0, 4, 8, 9, 10, 11, 18, 19, 20, 21, 22, 23, 24],
 	"defense": [2, 13, 14, 25, 26, 27],
-	"economy": [1, 3, 5, 6, 7, 12, 15, 16, 17]
+	"economy": [1, 3, 5, 6, 7, 12, 15, 16, 17, 28, 29, 30]
 }
 
 # ---------------------------------------------------------------------------
@@ -369,31 +378,31 @@ const CODEX_TAB_LISTS := {
 
 ## id -> [nome, drop, fraqueza, comportamento, pesquisa recomendada]
 const ENEMY_INFO := {
-	"square": ["QUADRADO", "30%", "Dano direto", "Blindado e Duplicador", "Análise de Plasma"],
-	"armored_square": ["QUADRADO BLINDADO", "30%", "Torreta automática", "Reduz clique a 35%", "Análise de Plasma"],
-	"splitter": ["DUPLICADOR", "30%", "Dano explosivo", "Gera dois fragmentos vivos", "Análise de Plasma"],
-	"triangle": ["TRIÂNGULO", "22%", "Clique rápido", "Fantasma e Ladrão", "Roteamento Autônomo"],
-	"ghost_triangle": ["TRIÂNGULO FANTASMA", "22%", "Ataque durante a fase sólida", "Intangível 1s a cada 3s", "Roteamento Autônomo"],
-	"thief": ["LADRÃO", "22%", "Eliminar antes da base", "Rouba 15% do ouro", "Roteamento Autônomo"],
-	"pentagon": ["PENTÁGONO", "25%", "Dano moderado", "Rápido e agressivo", "Liga da Base"],
-	"hexagon": ["HEXÁGONO", "40%", "Dano sustentado", "Regenerador", "Liga da Base"],
-	"regen_hexagon": ["HEXÁGONO REGENERADOR", "40%", "Não interromper ataques", "Regenera após 1,5s", "Liga da Base"],
-	"heptagon": ["HEPTÁGONO", "35%", "Blindagem pesada", "Escudo natural", "Liga da Base"],
-	"octagon": ["OCTÓGONO BASTIÃO", "45%", "Laser Antimatéria", "Barreira fortificada pesada", "Liga da Base"],
-	"nonagon": ["NONÁGONO VÓRTICE", "28%", "Torre Criogênica", "Avanço supersônico em rajada", "Roteamento Autônomo"],
-	"decagon": ["DECÁGONO COLOSSAL", "50%", "Railgun Fotônico", "Massa cósmica de alta densidade", "Liga da Base"],
-	"hendecagon": ["HENDECÁGONO SOMBRIO", "45%", "Vórtice Gravitacional", "Geometria assimétrica instável", "Liga da Base"],
-	"dodecagon": ["DODECÁGONO PRIMORDIAL", "60%", "Nova concentrada", "Câmara de doze faces blindadas", "Reator Nova"],
-	"star4": ["DIAMANTE DE CRISTAL", "25%", "Clique preciso", "Velocidade estelar extrema", "Análise de Plasma"],
-	"star5": ["ESTRELA CADENTE", "30%", "Torre de Arco", "Vórtice de fragmentos cintilantes", "Roteamento Autônomo"],
-	"ring_prism": ["PRISMA ANELAR", "55%", "Pulso Sísmico", "Resiste a ataques frontais", "Liga da Base"],
-	"spiral_singularity": ["SINGULARIDADE DO VAZIO", "70%", "Choque Térmico + Railgun", "Atrai tiros e distorce espaço", "Reator Nova"],
-	"titan_tetrahedron": ["TITÃ TETRAÉDRICO", "85%", "Sobrecarga total", "Construção de quatro eixos maciços", "Reator Nova"],
-	"void_shooter": ["ATIRADOR DO VAZIO", "30%", "Clique nos tiros / Pulso", "Dispara plasma contra a base", "Blindagem Reativa"],
-	"quantum_teleporter": ["TELEPORTADOR QUÂNTICO", "30%", "Torre Criogênica / Arco", "Salta horizontalmente pela arena", "Roteamento Autônomo"],
-	"hive_summoner": ["INVOCADOR DA COLMEIA", "42%", "Torre Sísmica / Vórtice", "Invoca pares de lacaios velozes", "Liga da Base"],
-	"plasma_artillery": ["ARTILHEIRO DE ANTIMATÉRIA", "42%", "Laser + Interceptação", "Dispara rajadas duplas de cerco", "Blindagem Reativa"],
-	"rift_weaver": ["TECELÃO DE FENDAS", "65%", "Foco imediato + Nova", "Teleporta e deixa lacaios na fenda", "Caçador de Titãs"],
+	"square": ["QUADRADO", "6%", "Dano direto", "Blindado e Duplicador", "Análise de Plasma"],
+	"armored_square": ["QUADRADO BLINDADO", "6%", "Torreta automática", "Reduz clique a 35%", "Análise de Plasma"],
+	"splitter": ["DUPLICADOR", "6%", "Dano explosivo", "Gera dois fragmentos vivos", "Análise de Plasma"],
+	"triangle": ["TRIÂNGULO", "5%", "Clique rápido", "Fantasma e Ladrão", "Roteamento Autônomo"],
+	"ghost_triangle": ["TRIÂNGULO FANTASMA", "5%", "Ataque durante a fase sólida", "Intangível 1s a cada 3s", "Roteamento Autônomo"],
+	"thief": ["LADRÃO", "5%", "Eliminar antes da base", "Rouba 15% do ouro", "Roteamento Autônomo"],
+	"pentagon": ["PENTÁGONO", "6%", "Dano moderado", "Rápido e agressivo", "Liga da Base"],
+	"hexagon": ["HEXÁGONO", "8%", "Dano sustentado", "Regenerador", "Liga da Base"],
+	"regen_hexagon": ["HEXÁGONO REGENERADOR", "8%", "Não interromper ataques", "Regenera após 1,5s", "Liga da Base"],
+	"heptagon": ["HEPTÁGONO", "8%", "Blindagem pesada", "Escudo natural", "Liga da Base"],
+	"octagon": ["OCTÓGONO BASTIÃO", "10%", "Laser Antimatéria", "Barreira fortificada pesada", "Liga da Base"],
+	"nonagon": ["NONÁGONO VÓRTICE", "7%", "Torre Criogênica", "Avanço supersônico em rajada", "Roteamento Autônomo"],
+	"decagon": ["DECÁGONO COLOSSAL", "12%", "Railgun Fotônico", "Massa cósmica de alta densidade", "Liga da Base"],
+	"hendecagon": ["HENDECÁGONO SOMBRIO", "10%", "Vórtice Gravitacional", "Geometria assimétrica instável", "Liga da Base"],
+	"dodecagon": ["DODECÁGONO PRIMORDIAL", "15%", "Nova concentrada", "Câmara de doze faces blindadas", "Reator Nova"],
+	"star4": ["DIAMANTE DE CRISTAL", "6%", "Clique preciso", "Velocidade estelar extrema", "Análise de Plasma"],
+	"star5": ["ESTRELA CADENTE", "7%", "Torre de Arco", "Vórtice de fragmentos cintilantes", "Roteamento Autônomo"],
+	"ring_prism": ["PRISMA ANELAR", "12%", "Pulso Sísmico", "Resiste a ataques frontais", "Liga da Base"],
+	"spiral_singularity": ["SINGULARIDADE DO VAZIO", "15%", "Choque Térmico + Railgun", "Atrai tiros e distorce espaço", "Reator Nova"],
+	"titan_tetrahedron": ["TITÃ TETRAÉDRICO", "18%", "Sobrecarga total", "Construção de quatro eixos maciços", "Reator Nova"],
+	"void_shooter": ["ATIRADOR DO VAZIO", "8%", "Clique nos tiros / Pulso", "Dispara plasma contra a base", "Blindagem Reativa"],
+	"quantum_teleporter": ["TELEPORTADOR QUÂNTICO", "8%", "Torre Criogênica / Arco", "Salta horizontalmente pela arena", "Roteamento Autônomo"],
+	"hive_summoner": ["INVOCADOR DA COLMEIA", "10%", "Torre Sísmica / Vórtice", "Invoca pares de lacaios velozes", "Liga da Base"],
+	"plasma_artillery": ["ARTILHEIRO DE ANTIMATÉRIA", "10%", "Laser + Interceptação", "Dispara rajadas duplas de cerco", "Blindagem Reativa"],
+	"rift_weaver": ["TECELÃO DE FENDAS", "15%", "Foco imediato + Nova", "Teleporta e deixa lacaios na fenda", "Caçador de Titãs"],
 	"elite": ["COMANDANTE DE ELITE", "Chance dobrada", "Caçador de Titãs", "Lidera assaltos nas waves 3, 8, 13...", "Todas as linhas"],
 	"elite_vanguard": ["ELITE VANGUARDA", "Chance dobrada", "Torreta Automática", "Blindagem pesada + Regeneração", "Perfuração Cinética"],
 	"elite_phantom": ["ELITE ESPECTRAL", "Chance dobrada", "Ataque na fase visível", "Fase intangível + Teleporte Quântico", "Caçador de Titãs"],

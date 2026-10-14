@@ -8,40 +8,30 @@
 4. No menu, o Laboratório consome peças para comprar níveis permanentes.
 5. Os bônus são aplicados no começo de cada partida.
 
-## Famílias
+## Famílias e Taxas de Drop Base
 
-| Inimigo | Peça | Chance | Quantidade | Pesquisa |
+| Inimigo | Peça | Chance Base | Quantidade | Pesquisas de Drop Especializadas |
 |---|---|---:|---:|---|
-| Quadrado | Fragmento quadrado | 30% | 1 | +1 dano base por nível |
-| Triangular | Fragmento triangular | 22% | 1 | +8% DPS automático por nível |
-| Hexagonal | Liga hexagonal | 40% | 1 | +10 vida máxima por nível |
-| Boss | Núcleo de boss | 100% | 2 | +0,3 carga da Nova por segundo e nível |
+| Quadrado | Fragmento quadrado | 6% | 1 | Magnetismo (17), Sintonia de Espólios (28), Sobrecarga (30) |
+| Triangular | Fragmento triangular | 5% | 1 | Magnetismo (17), Sintonia de Espólios (28), Sobrecarga (30) |
+| Hexagonal | Liga hexagonal | 8% | 1 | Magnetismo (17), Filtro de Matéria Rara (29), Sobrecarga (30) |
+| Titã / Especial | Núcleo de boss | 18% | 1 | Magnetismo (17), Sobrecarga (30) |
+| Boss | Núcleo de boss | 100% | 2 | Garantido ao derrotar o chefe da wave |
 
-## Custos e limites
+## Pesquisas de Otimização de Drops
 
-| Pesquisa | Custo inicial | Aumento por nível | Máximo |
-|---|---:|---:|---:|
-| Análise de Plasma | 5 | +5 | 5 |
-| Roteamento Autônomo | 5 | +5 | 5 |
-| Liga da Base | 4 | +4 | 5 |
-| Reator Nova | 2 | +2 | 3 |
+1. **Magnetismo de Fragmentos (Índice 17)**: +3% de chance geral por nível em todos os tipos de inimigos.
+2. **Sintonia de Espólios (Índice 28)**: +3% de chance por nível para Quadrados e Triângulos.
+3. **Filtro de Matéria Rara (Índice 29)**: +5% de chance por nível para Hexágonos e +10% de chance extra em Elites.
+4. **Sobrecarga de Extração (Índice 30)**: Abates realizados com Acerto Crítico ou Combo ≥ 10 recebem +4% de chance de drop e 25% de probabilidade de drop duplo (+1 peça).
 
-Cada pesquisa aceita apenas a peça da família correspondente. A compra valida saldo, limite e consumo único.
+## Persistência e Esquemas
 
-## Persistência
-
-O schema 2 acrescentou:
-
-```json
-{
-  "pieces": [0, 0, 0, 0],
-  "research": [0, 0, 0, 0]
-}
-```
-
-A ordem estável é quadrado, triangular, hexagonal e boss. Saves do schema 1 são migrados com inventário e pesquisas zerados. O schema 3 acrescenta `enemy_stats` para o Codex e migra sequencialmente os schemas 1 e 2. Saves de versões futuras não são sobrescritos.
-
-O schema 4 acrescenta a maior wave alcançada, módulos de torre pesquisados e o módulo equipado. Torre Criogênica aparece na wave 5 e custa 8 fragmentos triangulares; Torre de Arco aparece na wave 10 e custa 12 fragmentos quadrados. Consulte `docs/TOWER_MODULES.md`.
+O jogo utiliza migração sequencial estrita (Schema 1 até 13):
+- **Schema 10**: Expandiu pesquisas para 28 entradas.
+- **Schema 11**: Adicionou árvore de pesquisas e upgrades do Laboratório (`lab_research`).
+- **Schema 12**: Adicionou rastreamento de conquistas (`achievements`).
+- **Schema 13**: Expande `research` para 31 slots, acomodando as pesquisas dedicadas de drops de peças com compatibilidade retroativa e validação estrita.
 
 ## Extensão futura
 
