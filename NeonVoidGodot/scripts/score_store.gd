@@ -1,6 +1,9 @@
 class_name SaveStore
 extends RefCounted
 
+signal research_completed(research_name: String, research_type: String)
+signal achievement_unlocked(ach_id: String, ach_title: String, ach_desc: String)
+
 var path := "user://records_v1.json"
 var scores: Array = []
 var best := 0
@@ -10,6 +13,7 @@ var pieces: Array[int] = [0, 0, 0, 0]
 var research: Array[int] = GameData.empty_research()
 var lab_research: Array[int] = [0, 0, 0]
 var active_research: Dictionary = {}
+var achievements: Array[String] = []
 var enemy_stats: Dictionary = {}
 var highest_wave := 1
 var tower_modules: Dictionary = {"plasma": true, "cryo": false, "arc": false, "pulse": false, "laser": false, "vortex": false, "railgun": false}
@@ -25,7 +29,7 @@ var equipped_module: String:
 const RESEARCH_MAX := GameData.RESEARCH_MAX
 const RESEARCH_BASE_COSTS := GameData.RESEARCH_BASE_COSTS
 const RESEARCH_PIECE_INDEX := GameData.RESEARCH_PIECE_INDEX
-const SCHEMA_VERSION := 11
+const SCHEMA_VERSION := 12
 const SLOT_WAVES := GameData.SLOT_WAVES
 const SLOT_COSTS := GameData.SLOT_COSTS
 const MODULE_WAVES := GameData.MODULE_WAVES
@@ -102,18 +106,29 @@ func migrate(data: Dictionary) -> Dictionary:
 		migrated["research"] = cur_res9
 		version = 10
 	if version == 10:
-		migrated["version"] = SCHEMA_VERSION
+		migrated["version"] = 11
 		var cur_lab: Variant = migrated.get("lab_research")
 		if not cur_lab is Array or cur_lab.size() != GameData.LAB_RESEARCH_COUNT:
 			migrated["lab_research"] = [0, 0, 0]
 		if not migrated.get("active_research") is Dictionary:
 			migrated["active_research"] = {}
 		version = 11
+	if version == 11:
+		migrated["version"] = SCHEMA_VERSION
+		var cur_ach: Variant = migrated.get("achievements")
+		if not cur_ach is Array:
+			migrated["achievements"] = []
+		version = 12
 	return migrated
 
 func valid(data: Variant) -> bool:
 	if not data is Dictionary or data.get("version") != SCHEMA_VERSION or not data.get("scores") is Array:
 		return false
+	if not data.get("achievements") is Array:
+		return false
+	for ach in data.get("achievements"):
+		if not ach is String:
+			return false
 	if not data.get("best") is float and not data.get("best") is int:
 		return false
 	if not is_finite(float(data.best)) or data.best < 0 or not data.get("muted") is bool:
@@ -197,7 +212,7 @@ func is_legacy_schema(data: Variant) -> bool:
 	if not data is Dictionary:
 		return false
 	var version: Variant = data.get("version")
-	return (version is int or version is float) and is_finite(float(version)) and float(version) == floor(float(version)) and int(version) in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+	return (version is int or version is float) and is_finite(float(version)) and float(version) == floor(float(version)) and int(version) in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 
 func load_data() -> void:
 	var data: Variant = read_data(path)
@@ -227,6 +242,15 @@ func load_data() -> void:
 		research.assign(data.research.map(func(value): return int(value)))
 		lab_research.assign(data.get("lab_research", [0, 0, 0]).map(func(value): return int(value)))
 		active_research = data.get("active_research", {}).duplicate(true)
+		achievements.clear()
+		for a in data.get("achievements", []):
+			achievements.append(str(a))
+		if not active_research.is_empty() and active_research.has("last_timestamp"):
+			var saved_ts: int = int(active_research.get("last_timestamp", 0))
+			var current_ts: int = int(Time.get_unix_time_from_system())
+			if saved_ts > 0 and current_ts > saved_ts:
+				var delta_offline: float = float(current_ts - saved_ts)
+				tick_research(delta_offline)
 		enemy_stats = data.enemy_stats.duplicate(true)
 		highest_wave = int(data.highest_wave)
 		tower_modules = data.tower_modules.duplicate(true)
@@ -247,12 +271,14 @@ func save_data() -> bool:
 		"research": research,
 		"lab_research": lab_research,
 		"active_research": active_research,
+		"achievements": achievements,
 		"enemy_stats": enemy_stats,
 		"highest_wave": highest_wave,
 		"tower_modules": tower_modules,
 		"unlocked_tower_slots": unlocked_tower_slots,
 		"tower_loadout": tower_loadout
 	}
+
 	if not valid(data):
 		return false
 	var previous: Variant = read_data(path)
@@ -271,6 +297,26 @@ func save_data() -> bool:
 		if DirAccess.copy_absolute(path, path + ".bak") != OK:
 			return false
 	return DirAccess.rename_absolute(path + ".tmp", path) == OK
+
+func unlock_achievement(ach_id: String) -> bool:
+	for a in achievements:
+		if a == ach_id:
+			return false
+	achievements.append(ach_id)
+	for info in GameData.ACHIEVEMENTS:
+		if info.id == ach_id:
+			var p_rew: int = int(info.get("reward_pieces", 0))
+			if p_rew > 0:
+				pieces[0] += p_rew
+			achievement_unlocked.emit(ach_id, str(info.title), str(info.desc))
+			save_data()
+			return true
+	achievement_unlocked.emit(ach_id, ach_id, "")
+	save_data()
+	return true
+
+func is_achievement_unlocked(ach_id: String) -> bool:
+	return achievements.has(ach_id)
 
 func qualifies(value: int) -> bool:
 	return value > 0 and (scores.size() < 10 or value > scores[-1].score)
@@ -372,7 +418,8 @@ func start_research(index: int, instant := false) -> bool:
 		"target": index,
 		"elapsed": 0.0,
 		"total_time": get_research_duration(index),
-		"piece_index": p_idx
+		"piece_index": p_idx,
+		"last_timestamp": int(Time.get_unix_time_from_system())
 	}
 	return true
 
@@ -408,7 +455,8 @@ func start_lab_research(index: int, instant := false) -> bool:
 		"target": index,
 		"elapsed": 0.0,
 		"total_time": get_lab_research_duration(index),
-		"piece_index": p_idx
+		"piece_index": p_idx,
+		"last_timestamp": int(Time.get_unix_time_from_system())
 	}
 	return true
 
@@ -457,7 +505,8 @@ func start_module_research(module_id: String, instant := false) -> bool:
 		"target": module_id,
 		"elapsed": 0.0,
 		"total_time": get_module_research_duration(module_id),
-		"piece_index": p_idx
+		"piece_index": p_idx,
+		"last_timestamp": int(Time.get_unix_time_from_system())
 	}
 	return true
 
@@ -500,7 +549,8 @@ func start_slot_research(index: int, instant := false) -> bool:
 		"target": index,
 		"elapsed": 0.0,
 		"total_time": get_slot_research_duration(index),
-		"piece_index": p_idx
+		"piece_index": p_idx,
+		"last_timestamp": int(Time.get_unix_time_from_system())
 	}
 	return true
 
@@ -511,6 +561,7 @@ func tick_research(dt: float) -> bool:
 	if active_research.is_empty():
 		return false
 	active_research.elapsed = float(active_research.get("elapsed", 0.0)) + dt
+	active_research["last_timestamp"] = int(Time.get_unix_time_from_system())
 	var total_time := float(active_research.get("total_time", 1.0))
 	if float(active_research.elapsed) >= total_time:
 		complete_active_research()
@@ -540,8 +591,10 @@ func complete_active_research() -> void:
 			var s_idx := int(target)
 			if s_idx == unlocked_tower_slots:
 				unlocked_tower_slots += 1
+	var res_name: String = active_research_name()
 	apply_resonance_cashback(p_idx)
 	active_research = {}
+	research_completed.emit(res_name, type)
 
 func equip_module_in_slot(index: int, module_id: String) -> bool:
 	if not writable or index < 0 or index >= unlocked_tower_slots or not module_unlocked(module_id):

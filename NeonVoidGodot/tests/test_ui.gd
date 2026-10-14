@@ -52,23 +52,31 @@ func run() -> void:
 	await capture("NeonVoid-menu")
 	app.show_modules()
 	await process_frame
-	expect(app.overlay.find_child("Module_cryo", true, false) == null, "Cryo module stays hidden before wave five")
+	expect(app.overlay.find_child("Module_cryo", true, false) == null, "Cryo research is not present in modules hangar")
 	await key(KEY_ESCAPE)
 	expect(app.phase == "menu", "Escape closes module selection")
 	app.store.highest_wave = 5
 	app.store.pieces[1] = 8
-	app.show_modules()
+	# Pesquisar o módulo Criogênico no Laboratório (aba Torres)
+	app.show_research()
+	app.select_research_tab("towers")
 	await process_frame
 	var cryo_button: Button = app.overlay.find_child("Module_cryo", true, false)
-	expect(cryo_button != null and not cryo_button.disabled, "Cryo research appears after wave five")
+	expect(cryo_button != null and not cryo_button.disabled, "Cryo research appears in laboratory towers tab after wave five")
 	app.ensure_modal_visible(cryo_button)
 	await process_frame
 	await click(cryo_button.get_global_rect().get_center())
-	cryo_button = app.overlay.find_child("Slot0_cryo", true, false)
-	expect(app.store.tower_modules.cryo and app.store.pieces[1] == 0 and cryo_button != null and not cryo_button.disabled, "Module research consumes pieces and enables equip")
-	app.ensure_modal_visible(cryo_button)
+	expect(app.store.tower_modules.cryo and app.store.pieces[1] == 0, "Module research in laboratory consumes pieces and unlocks module")
+	await key(KEY_ESCAPE)
+	# Abrir a tela de Módulos (Hangar) e equipar o módulo desbloqueado
+	app.show_modules()
 	await process_frame
-	await click(cryo_button.get_global_rect().get_center())
+	expect(app.overlay.find_child("Module_cryo", true, false) == null, "Module research cards remain absent from modules screen")
+	var equip_cryo: Button = app.overlay.find_child("Slot0_cryo", true, false)
+	expect(equip_cryo != null and not equip_cryo.disabled, "Researched module enables equip button in hangar slot")
+	app.ensure_modal_visible(equip_cryo)
+	await process_frame
+	await click(equip_cryo.get_global_rect().get_center())
 	expect(app.store.equipped_module == "cryo", "Researched tower module can be equipped")
 	await capture("NeonVoid-modulos")
 	await key(KEY_ESCAPE)
@@ -144,6 +152,16 @@ func run() -> void:
 	app.state.tick(0.01)
 	app.state.banner_time = 0
 	app.refresh_hud()
+	# Validar que pesquisa avança normalmente fora do laboratório e dispara notificação toast
+	app.store.pieces.assign([50, 50, 50, 50])
+	expect(app.store.start_research(2, false), "Research starts while player is in battle")
+	expect(app.phase == "playing" and app.store.is_researching(), "Research runs in background outside laboratory")
+	var rem: float = app.store.active_research_remaining()
+	app.store.tick_research(rem - 0.05)
+	app._process(0.1)
+	expect(not app.store.is_researching(), "Background research finishes during battle")
+	expect(app.toast_panel != null and app.toast_panel.visible, "Toast notification appears on screen upon research finish")
+	expect(app.toast_label != null and not app.toast_label.text.is_empty(), "Toast label displays completed research name")
 	await capture("NeonVoid-jogo")
 	await key(KEY_P)
 	expect(app.phase == "paused", "Pause shortcut")
@@ -170,6 +188,24 @@ func run() -> void:
 	await capture("NeonVoid-fim")
 	app.show_menu()
 	app.show_codex()
+	await process_frame
+	expect(app.overlay.find_child("Tab_codex_bosses", true, false) != null, "Codex Bosses tab exists")
+	expect(app.overlay.find_child("Tab_codex_elites", true, false) != null, "Codex Elites tab exists")
+	expect(app.overlay.find_child("Tab_codex_shooters", true, false) != null, "Codex Shooters tab exists")
+	expect(app.overlay.find_child("Tab_codex_shields", true, false) != null, "Codex Shields tab exists")
+	expect(app.overlay.find_child("Tab_codex_common", true, false) != null, "Codex Common tab exists")
+	expect(app.overlay.find_child("Tab_codex_all", true, false) != null, "Codex All tab exists")
+	app.select_codex_tab("bosses")
+	await process_frame
+	expect(app.codex_tab == "bosses", "Selecting bosses tab switches category")
+	app.select_codex_tab("shooters")
+	await process_frame
+	expect(app.codex_tab == "shooters", "Selecting shooters tab switches category")
+	app.select_codex_tab("shields")
+	await process_frame
+	expect(app.codex_tab == "shields", "Selecting shields tab switches category")
+	app.select_codex_tab("all")
+	await process_frame
 	await capture("NeonVoid-codex")
 	await key(KEY_ESCAPE)
 	expect(app.phase == "menu", "Escape closes Codex")
@@ -196,13 +232,20 @@ func run() -> void:
 	root.size = Vector2i(640, 640)
 	app.store.highest_wave = 10
 	app.store.pieces[0] = 12
-	app.show_modules()
+	# Pesquisar Arc no Laboratório (aba Torres)
+	app.show_research()
+	app.select_research_tab("towers")
 	await process_frame
 	var arc_button: Button = app.overlay.find_child("Module_arc", true, false)
-	expect(arc_button != null and not arc_button.disabled, "Arc research appears after wave ten")
+	expect(arc_button != null and not arc_button.disabled, "Arc research appears in laboratory towers tab after wave ten")
 	app.buy_tower_module("arc")
+	await key(KEY_ESCAPE)
+	# Equipar na tela de Módulos (Hangar)
+	app.show_modules()
+	await process_frame
+	expect(app.overlay.find_child("Module_arc", true, false) == null, "Arc research card is absent from modules hangar")
 	app.equip_tower_module(0, "arc")
-	expect(app.store.equipped_module == "arc" and app.store.pieces[0] == 0, "Arc module can be researched and equipped")
+	expect(app.store.equipped_module == "arc" and app.store.pieces[0] == 0, "Arc module can be researched in laboratory and equipped in hangar")
 	await capture("NeonVoid-modulos-640x640")
 	print("PASS: graphical UI, research, tower modules, Codex, special enemies, mouse, keyboard, pause, Nova, gameover, ranking and responsive layouts")
 	root.remove_child(app)

@@ -20,10 +20,10 @@ static func build(app: Control, initial_focus := false) -> void:
 	dynamic.name = "DynamicModules"
 	dynamic.add_theme_constant_override("separation", 10)
 	app.modules_content.add_child(dynamic)
-	UIFactory.center_label(dynamic, app.pieces_text(), 16, AMBER, true)
+	UIFactory.pieces_bar(dynamic, app.store.pieces, 16)
 	append_tower_slots(app, dynamic)
 	append_slot_expansion(app, dynamic)
-	append_module_cards(app, dynamic)
+	append_lab_shortcut(app, dynamic)
 	append_module_status(app, dynamic)
 	var close := UIFactory.button("VOLTAR AO MENU", app.close_modules, PINK)
 	close.name = "CloseModules"
@@ -31,6 +31,30 @@ static func build(app: Control, initial_focus := false) -> void:
 	app.contain_modal_focus()
 	if initial_focus:
 		app.focus_first_modal_action()
+
+static func append_lab_shortcut(app: Control, parent: VBoxContainer) -> void:
+	var card := UIFactory.panel(parent, CYAN)
+	card.add_theme_constant_override("separation", 8)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	card.add_child(row)
+	var icon := Control.new()
+	icon.custom_minimum_size = Vector2(28, 28)
+	icon.draw.connect(func(): NeonIcons.draw_ui(icon, "lab", 10.0, Vector2(14, 14), CYAN))
+	row.add_child(icon)
+	var label := UIFactory.label("NOVOS MÓDULOS DE TORRE", 16, CYAN, true)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(label)
+	var desc := UIFactory.label("A pesquisa e síntese de novos módulos de torre é realizada no Laboratório de Pesquisas.", 15, Color("d4cee0"))
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	card.add_child(desc)
+	var lab_btn := UIFactory.button("IR AO LABORATÓRIO (ABA TORRES)", func():
+		app.close_modules()
+		app.show_research()
+		app.select_research_tab("towers")
+	, CYAN)
+	lab_btn.name = "GoToLabResearch"
+	card.add_child(lab_btn)
 
 static func append_module_cards(app: Control, parent: VBoxContainer) -> void:
 	app.section_header_with_icon(parent, "PESQUISA DE MÓDULOS", "towers", PINK)

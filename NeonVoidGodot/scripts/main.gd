@@ -2,6 +2,11 @@ extends Control
 
 const Arena = preload("res://scenes/arena.tscn")
 const Store = preload("res://scripts/score_store.gd")
+const MenuScreen = preload("res://ui/screens/menu_screen.gd")
+const ModulesScreen = preload("res://ui/screens/modules_screen.gd")
+const ResearchScreen = preload("res://ui/screens/research_screen.gd")
+const CodexScreen = preload("res://ui/screens/codex_screen.gd")
+const ShopView = preload("res://ui/hud/shop_view.gd")
 const DISPLAY = preload("res://assets/fonts/DisplayBold.tres")
 const BODY = preload("res://assets/fonts/Rajdhani.ttf")
 # Dados de design centralizados em res://data/game_data.gd (GameData)
@@ -61,6 +66,12 @@ var module_status := ""
 var modal_return_focus: Control
 var hide_completed_research := false
 var research_tab: String = "lab"
+var codex_tab: String = "all"
+var codex_content: VBoxContainer
+var toast_panel: PanelContainer
+var toast_label: Label
+var toast_title: Label
+var toast_timer: float = 0.0
 
 const UPG_ATTACK_IDS := GameData.UPG_ATTACK_IDS
 const UPG_TOWER_IDS := GameData.UPG_TOWER_IDS
@@ -87,19 +98,30 @@ func _ready() -> void:
 	sfx["boss"] = SoundManager._synth_sweep(240.0, 75.0, 0.65, 0.60)
 	sfx["vortex"] = SoundManager._synth_sweep(320.0, 65.0, 0.45, 0.45)
 	sfx["railgun"] = SoundManager._synth_sweep(1800.0, 150.0, 0.22, 0.55)
-	for i in 12:
-		var player := AudioStreamPlayer.new()
-		player.volume_db = -7
-		add_child(player)
-		sound_pool.append(player)
+	sound_pool.clear()
+	if has_node("AudioPlayers"):
+		for child in $AudioPlayers.get_children():
+			if child is AudioStreamPlayer:
+				sound_pool.append(child)
+	if sound_pool.is_empty():
+		for i in 12:
+			var player := AudioStreamPlayer.new()
+			player.volume_db = -7
+			player.bus = &"SFX"
+			add_child(player)
+			sound_pool.append(player)
 	state.sound.connect(play_sound)
 	state.ended.connect(game_over)
 	state.piece_dropped.connect(on_piece_dropped)
 	state.enemy_discovered.connect(on_enemy_discovered)
 	state.enemy_defeated.connect(on_enemy_defeated)
+	state.achievement_triggered.connect(store.unlock_achievement)
+	store.research_completed.connect(on_research_completed)
+	store.achievement_unlocked.connect(on_achievement_unlocked)
 	build_game()
 	state.effect.connect(arena.fx)
 	build_menu()
+	build_toast_notification()
 	resized.connect(responsive)
 	get_window().focus_exited.connect(func():
 		if phase == "playing" and not test_mode:
@@ -108,6 +130,83 @@ func _ready() -> void:
 	show_menu()
 
 func build_game() -> void:
+	if has_node("Game"):
+		game = $Game as VBoxContainer
+		var header_panel: PanelContainer = game.get_node("HeaderPanel") as PanelContainer
+		header_panel.add_theme_stylebox_override("panel", UIFactory.box(Color("8b5cf6"), Color("0b0420"), 0))
+		var header: HBoxContainer = header_panel.get_node("Header") as HBoxContainer
+		var logo: Label = header.get_node("Logo") as Label
+		logo.name = "Logo"
+		logo.add_theme_font_override("font", DISPLAY)
+		hud_score = header.get_node("Score") as Label
+		hud_score.add_theme_font_override("font", DISPLAY)
+		hud_gold = header.get_node("Gold") as Label
+		hud_gold.add_theme_font_override("font", DISPLAY)
+		hud_pieces = header.get_node("Pieces") as Label
+		hud_pieces.add_theme_font_override("font", DISPLAY)
+		hud_wave = header.get_node("Wave") as Label
+		hud_wave.add_theme_font_override("font", DISPLAY)
+		wave_bar = header.get_node("WaveBar") as ProgressBar
+		wave_bar.add_theme_stylebox_override("background", UIFactory.box(Color.TRANSPARENT, Color("282136"), 8))
+		var wave_fill := UIFactory.box(Color.TRANSPARENT, PINK, 8)
+		wave_fill.content_margin_top = 0
+		wave_fill.content_margin_bottom = 0
+		wave_bar.add_theme_stylebox_override("fill", wave_fill)
+		hp_bar = header.get_node("HPBar") as ProgressBar
+		hp_bar.add_theme_stylebox_override("background", UIFactory.box(Color.TRANSPARENT, Color("282136"), 8))
+		var hp_fill := UIFactory.box(Color.TRANSPARENT, CYAN, 8)
+		hp_fill.content_margin_top = 0
+		hp_fill.content_margin_bottom = 0
+		hp_bar.add_theme_stylebox_override("fill", hp_fill)
+		hud_hp = header.get_node("HPLabel") as Label
+		hud_hp.add_theme_font_override("font", DISPLAY)
+		var mute_btn: Button = header.get_node("MuteButton") as Button
+		mute_btn.pressed.connect(toggle_mute)
+		mute_buttons.append(mute_btn)
+		var pause_btn: Button = header.get_node("PauseButton") as Button
+		pause_btn.pressed.connect(pause_game)
+
+		body = game.get_node("Body") as BoxContainer
+		var arena_wrap: Control = body.get_node("ArenaWrap") as Control
+		arena = arena_wrap.get_node("Arena") as Control
+		arena.name = "Arena"
+		arena.state = state
+		mini_stats = arena_wrap.get_node("MiniStats") as Label
+		nova_button = arena_wrap.get_node("Nova") as Button
+		nova_button.name = "Nova"
+		nova_button.pressed.connect(func(): state.nova())
+
+		var shop_panel: PanelContainer = body.get_node("Upgrades") as PanelContainer
+		shop_panel.name = "Upgrades"
+		shop_panel.add_theme_stylebox_override("panel", UIFactory.box(Color("8b5cf6"), Color("0b0420"), 0))
+		shop = shop_panel.get_node("Shop") as VBoxContainer
+		shop_tabs_row = shop.get_node("ShopTabs") as HBoxContainer
+		shop_tabs_row.name = "ShopTabs"
+		shop_scroll = shop.get_node("ShopScroll") as ScrollContainer
+		shop_scroll.name = "ShopScroll"
+		shop_grid = shop_scroll.get_node("ShopGrid") as GridContainer
+
+		var tab_defs := [
+			["attack", "ATAQUE", PINK, "TabAttack"],
+			["towers", "TORRES", LIME, "TabTowers"],
+			["defense", "DEFESA", CYAN, "TabDefense"]
+		]
+		for tdef in tab_defs:
+			var tid: String = tdef[0]
+			var tlabel: String = tdef[1]
+			var tcol: Color = tdef[2]
+			var tname: String = tdef[3]
+			var tbtn := shop_tabs_row.get_node(tname) as Button
+			tbtn.name = tname
+			tbtn.pressed.connect(func(): select_shop_tab(tid))
+			tbtn.draw.connect(func(): NeonIcons.draw_ui(tbtn, tid, 6.5, Vector2(13.0, tbtn.size.y * 0.5), Color.WHITE if shop_tab == tid else tcol))
+		ShopView.style_tabs(shop_tabs_row, shop_tab)
+		rebuild_shop_cards()
+		var tip_panel: PanelContainer = shop.get_node("TipPanel") as PanelContainer
+		tip_panel.name = "TipPanel"
+		tip_panel.add_theme_stylebox_override("panel", UIFactory.box(CYAN))
+		return
+
 	game = VBoxContainer.new()
 	game.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	game.add_theme_constant_override("separation", 0)
@@ -158,8 +257,9 @@ func build_game() -> void:
 	mini_stats = UIFactory.label("", 15, MUTED)
 	mini_stats.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	mini_stats.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	mini_stats.position = Vector2(-330, 12)
-	mini_stats.size.x = 310
+	mini_stats.offset_left = -330
+	mini_stats.offset_right = -14
+	mini_stats.offset_top = 10
 	mini_stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	arena_wrap.add_child(mini_stats)
 	nova_button = UIFactory.button("NOVA\n20%", func(): state.nova(), PINK, true)
@@ -185,21 +285,21 @@ func build_game() -> void:
 	shop_tabs_row.add_theme_constant_override("separation", 6)
 	shop.add_child(shop_tabs_row)
 	var tab_defs := [
-		["attack", "   ATAQUE", PINK, "TabAttack"],
-		["towers", "   TORRES", LIME, "TabTowers"],
-		["defense", "   DEFESA", CYAN, "TabDefense"]
+		["attack", "ATAQUE", PINK, "TabAttack"],
+		["towers", "TORRES", LIME, "TabTowers"],
+		["defense", "DEFESA", CYAN, "TabDefense"]
 	]
 	for tdef in tab_defs:
 		var tid: String = tdef[0]
 		var tlabel: String = tdef[1]
 		var tcol: Color = tdef[2]
 		var tname: String = tdef[3]
-		var tbtn := UIFactory.button(tlabel, func(): select_shop_tab(tid), tcol, shop_tab == tid)
+		var tbtn := UIFactory.tab_button(tlabel, func(): select_shop_tab(tid), tcol, shop_tab == tid, 24)
 		tbtn.name = tname
 		tbtn.custom_minimum_size.y = 38
 		tbtn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		tbtn.add_theme_font_size_override("font_size", 11)
-		tbtn.draw.connect(func(): NeonIcons.draw_ui(tbtn, tid, 7.5, Vector2(18.0, tbtn.size.y * 0.5), Color.WHITE if shop_tab == tid else tcol))
+		tbtn.add_theme_font_size_override("font_size", 10)
+		tbtn.draw.connect(func(): NeonIcons.draw_ui(tbtn, tid, 6.5, Vector2(13.0, tbtn.size.y * 0.5), Color.WHITE if shop_tab == tid else tcol))
 		shop_tabs_row.add_child(tbtn)
 	shop_scroll = ScrollContainer.new()
 	shop_scroll.name = "ShopScroll"
@@ -253,6 +353,8 @@ func responsive() -> void:
 		modules_content.custom_minimum_size.x = minf(620, size.x - 112)
 	if phase == "research" and is_instance_valid(research_content):
 		research_content.custom_minimum_size.x = minf(680, size.x - 112)
+	if phase == "codex" and is_instance_valid(codex_content):
+		codex_content.custom_minimum_size.x = minf(760, size.x - 48)
 	if is_instance_valid(overlay):
 		for choices in overlay.find_children("SlotChoices*", "GridContainer", true, false):
 			choices.columns = 1 if size.x < 700 else 3
@@ -276,6 +378,9 @@ func responsive() -> void:
 			stack.custom_minimum_size.x = minf(960, maxf(480, size.x - 70))
 			stack.get_node("Cards").vertical = size.x < 700
 			stack.get_node("Lower").vertical = size.x < 1000
+	if is_instance_valid(toast_panel) and toast_panel.visible:
+		var parent_width: float = size.x if size.x > 0 else 640.0
+		toast_panel.position = Vector2(maxf(16.0, parent_width - toast_panel.size.x - 24.0), 16.0)
 
 func start_game() -> void:
 	record_wave_progress()
@@ -307,9 +412,9 @@ func show_modules() -> void:
 	module_status = ""
 	modules_content = modal()
 	modules_content.custom_minimum_size.x = minf(620, size.x - 112)
-	var title := UIFactory.center_label(modules_content, "⌖  MÓDULOS DA TORRE", 23, PINK, true)
+	var title := UIFactory.center_label(modules_content, "MÓDULOS DA TORRE", 23, PINK, true)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var intro := UIFactory.center_label(modules_content, "Pesquise módulos e libere até 7 slots.\nEscolha um módulo por slot antes da partida.\nMódulos podem se repetir; cada slot dispara sozinho.", 18, MUTED)
+	var intro := UIFactory.center_label(modules_content, "Equipe módulos nos slots desbloqueados da torre.\nCada slot dispara sua própria arma de forma autônoma.\nNovos módulos são pesquisados e sintetizados no Laboratório.", 17, MUTED)
 	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	build_module_cards(true)
 
@@ -330,7 +435,7 @@ func restore_modal_scroll_v(saved_v: int, target_action: String = "") -> void:
 		return
 	scroll.scroll_vertical = saved_v
 	var restore_cb := func():
-		if not is_instance_valid(scroll):
+		if not is_instance_valid(overlay) or not is_instance_valid(scroll):
 			return
 		scroll.scroll_vertical = saved_v
 		if not target_action.is_empty():
@@ -499,9 +604,8 @@ func show_research() -> void:
 	module_status = ""
 	research_content = modal()
 	research_content.custom_minimum_size.x = minf(680, size.x - 112)
-	var title := UIFactory.center_label(research_content, "⌬  LABORATÓRIO DE PESQUISAS", 23, CYAN, true)
-	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var intro := UIFactory.center_label(research_content, "Inimigos podem soltar fragmentos da própria estrutura (■ ▲ ⬢ ✦).\nCada síntese requer processamento nos reatores do laboratório.", 17, Color("cfc7dd"))
+	section_header_with_icon(research_content, "LABORATÓRIO DE PESQUISAS", "lab", CYAN)
+	var intro := UIFactory.center_label(research_content, "Inimigos soltam fragmentos da própria estrutura geométrica.\nCada síntese requer processamento nos reatores do laboratório.", 16, Color("cfc7dd"))
 	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	build_research_cards(true)
 
@@ -561,12 +665,21 @@ func close_research() -> void:
 
 func show_codex() -> void:
 	phase = "codex"
-	var content := modal()
-	CodexScreen.build(self, content)
+	codex_content = modal()
+	CodexScreen.build(self, codex_content)
+
+func select_codex_tab(tab_id: String) -> void:
+	codex_tab = tab_id
+	play_sound("click")
+	if phase == "codex" and is_instance_valid(codex_content):
+		var saved_scroll := get_modal_scroll_v()
+		CodexScreen.build(self, codex_content)
+		restore_modal_scroll_v(saved_scroll, "Tab_codex_" + tab_id)
 
 func close_codex() -> void:
 	phase = "menu"
 	close_overlay()
+	focus_menu_button("Codex")
 
 func on_piece_dropped(kind: int, amount: int, position: Vector2, enemy_id: String, from_elite: bool) -> void:
 	store.pieces[kind] += amount
@@ -583,6 +696,122 @@ func on_enemy_defeated(enemy_id: String, at_wave: int) -> void:
 	store.record_kill(enemy_id, at_wave)
 	if not test_mode and not store.save_data():
 		push_warning("O progresso do Codex foi mantido nesta sessão, mas ainda não pôde ser gravado.")
+
+func on_research_completed(res_name: String, res_type: String) -> void:
+	play_sound("buy")
+	state.configure_research(store.research)
+	if res_type == "slot":
+		state.configure_tower_loadout(store.tower_loadout.slice(0, store.unlocked_tower_slots))
+	show_research_notification(res_name, res_type)
+	if phase == "research":
+		build_research_cards(false)
+	elif phase == "modules":
+		build_module_cards(false)
+	refresh_hud()
+	if not test_mode:
+		store.save_data()
+
+func build_toast_notification() -> void:
+	if has_node("ResearchToast"):
+		toast_panel = $ResearchToast as PanelContainer
+		var row: HBoxContainer = toast_panel.get_node("Row") as HBoxContainer
+		var icon_box: Control = row.get_node("IconBox") as Control
+		icon_box.draw.connect(func():
+			NeonIcons.draw_ui(icon_box, "lab", 12.0, Vector2(16, 16), LIME)
+		)
+		var text_col: VBoxContainer = row.get_node("TextCol") as VBoxContainer
+		toast_title = text_col.get_node("ToastTitle") as Label
+		toast_title.add_theme_font_override("font", DISPLAY)
+		toast_label = text_col.get_node("ToastLabel") as Label
+		toast_label.add_theme_font_override("font", DISPLAY)
+		var box_style := UIFactory.box(LIME, Color("0f0726"), 14)
+		box_style.border_color = Color(LIME, 0.8)
+		box_style.shadow_color = Color(LIME, 0.25)
+		box_style.shadow_size = 14
+		toast_panel.add_theme_stylebox_override("panel", box_style)
+		return
+
+	toast_panel = PanelContainer.new()
+	toast_panel.name = "ResearchToast"
+	toast_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	toast_panel.visible = false
+	toast_panel.modulate.a = 0.0
+	toast_panel.z_index = 100
+
+	var box_style := UIFactory.box(LIME, Color("0f0726"), 14)
+	box_style.border_color = Color(LIME, 0.8)
+	box_style.shadow_color = Color(LIME, 0.25)
+	box_style.shadow_size = 14
+	toast_panel.add_theme_stylebox_override("panel", box_style)
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 14)
+	toast_panel.add_child(row)
+
+	var icon_box := Control.new()
+	icon_box.custom_minimum_size = Vector2(32, 32)
+	icon_box.draw.connect(func():
+		NeonIcons.draw_ui(icon_box, "lab", 12.0, Vector2(16, 16), LIME)
+	)
+	row.add_child(icon_box)
+
+	var text_col := VBoxContainer.new()
+	text_col.add_theme_constant_override("separation", 2)
+	row.add_child(text_col)
+
+	toast_title = UIFactory.label("SÍNTESE CONCLUÍDA", 11, LIME, true)
+	text_col.add_child(toast_title)
+
+	toast_label = UIFactory.label("", 14, Color.WHITE, true)
+	text_col.add_child(toast_label)
+
+	add_child(toast_panel)
+
+func show_research_notification(res_name: String, _res_type: String = "") -> void:
+	if not is_instance_valid(toast_panel) or not is_instance_valid(toast_label):
+		return
+	if is_instance_valid(toast_title):
+		toast_title.text = "SÍNTESE CONCLUÍDA"
+		toast_title.add_theme_color_override("font_color", LIME)
+	toast_label.text = res_name.to_upper()
+	var box_style := UIFactory.box(LIME, Color("0f0726"), 14)
+	box_style.border_color = Color(LIME, 0.8)
+	box_style.shadow_color = Color(LIME, 0.25)
+	box_style.shadow_size = 14
+	toast_panel.add_theme_stylebox_override("panel", box_style)
+	toast_panel.visible = true
+	toast_panel.modulate.a = 1.0
+	toast_timer = 4.0
+	var parent_width: float = size.x if size.x > 0 else 640.0
+	toast_panel.reset_size()
+	var toast_width: float = toast_panel.size.x
+	toast_panel.position = Vector2(maxf(16.0, parent_width - toast_width - 24.0), 16.0)
+
+func on_achievement_unlocked(_ach_id: String, ach_title: String, _ach_desc: String) -> void:
+	play_sound("wave")
+	show_achievement_notification(ach_title)
+	if phase == "playing" and is_instance_valid(arena):
+		arena.fx("nova", arena.size * Vector2(0.5, 0.25), AMBER, "CONQUISTA: " + ach_title.to_upper())
+
+func show_achievement_notification(ach_title: String) -> void:
+	if not is_instance_valid(toast_panel) or not is_instance_valid(toast_label):
+		return
+	if is_instance_valid(toast_title):
+		toast_title.text = "CONQUISTA DESBLOQUEADA"
+		toast_title.add_theme_color_override("font_color", AMBER)
+	toast_label.text = ach_title.to_upper()
+	var box_style := UIFactory.box(AMBER, Color("140924"), 14)
+	box_style.border_color = Color(AMBER, 0.9)
+	box_style.shadow_color = Color(AMBER, 0.3)
+	box_style.shadow_size = 14
+	toast_panel.add_theme_stylebox_override("panel", box_style)
+	toast_panel.visible = true
+	toast_panel.modulate.a = 1.0
+	toast_timer = 4.5
+	var parent_width: float = size.x if size.x > 0 else 640.0
+	toast_panel.reset_size()
+	var toast_width: float = toast_panel.size.x
+	toast_panel.position = Vector2(maxf(16.0, parent_width - toast_width - 24.0), 16.0)
 
 func show_menu() -> void:
 	record_wave_progress()
@@ -740,7 +969,14 @@ func refresh_hud() -> void:
 	hud_score.text = "PONTOS\n%s" % NumberFormat.format_int(state.score)
 	hud_gold.text = "◈ %s" % NumberFormat.format(float(state.gold), 1)
 	hud_pieces.text = pieces_text(state.run_pieces)
-	hud_wave.text = "WAVE %d\n%d/%d" % [state.wave, state.wave_kills, state.quota()]
+	if not state.current_anomaly.is_empty():
+		var a_name: String = str(state.current_anomaly.get("name", "ANOMALIA"))
+		hud_wave.text = "WAVE %d\n[%s]" % [state.wave, a_name]
+		var a_color: Color = state.current_anomaly.get("color", PINK)
+		hud_wave.add_theme_color_override("font_color", a_color)
+	else:
+		hud_wave.text = "WAVE %d\n%d/%d" % [state.wave, state.wave_kills, state.quota()]
+		hud_wave.add_theme_color_override("font_color", PINK)
 	hud_hp.text = "%d  +%d ESC" % [state.hp, int(floor(state.shield))] if state.max_shield > 0 else str(state.hp)
 	hp_bar.value = state.hp * 100.0 / state.max_hp
 	wave_bar.value = state.wave_kills * 100.0 / state.quota()
@@ -753,19 +989,30 @@ func _process(dt: float) -> void:
 	state.tick(dt)
 	update_time += dt
 	if store.tick_research(dt):
-		play_sound("buy")
-		if phase == "research":
-			build_research_cards(false)
-		elif phase == "modules":
-			build_module_cards(false)
-		refresh_hud()
-		if not test_mode:
-			store.save_data()
+		pass
 	elif phase == "research" and store.is_researching():
 		ResearchScreen.update_progress(self)
+	if toast_timer > 0.0:
+		toast_timer -= dt
+		if toast_timer <= 0.0:
+			toast_panel.visible = false
+			toast_panel.modulate.a = 0.0
+			toast_timer = 0.0
+		elif toast_timer < 0.6:
+			toast_panel.modulate.a = toast_timer / 0.6
+		else:
+			toast_panel.modulate.a = 1.0
 	if update_time >= 0.1 and phase == "playing":
 		update_time = 0
 		refresh_hud()
+	# Ajuste dinâmico do Low-Pass Filter no bus Master
+	if AudioServer.get_bus_effect_count(0) > 0:
+		var bus_fx: AudioEffect = AudioServer.get_bus_effect(0, 0)
+		if bus_fx is AudioEffectLowPassFilter:
+			var target_cutoff: float = 20500.0
+			if phase == "paused" or (phase == "playing" and state.hp <= state.max_hp * 0.3):
+				target_cutoff = 1200.0
+			bus_fx.cutoff_hz = lerpf(bus_fx.cutoff_hz, target_cutoff, minf(1.0, dt * 6.0))
 
 const UPGRADE_ACTIONS := ["upgrade_1", "upgrade_2", "upgrade_3", "upgrade_4"]
 

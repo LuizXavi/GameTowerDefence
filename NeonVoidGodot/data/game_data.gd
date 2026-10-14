@@ -162,11 +162,11 @@ const SLOT_BASE_TIMES := [0.0, 15.0, 20.0, 25.0, 30.0, 36.0, 45.0]
 # ---------------------------------------------------------------------------
 const RESEARCH_TABS := ["lab", "attack", "defense", "economy", "towers"]
 const RESEARCH_TAB_LABELS := {
-	"lab": "🔬 LABORATÓRIO",
-	"attack": "⚔ ATAQUE",
-	"defense": "🛡 DEFESA",
-	"economy": "◈ ECONOMIA",
-	"towers": "⌖ TORRES"
+	"lab": "    LABORATÓRIO",
+	"attack": "    ATAQUE",
+	"defense": "    DEFESA",
+	"economy": "    ECONOMIA",
+	"towers": "    TORRES"
 }
 const RESEARCH_TAB_INDICES := {
 	"attack": [0, 4, 8, 9, 10, 11, 18, 19, 20, 21, 22, 23, 24],
@@ -248,16 +248,16 @@ const UPGRADE_INFO := {
 	"combo_drive": ["FRENESI DE COMBO", "+Bônus de dano e duração de combo", Color("ec4899")],
 	"click_splash": ["ONDA DE IMPACTO", "Cliques causam dano em área (115px)", Color("a855f7")],
 	"nova_overdrive": ["SOBRECARGA NOVA", "+20% recarga e +12% dano do Pulso Nova", Color("22d3ee")],
-	"tower_haste": ["ACELERADOR DE CADÊNCIA", "+12% velocidade de disparo das torres", Color("a3e635")],
+	"tower_haste": ["ACELERADOR DE CADÊNCIA", "+12% vel. de disparo das torres", Color("a3e635")],
 	"tower_range": ["BOBINAS DE ALCANCE", "+8% alcance de todas as torres", Color("22d3ee")],
-	"tower_pierce": ["MUNIÇÃO ANTI-TITÃ", "+18% dano das torres em Elites e Bosses", Color("facc15")],
+	"tower_pierce": ["MUNIÇÃO ANTI-TITÃ", "+18% dano em Elites e Bosses", Color("facc15")],
 	"tower_synergy": ["SINCRONIA DE BATERIA", "+6% dano por cada torre ativa", Color("a855f7")],
 	"base_hull": ["ESTRUTURA DA BASE", "+2 Vida máx e +1 Vida imediata", Color("22d3ee")],
 	"hull_vitality": ["REFORÇO DE TITÂNIO", "+4 Vida máx e +3 Vida imediata", Color("a3e635")],
-	"nano_regen": ["NANORREPARO CONTÍNUO", "Regenera +1 Vida da base periodicamente", Color("34d399")],
-	"reactive_plating": ["BLINDAGEM DE ABSORÇÃO", "+15% chance de bloquear 1 dano no casco", Color("facc15")],
+	"nano_regen": ["NANORREPARO CONTÍNUO", "Regenera +1 Vida periodicamente", Color("34d399")],
+	"reactive_plating": ["BLINDAGEM DE ABSORÇÃO", "+15% chance de bloquear 1 dano", Color("facc15")],
 	"shield_cap": ["CAPACITOR DE ESCUDO", "+35 Escudo máx e recarga imediata", Color("38bdf8")],
-	"shield_regen": ["REATOR DE ESCUDO", "+1.8 Escudo/s de regeneração contínua", Color("22d3ee")],
+	"shield_regen": ["REATOR DE ESCUDO", "+1.8 Escudo/s de regeneração", Color("22d3ee")],
 	"shield_pulse": ["CAMPO DE REPULSÃO", "Ao quebrar escudo, empurra e dá dano", Color("818cf8")]
 }
 
@@ -320,6 +320,53 @@ const CODEX_ORDER := [
 	"elite", "elite_vanguard", "elite_phantom", "elite_artillery", "elite_overlord", "elite_berserker", "elite_storm",
 	"boss", "boss_colossus", "boss_primordial", "boss_nexus", "boss_leviathan", "boss_omega"
 ]
+
+const CODEX_TABS := ["all", "common", "shields", "shooters", "elites", "bosses"]
+const CODEX_TAB_LABELS := {
+	"all": "TODOS",
+	"common": "COMUNS",
+	"shields": "ESCUDOS",
+	"shooters": "ATIRADORES",
+	"elites": "ELITES",
+	"bosses": "BOSSES"
+}
+
+const CODEX_COMMON_IDS := [
+	"square", "splitter", "triangle", "ghost_triangle", "thief",
+	"pentagon", "hexagon", "regen_hexagon", "nonagon", "decagon",
+	"hendecagon", "star4", "star5", "spiral_singularity",
+	"quantum_teleporter", "hive_summoner"
+]
+
+const CODEX_SHIELD_IDS := [
+	"armored_square", "heptagon", "octagon", "dodecagon",
+	"ring_prism", "titan_tetrahedron", "elite_vanguard"
+]
+
+const CODEX_SHOOTER_IDS := [
+	"void_shooter", "plasma_artillery", "rift_weaver",
+	"elite_artillery", "elite_storm"
+]
+
+const CODEX_ELITE_IDS := [
+	"elite", "elite_vanguard", "elite_phantom", "elite_artillery",
+	"elite_overlord", "elite_berserker", "elite_storm"
+]
+
+const CODEX_BOSS_IDS := [
+	"boss", "boss_colossus", "boss_primordial", "boss_nexus",
+	"boss_leviathan", "boss_omega"
+]
+
+const CODEX_TAB_LISTS := {
+	"all": CODEX_ORDER,
+	"common": CODEX_COMMON_IDS,
+	"shields": CODEX_SHIELD_IDS,
+	"shooters": CODEX_SHOOTER_IDS,
+	"elites": CODEX_ELITE_IDS,
+	"bosses": CODEX_BOSS_IDS
+}
+
 ## id -> [nome, drop, fraqueza, comportamento, pesquisa recomendada]
 const ENEMY_INFO := {
 	"square": ["QUADRADO", "30%", "Dano direto", "Blindado e Duplicador", "Análise de Plasma"],
@@ -371,3 +418,73 @@ static func empty_research() -> Array[int]:
 
 static func research_icon(index: int) -> String:
 	return RESEARCH_ICONS.get(index, "attack")
+
+# ---------------------------------------------------------------------------
+# Anomalias Climáticas do Void
+# ---------------------------------------------------------------------------
+const ANOMALIES := {
+	"emp": {
+		"id": "emp",
+		"name": "TEMPESTADE EMP",
+		"desc": "Torretas -30% cadência • Cliques +50% dano",
+		"color": Color("22e6ff"),
+		"turret_cadence": 1.3,
+		"click_dmg": 1.5,
+		"drop_mult": 1.0,
+		"gold_mult": 1.0,
+		"enemy_speed": 1.0,
+		"score_mult": 1.0
+	},
+	"supernova": {
+		"id": "supernova",
+		"name": "CHUVA SUPERNOVA",
+		"desc": "Fragmentos x3 • Ouro x2",
+		"color": Color("ffb02e"),
+		"turret_cadence": 1.0,
+		"click_dmg": 1.0,
+		"drop_mult": 3.0,
+		"gold_mult": 2.0,
+		"enemy_speed": 1.0,
+		"score_mult": 1.0
+	},
+	"warp": {
+		"id": "warp",
+		"name": "DILATAÇÃO TEMPORAL",
+		"desc": "Inimigos -25% velocidade • Trajetórias instáveis",
+		"color": Color("b6ff2e"),
+		"turret_cadence": 1.0,
+		"click_dmg": 1.0,
+		"drop_mult": 1.0,
+		"gold_mult": 1.0,
+		"enemy_speed": 0.75,
+		"score_mult": 1.0
+	},
+	"eclipse": {
+		"id": "eclipse",
+		"name": "ECLIPSE DO VAZIO",
+		"desc": "Inimigos +25% dano • Pontuação x2",
+		"color": Color("ff2bd6"),
+		"turret_cadence": 1.0,
+		"click_dmg": 1.0,
+		"drop_mult": 1.0,
+		"gold_mult": 1.0,
+		"enemy_speed": 1.0,
+		"score_mult": 2.0
+	}
+}
+const ANOMALY_KEYS := ["emp", "supernova", "warp", "eclipse"]
+
+# ---------------------------------------------------------------------------
+# Conquistas Cyberpunk (Achievements)
+# ---------------------------------------------------------------------------
+const ACHIEVEMENTS := [
+	{"id": "first_kill", "title": "PRIMEIRO CONTATO", "desc": "Abata seu primeiro invasor do Vazio", "reward_pieces": 2, "reward_gold": 25},
+	{"id": "wave_5", "title": "SOBREVIVENTE", "desc": "Alcance a Wave 5", "reward_pieces": 4, "reward_gold": 50},
+	{"id": "wave_10", "title": "VETERANO DO VOID", "desc": "Alcance a Wave 10", "reward_pieces": 8, "reward_gold": 150},
+	{"id": "first_boss", "title": "DESTRUIDOR DE TITÃS", "desc": "Derrote seu primeiro Boss", "reward_pieces": 6, "reward_gold": 100},
+	{"id": "combo_15", "title": "FLUXO HIPERCRÍTICO", "desc": "Atinja um Combo de x15", "reward_pieces": 5, "reward_gold": 60},
+	{"id": "shield_active", "title": "BASTIÃO DEFENSIVO", "desc": "Ative o Escudo Energético no Laboratório", "reward_pieces": 6, "reward_gold": 80},
+	{"id": "nova_blast", "title": "PULSO TOTAL", "desc": "Dispare a Super-Habilidade Nova", "reward_pieces": 4, "reward_gold": 40},
+	{"id": "slot_expanded", "title": "ENGENHEIRO TÁTICO", "desc": "Desbloqueie um slot extra de torre", "reward_pieces": 5, "reward_gold": 75}
+]
+

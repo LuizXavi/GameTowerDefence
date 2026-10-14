@@ -247,10 +247,12 @@ static func shoot_from_enemy(state: RefCounted, enemy: Dictionary) -> void:
 	for i in salvo:
 		var spread_offset: float = 0.0
 		if salvo == 2:
-			spread_offset = -55.0 if i == 0 else 55.0
+			spread_offset = -40.0 if i == 0 else 40.0
 		elif salvo == 3:
-			spread_offset = float(i - 1) * 85.0
-		var target_x: float = clampf(enemy.p.x + spread_offset, 36.0, state.bounds.x - 36.0)
+			spread_offset = float(i - 1) * 55.0
+		var dome_center_x: float = state.bounds.x * 0.5
+		var dome_target_x: float = lerp(dome_center_x, enemy.p.x, 0.22)
+		var target_x: float = clampf(dome_target_x + spread_offset, 36.0, state.bounds.x - 36.0)
 		var target_pos := Vector2(target_x, state.bounds.y - 30.0)
 		var dir: Vector2 = (target_pos - enemy.p).normalized()
 		if dir.length_squared() < 0.01:

@@ -24,7 +24,7 @@ static func build(app: Control, initial_focus := false) -> void:
 	dynamic.add_theme_constant_override("separation", 10)
 	app.research_content.add_child(dynamic)
 
-	UIFactory.center_label(dynamic, app.pieces_text(), 16, AMBER, true)
+	UIFactory.pieces_bar(dynamic, app.store.pieces, 16)
 
 	append_tab_bar(app, dynamic)
 	append_active_research_banner(app, dynamic)
@@ -65,14 +65,14 @@ static func append_tab_bar(app: Control, parent: VBoxContainer) -> void:
 		var label_text: String = str(GameData.RESEARCH_TAB_LABELS.get(tab_id, tab_id.to_upper()))
 		var is_selected: bool = app.research_tab == tab_id
 		var tab_color: Color = CYAN if is_selected else Color("6e6382")
-		var tab_btn := UIFactory.button(label_text, func(): app.select_research_tab(tab_id), tab_color)
+		var tab_btn := UIFactory.tab_button(label_text, func(): app.select_research_tab(tab_id), tab_color, is_selected, 32)
 		tab_btn.name = "Tab_" + tab_id
 		tab_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tab_btn.custom_minimum_size.y = 38
-		if is_selected:
-			tab_btn.add_theme_color_override("font_color", Color.WHITE)
-			tab_btn.add_theme_color_override("font_hover_color", Color.WHITE)
-			tab_btn.add_theme_color_override("font_focus_color", Color.WHITE)
+		tab_btn.draw.connect(func():
+			var icon_color: Color = Color.WHITE if is_selected else tab_color
+			NeonIcons.draw_ui(tab_btn, tab_id, 7.5, Vector2(16.0, tab_btn.size.y * 0.5), icon_color)
+		)
 		tabs_row.add_child(tab_btn)
 
 static func append_active_research_banner(app: Control, parent: VBoxContainer) -> void:
@@ -118,7 +118,7 @@ static func update_progress(app: Control) -> void:
 		lbl.text = "%.1fs restantes (%d%%)" % [app.store.active_research_remaining(), int(app.store.active_research_progress() * 100.0)]
 
 static func append_lab_tab(app: Control, parent: VBoxContainer) -> void:
-	app.section_header_with_icon(parent, "MELHORIAS DO LABORATÓRIO", "tower_haste", AMBER)
+	app.section_header_with_icon(parent, "MELHORIAS DO LABORATÓRIO", "lab", AMBER)
 	var shown := 0
 	for i in GameData.LAB_RESEARCH_COUNT:
 		var level: int = app.store.lab_research[i]
@@ -144,13 +144,12 @@ static func append_lab_tab(app: Control, parent: VBoxContainer) -> void:
 			words += "Custo: %d %s  •  Tempo: %ds  •  Você tem: %d" % [cost, PIECE_SHORT[p_idx], int(duration), app.store.pieces[p_idx]]
 
 		var btn_color: Color = COLORS[p_idx]
-		var btn := UIFactory.button(words, func(): app.buy_lab_research(i), btn_color)
+		var btn := UIFactory.card_button(words, func(): app.buy_lab_research(i), btn_color, "right", 58)
 		btn.name = "LabResearch%d" % (i + 1)
-		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		btn.custom_minimum_size.y = 80
+		btn.custom_minimum_size.y = 82
 		btn.disabled = not can_buy
 		var icon_name: String = GameData.LAB_RESEARCH_ICONS[i]
-		btn.draw.connect(func(): NeonIcons.draw_ui(btn, icon_name, 14.0, Vector2(btn.size.x - 36.0, btn.size.y * 0.5), btn_color))
+		btn.draw.connect(func(): NeonIcons.draw_ui(btn, icon_name, 12.5, Vector2(btn.size.x - 29.0, btn.size.y * 0.5), btn_color))
 		parent.add_child(btn)
 
 	if shown == 0 and app.hide_completed_research:
@@ -175,7 +174,7 @@ static func append_defense_tab(app: Control, parent: VBoxContainer) -> void:
 		UIFactory.center_label(parent, "✓ Todas as pesquisas defensivas foram concluídas.", 15, LIME)
 
 static func append_economy_tab(app: Control, parent: VBoxContainer) -> void:
-	app.section_header_with_icon(parent, "PESQUISAS DE ECONOMIA E FRAGMENTOS", "combo_drive", LIME)
+	app.section_header_with_icon(parent, "PESQUISAS DE ECONOMIA E FRAGMENTOS", "economy", LIME)
 	var shown := 0
 	for i in GameData.RESEARCH_TAB_INDICES["economy"]:
 		if append_research_card(app, parent, i):
@@ -207,18 +206,17 @@ static func append_research_card(app: Control, parent: VBoxContainer, i: int) ->
 		words += "Custo: %d %s  •  Tempo: %ds  •  Você tem: %d" % [cost, PIECE_SHORT[p_idx], int(duration), app.store.pieces[p_idx]]
 
 	var btn_color: Color = MODULE_INFO[MODULE_IDS[i - 18]][2] if (i >= 18 and i < 25) else COLORS[p_idx]
-	var research_button := UIFactory.button(words, func(): app.buy_research(i), btn_color)
+	var research_button := UIFactory.card_button(words, func(): app.buy_research(i), btn_color, "right", 58)
 	research_button.name = "Research%d" % (i + 1)
-	research_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	research_button.custom_minimum_size.y = 80
+	research_button.custom_minimum_size.y = 82
 	research_button.disabled = not can_buy
 
 	if i >= 18 and i < 25:
 		var tower_mod_id: String = MODULE_IDS[i - 18]
-		research_button.draw.connect(func(): NeonIcons.draw_tower(research_button, tower_mod_id, 13.0, Vector2(research_button.size.x - 36.0, research_button.size.y * 0.5)))
+		research_button.draw.connect(func(): NeonIcons.draw_tower(research_button, tower_mod_id, 12.0, Vector2(research_button.size.x - 29.0, research_button.size.y * 0.5)))
 	else:
 		var r_icon: String = GameData.research_icon(i)
-		research_button.draw.connect(func(): NeonIcons.draw_ui(research_button, r_icon, 13.0, Vector2(research_button.size.x - 36.0, research_button.size.y * 0.5), btn_color))
+		research_button.draw.connect(func(): NeonIcons.draw_ui(research_button, r_icon, 12.0, Vector2(research_button.size.x - 29.0, research_button.size.y * 0.5), btn_color))
 
 	parent.add_child(research_button)
 	return true

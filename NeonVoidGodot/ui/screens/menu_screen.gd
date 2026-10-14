@@ -10,33 +10,50 @@ const MUTED := GameData.MUTED
 const MODULE_INFO := GameData.MODULE_INFO
 
 static func build(app: Control) -> void:
+	var stack: VBoxContainer = null
 	if is_instance_valid(app.menu):
-		app.remove_child(app.menu)
-		app.menu.queue_free()
-	app.menu = Control.new()
-	app.menu.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	app.add_child(app.menu)
-	var bg := ColorRect.new()
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var shader_material := ShaderMaterial.new()
-	shader_material.shader = preload("res://shaders/menu.gdshader")
-	bg.material = shader_material
-	app.menu.add_child(bg)
-	var scroll := ScrollContainer.new()
-	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.follow_focus = true
-	app.menu.add_child(scroll)
-	var centering := CenterContainer.new()
-	centering.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	centering.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.add_child(centering)
-	var margins := UIFactory.margin(centering, 28)
-	var stack := VBoxContainer.new()
-	stack.name = "MenuContent"
+		stack = app.menu.find_child("MenuContent", true, false) as VBoxContainer
+	elif app.has_node("Menu"):
+		app.menu = app.get_node("Menu") as Control
+		stack = app.menu.find_child("MenuContent", true, false) as VBoxContainer
+
+	if stack != null:
+		for child in stack.get_children():
+			stack.remove_child(child)
+			child.queue_free()
+	else:
+		if is_instance_valid(app.menu):
+			app.remove_child(app.menu)
+			app.menu.queue_free()
+		app.menu = Control.new()
+		app.menu.name = "Menu"
+		app.menu.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		app.add_child(app.menu)
+		var bg := ColorRect.new()
+		bg.name = "MenuBg"
+		bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		var shader_material := ShaderMaterial.new()
+		shader_material.shader = preload("res://shaders/menu.gdshader")
+		bg.material = shader_material
+		app.menu.add_child(bg)
+		var scroll := ScrollContainer.new()
+		scroll.name = "MenuScroll"
+		scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll.follow_focus = true
+		app.menu.add_child(scroll)
+		var centering := CenterContainer.new()
+		centering.name = "Center"
+		centering.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		centering.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		scroll.add_child(centering)
+		var margins := UIFactory.margin(centering, 28)
+		margins.name = "Margin"
+		stack = VBoxContainer.new()
+		stack.name = "MenuContent"
+		margins.add_child(stack)
 	stack.custom_minimum_size.x = minf(960, maxf(480, app.size.x - 70))
 	stack.add_theme_constant_override("separation", 7)
-	margins.add_child(stack)
 	if app.store.best > 0:
 		UIFactory.center_label(stack, "♛  RECORDE: %d" % app.store.best, 12, AMBER, true)
 	UIFactory.center_label(stack, "//  D E F E S A  I N C R E M E N T A L  //", 12, CYAN, true)
@@ -61,17 +78,19 @@ static func build(app: Control) -> void:
 	UIFactory.center_label(stack, "Slots liberados: %d/7" % app.store.unlocked_tower_slots, 16, CYAN)
 	var loadout := UIFactory.center_label(stack, tower_loadout_text(app.store), 17, MUTED)
 	loadout.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var research_button := UIFactory.button("⌬  LABORATÓRIO DE PESQUISAS", app.show_research, CYAN)
+	var research_button := UIFactory.button("LABORATÓRIO DE PESQUISAS", app.show_research, CYAN)
 	research_button.name = "Research"
 	research_button.custom_minimum_size = Vector2(328, 48)
 	research_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	research_button.draw.connect(func(): NeonIcons.draw_ui(research_button, "lab", 9.0, Vector2(18.0, research_button.size.y * 0.5), CYAN))
 	stack.add_child(research_button)
-	var codex_button := UIFactory.button("◈  CODEX DOS INIMIGOS", app.show_codex, AMBER)
+	var codex_button := UIFactory.button("CODEX DOS INIMIGOS", app.show_codex, AMBER)
 	codex_button.name = "Codex"
 	codex_button.custom_minimum_size = Vector2(328, 44)
 	codex_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	codex_button.draw.connect(func(): NeonIcons.draw_ui(codex_button, "codex", 8.5, Vector2(18.0, codex_button.size.y * 0.5), AMBER))
 	stack.add_child(codex_button)
-	UIFactory.center_label(stack, pieces_text(app.store.pieces), 14, AMBER, true)
+	UIFactory.pieces_bar(stack, app.store.pieces, 14)
 	UIFactory.center_label(stack, "ou pressione ENTER", 14, MUTED)
 	UIFactory.spacer(stack, 5)
 	UIFactory.center_label(stack, "✧  Dica: Combos aumentam dano e ouro — não erre!", 18, Color("d9cdb8"))

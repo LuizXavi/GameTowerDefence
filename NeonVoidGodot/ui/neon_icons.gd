@@ -8,6 +8,7 @@ const CYAN := GameData.CYAN
 const LIME := GameData.LIME
 const AMBER := GameData.AMBER
 const MUTED := GameData.MUTED
+const COLORS := GameData.PIECE_COLORS
 const MODULE_INFO := GameData.MODULE_INFO
 const DISPLAY = preload("res://assets/fonts/DisplayBold.tres")
 const BODY = preload("res://assets/fonts/Rajdhani.ttf")
@@ -243,8 +244,134 @@ static func draw_ui(control: Control, icon_id: String, base_radius: float = 12.0
 			control.draw_arc(center, 4.5 * s, 0.0, TAU, 16, Color.WHITE, maxf(1.2, 1.8 * s), true)
 			control.draw_arc(center, 8.2 * s, -PI * 0.75, -PI * 0.25, 14, color, maxf(1.4, 2.2 * s), true)
 			control.draw_arc(center, 8.2 * s, PI * 0.25, PI * 0.75, 14, color, maxf(1.4, 2.2 * s), true)
+		"lab", "research":
+			# Reator / Núcleo de Síntese Quântica com órbitas em elipse e anel
+			control.draw_circle(center, maxf(2.0, 3.2 * s), Color.WHITE)
+			control.draw_arc(center, 6.0 * s, 0.0, TAU, 20, color, maxf(1.2, 1.8 * s), true)
+			var orb1 := PackedVector2Array([
+				center + Vector2(-8.0 * s, -2.5 * s),
+				center + Vector2(0, -6.5 * s),
+				center + Vector2(8.0 * s, 2.5 * s),
+				center + Vector2(0, 6.5 * s),
+				center + Vector2(-8.0 * s, -2.5 * s)
+			])
+			control.draw_polyline(orb1, Color(color, 0.7), maxf(1.0, 1.4 * s), true)
+			control.draw_circle(center + Vector2(6.5 * s, 2.0 * s), maxf(1.0, 1.5 * s), Color.WHITE)
+		"economy":
+			# Diamante / Losango cibernético com núcleo de prisma monetário
+			var diamond_pts := PackedVector2Array([
+				center + Vector2(0, -8.0 * s),
+				center + Vector2(7.0 * s, 0),
+				center + Vector2(0, 8.0 * s),
+				center + Vector2(-7.0 * s, 0),
+				center + Vector2(0, -8.0 * s)
+			])
+			control.draw_polyline(diamond_pts, color, maxf(1.3, 2.0 * s), true)
+			control.draw_circle(center, maxf(1.5, 2.5 * s), Color.WHITE)
+			control.draw_line(center + Vector2(0, -4.5 * s), center + Vector2(0, 4.5 * s), Color.WHITE, maxf(1.0, 1.5 * s), true)
+		"piece_0", "piece_square":
+			var sq_r: float = 6.0 * s
+			var sq := Rect2(center - Vector2(sq_r, sq_r), Vector2(sq_r * 2.0, sq_r * 2.0))
+			control.draw_rect(sq, Color(color, 0.35), true)
+			control.draw_rect(sq, color, false, maxf(1.2, 1.8 * s))
+			control.draw_circle(center, maxf(1.0, 1.8 * s), Color.WHITE)
+		"piece_1", "piece_triangle":
+			var tri_r: float = 7.0 * s
+			var tri := PackedVector2Array([
+				center + Vector2(0, -tri_r),
+				center + Vector2(tri_r * 0.9, tri_r * 0.65),
+				center + Vector2(-tri_r * 0.9, tri_r * 0.65),
+				center + Vector2(0, -tri_r)
+			])
+			control.draw_colored_polygon(tri.slice(0, 3), Color(color, 0.35))
+			control.draw_polyline(tri, color, maxf(1.2, 1.8 * s), true)
+			control.draw_circle(center + Vector2(0, 1.0 * s), maxf(1.0, 1.8 * s), Color.WHITE)
+		"piece_2", "piece_hexagon":
+			var hex_r: float = 6.8 * s
+			var hex_pts := PackedVector2Array()
+			for k in 6:
+				hex_pts.append(center + Vector2.from_angle(k * TAU / 6.0) * hex_r)
+			hex_pts.append(hex_pts[0])
+			control.draw_colored_polygon(hex_pts.slice(0, 6), Color(color, 0.35))
+			control.draw_polyline(hex_pts, color, maxf(1.2, 1.8 * s), true)
+			control.draw_circle(center, maxf(1.0, 1.8 * s), Color.WHITE)
+		"piece_3", "piece_core":
+			var core_r: float = 7.5 * s
+			for k in 4:
+				var dir := Vector2.from_angle(k * PI * 0.5)
+				control.draw_line(center - dir * core_r, center + dir * core_r, color, maxf(1.2, 1.8 * s), true)
+			for k in 4:
+				var dir := Vector2.from_angle(k * PI * 0.5 + PI * 0.25)
+				control.draw_line(center - dir * (core_r * 0.5), center + dir * (core_r * 0.5), Color(color, 0.7), maxf(1.0, 1.4 * s), true)
+			control.draw_circle(center, maxf(1.5, 2.5 * s), Color.WHITE)
+		"codex", "codex_all", "all":
+			# Visor de varredura global / matriz de detecção
+			for i in 4:
+				var ang: float = i * PI * 0.5 + PI * 0.25
+				var pt := center + Vector2.from_angle(ang) * (5.5 * s)
+				control.draw_circle(pt, maxf(1.2, 1.8 * s), color)
+			control.draw_arc(center, 7.5 * s, 0.0, TAU, 16, Color(color, 0.5), maxf(1.0, 1.4 * s), true)
+			control.draw_circle(center, maxf(1.5, 2.2 * s), Color.WHITE)
+		"codex_common", "common":
+			# Polígono geométrico regular padrão dos espécimes comuns
+			var poly := PackedVector2Array([
+				center + Vector2(0, -6.5 * s),
+				center + Vector2(6.5 * s, 0),
+				center + Vector2(0, 6.5 * s),
+				center + Vector2(-6.5 * s, 0),
+				center + Vector2(0, -6.5 * s)
+			])
+			control.draw_polyline(poly, color, maxf(1.3, 1.8 * s), true)
+			control.draw_circle(center, maxf(1.5, 2.2 * s), Color.WHITE)
+		"codex_shields", "shields":
+			# Escudo de barreira energética fortificada
+			var sh_pts := PackedVector2Array([
+				center + Vector2(0, -7.5 * s),
+				center + Vector2(6.5 * s, -3.5 * s),
+				center + Vector2(5.5 * s, 4.0 * s),
+				center + Vector2(0, 7.5 * s),
+				center + Vector2(-5.5 * s, 4.0 * s),
+				center + Vector2(-6.5 * s, -3.5 * s),
+				center + Vector2(0, -7.5 * s)
+			])
+			control.draw_colored_polygon(sh_pts.slice(0, 6), Color(color, 0.25))
+			control.draw_polyline(sh_pts, color, maxf(1.3, 2.0 * s), true)
+			control.draw_line(center + Vector2(-3.5 * s, 0), center + Vector2(3.5 * s, 0), Color.WHITE, maxf(1.0, 1.5 * s), true)
+		"codex_shooters", "shooters":
+			# Mira e canhão emissor de projéteis
+			control.draw_line(center + Vector2(0, 4.0 * s), center + Vector2(0, -7.5 * s), color, maxf(1.4, 2.5 * s), true)
+			control.draw_circle(center + Vector2(0, -7.5 * s), maxf(1.2, 1.8 * s), Color.WHITE)
+			control.draw_arc(center, 5.5 * s, -PI * 0.8, -PI * 0.2, 12, Color.WHITE, maxf(1.0, 1.5 * s), true)
+			control.draw_circle(center + Vector2(0, 2.0 * s), maxf(1.5, 2.2 * s), color)
+		"codex_elites", "elites":
+			# Insígnia de comandante de elite estrelada
+			for i in 4:
+				var dir := Vector2.from_angle(i * PI * 0.5)
+				control.draw_line(center, center + dir * (7.5 * s), color, maxf(1.4, 2.2 * s), true)
+			control.draw_circle(center, maxf(1.8, 2.5 * s), Color.WHITE)
+		"codex_bosses", "bosses":
+			# Coroa cibernética / brasão supremo de chefes
+			var crown := PackedVector2Array([
+				center + Vector2(-7.0 * s, -5.5 * s),
+				center + Vector2(-4.0 * s, 1.0 * s),
+				center + Vector2(0, -7.0 * s),
+				center + Vector2(4.0 * s, 1.0 * s),
+				center + Vector2(7.0 * s, -5.5 * s),
+				center + Vector2(5.5 * s, 6.0 * s),
+				center + Vector2(-5.5 * s, 6.0 * s),
+				center + Vector2(-7.0 * s, -5.5 * s)
+			])
+			control.draw_colored_polygon(crown.slice(0, 7), Color(color, 0.25))
+			control.draw_polyline(crown, color, maxf(1.3, 2.0 * s), true)
+			control.draw_circle(center + Vector2(0, -1.0 * s), maxf(1.5, 2.2 * s), Color.WHITE)
 		_:
 			control.draw_circle(center, maxf(2.0, 3.5 * s), Color.WHITE)
+
+static func draw_piece_icon(control: Control, kind: int, size: float = 14.0, custom_center: Vector2 = Vector2(-1, -1)) -> void:
+	var center: Vector2 = custom_center if custom_center.x >= 0.0 else control.size * 0.5
+	var color: Color = COLORS[kind] if kind >= 0 and kind < COLORS.size() else AMBER
+	var icon_key := "piece_%d" % kind
+	draw_ui(control, icon_key, size * 0.5, center, color)
 
 static func draw_enemy(control: Control, enemy_id: String) -> void:
 	var center := control.size * 0.5

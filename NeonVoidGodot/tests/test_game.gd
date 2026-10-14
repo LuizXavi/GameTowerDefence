@@ -292,10 +292,11 @@ func _init() -> void:
 	# Teste de Mecânica: Railgun Fotônico perfura múltiplos inimigos na linha
 	game.reset()
 	game.configure_tower_loadout(["railgun"])
+	var r_x: float = game.tower_position(0).x
 	var r_target := game.spawn(0)
-	r_target.p = Vector2(game.bounds.x / 2, 250)
+	r_target.p = Vector2(r_x, 250)
 	var r_behind := game.spawn(0)
-	r_behind.p = Vector2(game.bounds.x / 2, 120)
+	r_behind.p = Vector2(r_x, 120)
 	var r_target_hp: float = r_target.hp
 	var r_behind_hp: float = r_behind.hp
 	game.auto_attack(r_target, 10, "railgun", 0)
@@ -421,6 +422,12 @@ func _init() -> void:
 	check(lab_store.lab_research[1] == 1 and lab_store.lab_cost_multiplier() < 1.0, "Fragment Efficiency reduces piece cost")
 	check(lab_store.buy_lab_research(2), "Buying Resonance Matrix upgrades lab")
 	check(lab_store.lab_research[2] == 1, "Resonance Matrix activates bonus cashback")
+	var signal_payload := {"emitted": false, "name": "", "type": ""}
+	lab_store.research_completed.connect(func(res_name: String, res_type: String):
+		signal_payload.emitted = true
+		signal_payload.name = res_name
+		signal_payload.type = res_type
+	)
 	check(lab_store.start_research(0, false), "Starting timed research enters synthesis state")
 	check(lab_store.is_researching() and not lab_store.start_research(1, false), "Laboratory blocks concurrent researches while busy")
 	var initial_remaining: float = lab_store.active_research_remaining()
@@ -430,6 +437,98 @@ func _init() -> void:
 	check(lab_store.tick_research(initial_remaining), "Research completes upon reaching full duration")
 	check(not lab_store.is_researching() and lab_store.research[0] == 1, "Completed research applies rank")
 	check(lab_store.pieces[0] == pieces_before_complete + 1, "Resonance Matrix refunds 1 piece upon completion")
+	check(signal_payload.emitted and signal_payload.type == "research" and not signal_payload.name.is_empty(), "Research completion emits research_completed signal with correct payload")
+	# Teste de tempo de pesquisa offline via persistência e timestamp
+	check(lab_store.start_research(1, false), "Second timed research starts successfully")
+	lab_store.active_research["last_timestamp"] = int(Time.get_unix_time_from_system()) - 3600
+	check(lab_store.save_data(), "Save data with active research and timestamp succeeds")
+	var offline_store = load("res://scripts/score_store.gd").new()
+	offline_store.path = lab_path
+	offline_store.load_data()
+	check(not offline_store.is_researching() and offline_store.research[1] == 1, "Offline research timer automatically completes after time lapse on boot")
+
+	# Testes do Sistema de Conquistas (Achievements - Schema 12)
+	var ach_signal := {"unlocked": false, "id": "", "title": ""}
+	lab_store.achievement_unlocked.connect(func(aid: String, atitle: String, _adesc: String):
+		ach_signal.unlocked = true
+		ach_signal.id = aid
+		ach_signal.title = atitle
+	)
+	var pieces_before_ach: int = lab_store.pieces[0]
+	check(lab_store.unlock_achievement("first_kill"), "Unlocking achievement succeeds")
+	check(lab_store.is_achievement_unlocked("first_kill"), "Achievement query returns true")
+	check(ach_signal.unlocked and ach_signal.id == "first_kill" and not ach_signal.title.is_empty(), "Achievement signal emitted")
+	check(lab_store.pieces[0] > pieces_before_ach, "Achievement awards pieces reward")
+	check(not lab_store.unlock_achievement("first_kill"), "Duplicate achievement unlock is rejected")
+
+	# Teste de Migração Schema 11 para Schema 12
+	var schema_11_data := {
+		"version": 11,
+		"scores": [],
+		"best": 0,
+		"muted": false,
+		"pieces": [10, 5, 2, 0],
+		"research": GameData.empty_research(),
+		"lab_research": [0, 0, 0],
+		"active_research": {},
+		"enemy_stats": {},
+		"highest_wave": 1,
+		"tower_modules": {"plasma": true, "cryo": false, "arc": false, "pulse": false, "laser": false, "vortex": false, "railgun": false},
+		"unlocked_tower_slots": 1,
+		"tower_loadout": ["plasma", "plasma", "plasma", "plasma", "plasma", "plasma", "plasma"]
+	}
+	var migrated_12: Dictionary = lab_store.migrate(schema_11_data)
+	check(migrated_12.get("version") == 12 and migrated_12.has("achievements") and migrated_12.achievements is Array, "Schema 11 correctly migrates to Schema 12 with achievements")
+	check(lab_store.valid(migrated_12), "Migrated schema 12 payload passes strict validation")
+
+	# Teste de Boss Multifásico (Fase 2 Overload aos 50% HP)
+	var boss_test_game := VoidState.new()
+	boss_test_game.reset()
+	var test_boss := boss_test_game.spawn(3)
+	check(test_boss.type == 3 and not test_boss.get("overload", false), "Boss starts in Phase 1")
+	test_boss.hp = test_boss.max_hp * 0.45
+	var boss_speed_p1: float = test_boss.speed
+	boss_test_game.tick(0.01)
+	check(test_boss.get("overload", false) and test_boss.phase == 2 and test_boss.speed > boss_speed_p1, "Boss triggers Overload Phase 2 when HP <= 50%")
+
+	# Teste de Anomalias do Vazio (Wave Anomalies)
+	boss_test_game.wave = 5
+	boss_test_game.quota()
+	boss_test_game.next_wave()
+	check(boss_test_game.wave == 6 and not boss_test_game.current_anomaly.is_empty(), "Wave 6 triggers void anomaly")
+	boss_test_game.current_anomaly = {}
+	var prev_click: int = boss_test_game.click_damage()
+	boss_test_game.current_anomaly = GameData.ANOMALIES["emp"]
+	check(boss_test_game.click_damage() > prev_click, "EMP anomaly multiplies click damage")
+
+	# Teste de Colisão Radial com o Domo e Arco de Escudo
+	var col_game := VoidState.new()
+	col_game.reset()
+	col_game.hp = 100
+	var col_center := col_game.dome_center()
+	var col_r := col_game.dome_radius()
+	var col_enemy := col_game.spawn(0)
+	col_enemy.p = col_center - Vector2(0, col_r + col_enemy.radius - 2.0)
+	var hp_before_impact: int = col_game.hp
+	col_game.tick(0.01)
+	check(col_game.hp < hp_before_impact and col_game.enemies.is_empty(), "Enemy touching dome curvature triggers instant damage without reaching floor")
+
+	# Teste de Projétil Inimigo colidindo com o Domo/Escudo
+	col_game.reset()
+	col_game.hp = 100
+	var col_proj := {
+		"p": col_center - Vector2(0, col_r + 4.0),
+		"v": Vector2(0, 100),
+		"damage": 12,
+		"radius": 6.0,
+		"color": Color.RED,
+		"age": 0.0
+	}
+	col_game.enemy_projectiles.append(col_proj)
+	var hp_before_proj: int = col_game.hp
+	col_game.tick(0.01)
+	check(col_game.hp < hp_before_proj and col_game.enemy_projectiles.is_empty(), "Enemy projectile hitting dome takes damage and is destroyed")
+
 	for suffix in ["", ".bak", ".tmp"]:
 		if FileAccess.file_exists(lab_path + suffix):
 			DirAccess.remove_absolute(lab_path + suffix)

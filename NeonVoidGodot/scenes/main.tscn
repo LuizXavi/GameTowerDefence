@@ -1,12 +1,372 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=8 format=3]
 
-[ext_resource type="Script" path="res://scripts/main.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Theme" path="res://ui/neon_theme.tres" id="2_theme"]
+[ext_resource type="PackedScene" path="res://scenes/arena.tscn" id="3_arena"]
+[ext_resource type="Shader" path="res://shaders/crt_cyberpunk.gdshader" id="4_crt"]
+[ext_resource type="Shader" path="res://shaders/menu.gdshader" id="5_menu_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_crt"]
+shader = ExtResource("4_crt")
+shader_parameter/scanline_count = 360.0
+shader_parameter/scanline_intensity = 0.04
+shader_parameter/vignette_intensity = 0.25
+shader_parameter/vignette_opacity = 0.35
+shader_parameter/glitch_intensity = 0.0
+shader_parameter/tint_color = Color(0.05, 0, 0.12, 0)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_menu"]
+shader = ExtResource("5_menu_shader")
 
 [node name="NeonVoid" type="Control"]
-layout_mode=3
-anchors_preset=15
-anchor_right=1.0
-anchor_bottom=1.0
-grow_horizontal=2
-grow_vertical=2
-script=ExtResource("1")
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_main")
+
+[node name="Game" type="VBoxContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 0
+
+[node name="HeaderPanel" type="PanelContainer" parent="Game"]
+layout_mode = 2
+
+[node name="Header" type="HBoxContainer" parent="Game/HeaderPanel"]
+layout_mode = 2
+theme_override_constants/separation = 22
+
+[node name="Logo" type="Label" parent="Game/HeaderPanel/Header"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 1, 1, 1)
+theme_override_font_sizes/font_size = 12
+text = "NEON VOID
+DEFESA INCREMENTAL"
+
+[node name="Score" type="Label" parent="Game/HeaderPanel/Header"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 17
+text = "PONTOS
+0"
+
+[node name="Gold" type="Label" parent="Game/HeaderPanel/Header"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.223529, 1, 0.0784314, 1)
+theme_override_font_sizes/font_size = 17
+text = "◈ 0"
+
+[node name="Pieces" type="Label" parent="Game/HeaderPanel/Header"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.717647, 0.0117647, 1)
+theme_override_font_sizes/font_size = 12
+text = "■0 ▲0 ⬢0 ✦0"
+
+[node name="Wave" type="Label" parent="Game/HeaderPanel/Header"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0, 0.498039, 1)
+theme_override_font_sizes/font_size = 13
+text = "WAVE 1"
+
+[node name="WaveBar" type="ProgressBar" parent="Game/HeaderPanel/Header"]
+custom_minimum_size = Vector2(100, 8)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+show_percentage = false
+
+[node name="HPBar" type="ProgressBar" parent="Game/HeaderPanel/Header"]
+custom_minimum_size = Vector2(100, 8)
+layout_mode = 2
+size_flags_vertical = 4
+show_percentage = false
+
+[node name="HPLabel" type="Label" parent="Game/HeaderPanel/Header"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 1, 1, 1)
+theme_override_font_sizes/font_size = 13
+text = "100"
+
+[node name="MuteButton" type="Button" parent="Game/HeaderPanel/Header"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "SOM"
+
+[node name="PauseButton" type="Button" parent="Game/HeaderPanel/Header"]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+mouse_default_cursor_shape = 2
+text = "Ⅱ"
+
+[node name="Body" type="BoxContainer" parent="Game"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 0
+
+[node name="ArenaWrap" type="Control" parent="Game/Body"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="Arena" parent="Game/Body/ArenaWrap" instance=ExtResource("3_arena")]
+layout_mode = 1
+
+[node name="MiniStats" type="Label" parent="Game/Body/ArenaWrap"]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -330.0
+offset_top = 10.0
+offset_right = -14.0
+offset_bottom = 33.0
+grow_horizontal = 0
+theme_override_colors/font_color = Color(0.458824, 0.427451, 0.513726, 1)
+theme_override_font_sizes/font_size = 15
+horizontal_alignment = 2
+
+[node name="Nova" type="Button" parent="Game/Body/ArenaWrap"]
+custom_minimum_size = Vector2(86, 81)
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -104.0
+offset_top = -95.0
+offset_right = -18.0
+offset_bottom = -14.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_default_cursor_shape = 2
+text = "NOVA
+20%"
+
+[node name="Upgrades" type="PanelContainer" parent="Game/Body"]
+custom_minimum_size = Vector2(308, 0)
+layout_mode = 2
+
+[node name="Shop" type="VBoxContainer" parent="Game/Body/Upgrades"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Game/Body/Upgrades/Shop"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 15
+text = "↑  EVOLUÇÕES"
+
+[node name="Subtitle" type="Label" parent="Game/Body/Upgrades/Shop"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.458824, 0.427451, 0.513726, 1)
+theme_override_font_sizes/font_size = 16
+text = "Gaste ouro por categoria."
+
+[node name="ShopTabs" type="HBoxContainer" parent="Game/Body/Upgrades/Shop"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="TabAttack" type="Button" parent="Game/Body/Upgrades/Shop/ShopTabs"]
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 10
+text = "ATAQUE"
+
+[node name="TabTowers" type="Button" parent="Game/Body/Upgrades/Shop/ShopTabs"]
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 10
+text = "TORRES"
+
+[node name="TabDefense" type="Button" parent="Game/Body/Upgrades/Shop/ShopTabs"]
+custom_minimum_size = Vector2(0, 38)
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_default_cursor_shape = 2
+theme_override_font_sizes/font_size = 10
+text = "DEFESA"
+
+[node name="ShopScroll" type="ScrollContainer" parent="Game/Body/Upgrades/Shop"]
+custom_minimum_size = Vector2(0, 320)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="ShopGrid" type="GridContainer" parent="Game/Body/Upgrades/Shop/ShopScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 10
+
+[node name="Note" type="Label" parent="Game/Body/Upgrades/Shop"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.458824, 0.427451, 0.513726, 1)
+theme_override_font_sizes/font_size = 16
+text = "1–4  atalho rápido
+ESPAÇO  Pulso Nova
+P / ESC  pausar"
+
+[node name="TipPanel" type="PanelContainer" parent="Game/Body/Upgrades/Shop"]
+layout_mode = 2
+
+[node name="TipContent" type="VBoxContainer" parent="Game/Body/Upgrades/Shop/TipPanel"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TipWords" type="Label" parent="Game/Body/Upgrades/Shop/TipPanel/TipContent"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.458824, 0.427451, 0.513726, 1)
+theme_override_font_sizes/font_size = 15
+text = "COMBOS = MAIS PODER
+Compre cada torre na aba TORRES
+e pesquise Escudos no Laboratório."
+
+[node name="Menu" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MenuBg" type="ColorRect" parent="Menu"]
+material = SubResource("ShaderMaterial_menu")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MenuScroll" type="ScrollContainer" parent="Menu"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+horizontal_scroll_mode = 0
+
+[node name="Center" type="CenterContainer" parent="Menu/MenuScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="Margin" type="MarginContainer" parent="Menu/MenuScroll/Center"]
+layout_mode = 2
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 28
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 28
+
+[node name="MenuContent" type="VBoxContainer" parent="Menu/MenuScroll/Center/Margin"]
+custom_minimum_size = Vector2(480, 0)
+layout_mode = 2
+theme_override_constants/separation = 7
+
+[node name="ResearchToast" type="PanelContainer" parent="."]
+visible = false
+modulate = Color(1, 1, 1, 0)
+z_index = 100
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+mouse_filter = 2
+
+[node name="Row" type="HBoxContainer" parent="ResearchToast"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="IconBox" type="Control" parent="ResearchToast/Row"]
+custom_minimum_size = Vector2(32, 32)
+layout_mode = 2
+
+[node name="TextCol" type="VBoxContainer" parent="ResearchToast/Row"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="ToastTitle" type="Label" parent="ResearchToast/Row/TextCol"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.223529, 1, 0.0784314, 1)
+theme_override_font_sizes/font_size = 11
+text = "SÍNTESE CONCLUÍDA"
+
+[node name="ToastLabel" type="Label" parent="ResearchToast/Row/TextCol"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+
+[node name="AudioPlayers" type="Node" parent="."]
+
+[node name="Player0" type="AudioStreamPlayer" parent="AudioPlayers"]
+volume_db = -7.0
+bus = &"SFX"
+
+[node name="Player1" type="AudioStreamPlayer" parent="AudioPlayers"]
+volume_db = -7.0
+bus = &"SFX"
+
+[node name="Player2" type="AudioStreamPlayer" parent="AudioPlayers"]
+volume_db = -7.0
+bus = &"SFX"
+
+[node name="Player3" type="AudioStreamPlayer" parent="AudioPlayers"]
+volume_db = -7.0
+bus = &"SFX"
+
+[node name="Player4" type="AudioStreamPlayer" parent="AudioPlayers"]
+volume_db = -7.0
+bus = &"SFX"
+
+[node name="Player5" type="AudioStreamPlayer" parent="AudioPlayers"]
+volume_db = -7.0
+bus = &"SFX"
+
+[node name="Player6" type="AudioStreamPlayer" parent="AudioPlayers"]
+volume_db = -7.0
+bus = &"SFX"
+
+[node name="Player7" type="AudioStreamPlayer" parent="AudioPlayers"]
+volume_db = -7.0
+bus = &"SFX"
+
+[node name="Player8" type="AudioStreamPlayer" parent="AudioPlayers"]
+volume_db = -7.0
+bus = &"SFX"
+
+[node name="Player9" type="AudioStreamPlayer" parent="AudioPlayers"]
+volume_db = -7.0
+bus = &"SFX"
+
+[node name="Player10" type="AudioStreamPlayer" parent="AudioPlayers"]
+volume_db = -7.0
+bus = &"SFX"
+
+[node name="Player11" type="AudioStreamPlayer" parent="AudioPlayers"]
+volume_db = -7.0
+bus = &"SFX"
+
+[node name="CRTLayer" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="CRTOverlay" type="ColorRect" parent="CRTLayer"]
+material = SubResource("ShaderMaterial_crt")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2

@@ -201,6 +201,8 @@ static func roll_piece_drop(state: Object, enemy: Dictionary, forced_roll := -1.
 	var amount: int = 2 if enemy_type == 3 else 1
 	if enemy.elite:
 		amount += 1
+	var anom_drop_mult: int = maxi(1, int(state.current_anomaly.get("drop_mult", 1.0)))
+	amount *= anom_drop_mult
 	state.run_pieces[piece_kind] += amount
 	state.piece_dropped.emit(piece_kind, amount, enemy.p, enemy.enemy_id, enemy.elite)
 	return amount

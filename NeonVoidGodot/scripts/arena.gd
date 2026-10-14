@@ -11,6 +11,8 @@ var red := 0.0
 var clock := 0.0
 var font = preload("res://assets/fonts/DisplayBold.tres")
 var background: GradientTexture2D
+@onready var hit_particles: CPUParticles2D = get_node_or_null("HitParticles")
+@onready var nova_particles: CPUParticles2D = get_node_or_null("NovaParticles")
 
 func _ready() -> void:
 	clip_contents = true
@@ -43,6 +45,14 @@ func fx(kind: String, point: Vector2, color: Color, words: String) -> void:
 	if kind == "nova":
 		trauma = 0.85
 		flash = 1
+		if is_instance_valid(nova_particles):
+			nova_particles.position = point
+			nova_particles.color = color
+			nova_particles.restart()
+	elif kind in ["burst", "hit"] and is_instance_valid(hit_particles):
+		hit_particles.position = point
+		hit_particles.color = color
+		hit_particles.restart()
 	if kind == "leak":
 		trauma = 0.45
 		red = 1
@@ -114,6 +124,9 @@ func _draw() -> void:
 		var shield_y: float = base_y - 7.0
 		glow_line(Vector2(0, shield_y), Vector2(size.x * s_ratio, shield_y), Color(s_col, 0.75 + sin(clock * 8.0) * 0.2), 3.0)
 		draw_line(Vector2(0, shield_y), Vector2(size.x * s_ratio, shield_y), Color.WHITE, 1.2, true)
+	var dome_center := Vector2(size.x * 0.5, base_y)
+	var dome_r: float = state.dome_radius()
+	_draw_base_dome(dome_center, dome_r, base_color)
 	for slot_index in state.tower_slots.size():
 		var slot: Dictionary = state.tower_slots[slot_index]
 		var slot_lvl: int = state.tower_slot_level(slot_index)
@@ -131,6 +144,12 @@ func _draw() -> void:
 			module_color = Color("9933ff")
 		elif slot.module_id == "railgun":
 			module_color = Color("33ffcc")
+		var pedestal_h: float = 13.0 if slot_lvl > 0 else 9.0
+		var pedestal_top := turret + Vector2(0, pedestal_h)
+		var pedestal_bot := Vector2(turret.x, base_y)
+		draw_line(pedestal_top, pedestal_bot, Color(module_color, 0.35 if slot_lvl > 0 else 0.18), 2.0, true)
+		draw_line(pedestal_top + Vector2(-3, 0), pedestal_top + Vector2(3, 0), Color(module_color, 0.5), 1.5, true)
+		draw_line(pedestal_bot + Vector2(-5, 0), pedestal_bot + Vector2(5, 0), Color(module_color, 0.7), 2.0, true)
 		draw_circle(turret, 13 if slot_lvl > 0 else 9, Color("1a0f3a"))
 		draw_arc(turret, 13 if slot_lvl > 0 else 9, 0, TAU, 40, Color(module_color, 1.0 if slot_lvl > 0 else 0.38), 1.5, true)
 		if slot_lvl > 0:
@@ -420,7 +439,17 @@ func draw_enemy(enemy: Dictionary) -> void:
 		draw_arc(enemy.p, radius + 16, -clock * 2, -clock * 2 + TAU * 0.85, 48, Color(color, 0.7 * visual_alpha), 2.5, true)
 		draw_arc(enemy.p, radius + 21, clock * 1.5, clock * 1.5 + TAU * 0.6, 40, Color(color.lightened(0.25), 0.5 * visual_alpha), 2.0, true)
 		var boss_title: String = str(enemy.get("boss_name", "BOSS SUPREMO"))
-		text_at("— " + boss_title + " —", enemy.p - Vector2(0, radius + 24), color, 13)
+		if enemy.get("overload", false):
+			draw_arc(enemy.p, radius + 26, clock * 6.0, clock * 6.0 + TAU, 32, Color("ff007f", 0.9 * visual_alpha), 3.0, true)
+			for spk in 8:
+				var spk_ang: float = clock * 4.0 + float(spk) * TAU / 8.0
+				var p1: Vector2 = enemy.p + Vector2.from_angle(spk_ang) * (radius + 18.0)
+				var p2: Vector2 = enemy.p + Vector2.from_angle(spk_ang) * (radius + 28.0)
+				glow_line(p1, p2, Color("ff007f", visual_alpha), 2.5)
+			text_at("OVERLOAD // FASE 2", enemy.p - Vector2(0, radius + 38), Color("ff007f"), 11)
+			text_at("— " + boss_title + " —", enemy.p - Vector2(0, radius + 24), Color("ff007f").lightened(0.3), 13)
+		else:
+			text_at("— " + boss_title + " —", enemy.p - Vector2(0, radius + 24), color, 13)
 
 func _draw_plasma_attack(from: Vector2, to: Vector2, alpha: float) -> void:
 	AttackVFX.draw_plasma(self, from, to, alpha)
@@ -439,3 +468,89 @@ func _draw_vortex_attack(from: Vector2, to: Vector2, alpha: float) -> void:
 
 func _draw_railgun_attack(from: Vector2, wall_hit: Vector2, chain: Array, alpha: float) -> void:
 	AttackVFX.draw_railgun(self, from, wall_hit, chain, alpha)
+
+func _draw_base_dome(center: Vector2, radius: float, base_color: Color) -> void:
+	# 1. Estrutura geométrica: semicírculo sólido de fundo escuro bloqueando o grid estelar
+	var dome_pts := PackedVector2Array()
+	dome_pts.append(center)
+	for i in range(33):
+		var ang: float = PI + (PI * float(i) / 32.0)
+		dome_pts.append(center + Vector2(cos(ang), sin(ang)) * radius)
+	draw_colored_polygon(dome_pts, Color("0a0418", 0.95))
+
+	# 2. Arcos internos concêntricos de atmosfera/energia
+	for r_step in [0.85, 0.65, 0.45]:
+		draw_arc(center, radius * r_step, PI, TAU, 28, Color(base_color, 0.12), 1.0, true)
+
+	# 3. Nervuras radiais geodésicas (vigas da cúpula com nós iluminados)
+	var rib_angles := [PI * 1.15, PI * 1.32, PI * 1.5, PI * 1.68, PI * 1.85]
+	for ang in rib_angles:
+		var dir_v := Vector2(cos(ang), sin(ang))
+		var rib_outer := center + dir_v * radius
+		draw_line(center, rib_outer, Color(base_color, 0.32), 1.2, true)
+		draw_circle(rib_outer, 2.0, base_color)
+
+	# 4. Arcos estruturais principais da cúpula
+	draw_arc(center, radius, PI, TAU, 48, Color(base_color, 0.22), 5.0, true)
+	draw_arc(center, radius, PI, TAU, 48, base_color, 2.2, true)
+	draw_arc(center, radius, PI, TAU, 48, Color.WHITE, 1.0, true)
+	draw_arc(center, radius * 0.72, PI, TAU, 36, Color(base_color, 0.55), 1.4, true)
+	draw_arc(center, radius * 0.44, PI, TAU, 28, Color(base_color, 0.7), 1.4, true)
+
+	# 5. Fundação reforçada da base
+	glow_line(center - Vector2(radius + 12.0, 0), center + Vector2(radius + 12.0, 0), base_color, 2.5)
+	draw_line(center - Vector2(radius, 0), center - Vector2(radius + 12.0, -8.0), base_color, 2.0, true)
+	draw_line(center + Vector2(radius, 0), center + Vector2(radius + 12.0, -8.0), base_color, 2.0, true)
+
+	# 6. Reator / Núcleo Central de Energia
+	var core_pos := center - Vector2(0, 16.0)
+	var pulse: float = 0.5 + 0.5 * sin(clock * 5.0)
+	draw_circle(core_pos, 11.0 + pulse * 3.5, Color(base_color, 0.22 + pulse * 0.18))
+	draw_circle(core_pos, 7.0, base_color)
+	draw_circle(core_pos, 3.0, Color.WHITE)
+	var rot_a := clock * 2.2
+	draw_arc(core_pos, 13.0, rot_a, rot_a + PI * 1.2, 20, Color("00ffff", 0.75), 1.5, true)
+	draw_arc(core_pos, 13.0, rot_a + PI, rot_a + PI * 2.2, 20, Color("00ffff", 0.75), 1.5, true)
+
+	# 7. Escudo Defensivo Ativo do Domo (Arco Energético Visível)
+	if state.max_shield > 0.0 and state.shield > 0.0:
+		var s_ratio: float = clampf(state.shield / state.max_shield, 0.0, 1.0)
+		var s_col := Color("00f5d4")
+		var shield_r: float = radius + 14.0 + sin(clock * 5.0) * 1.5
+
+		# 7.1 Polígono do Campo de Força Translúcido entre domo e arco de escudo
+		var field_pts := PackedVector2Array()
+		for i in range(33):
+			var ang: float = PI + (PI * float(i) / 32.0)
+			field_pts.append(center + Vector2(cos(ang), sin(ang)) * shield_r)
+		for i in range(32, -1, -1):
+			var ang: float = PI + (PI * float(i) / 32.0)
+			field_pts.append(center + Vector2(cos(ang), sin(ang)) * radius)
+		draw_colored_polygon(field_pts, Color(s_col, 0.14 + 0.08 * sin(clock * 6.0) * s_ratio))
+
+		# 7.2 Camadas de brilho (Glow) e linhas do arco de força
+		for glow_w in [12.0, 7.0, 3.5]:
+			draw_arc(center, shield_r, PI, TAU, 48, Color(s_col, 0.12 * s_ratio), glow_w, true)
+		draw_arc(center, shield_r, PI, TAU, 48, Color(s_col, 0.9 * (0.6 + 0.4 * s_ratio)), 3.0, true)
+		draw_arc(center, shield_r, PI, TAU, 48, Color.WHITE, 1.4, true)
+
+		# 7.3 Nodos emissores de energia ao longo do arco
+		var node_angles := [PI * 1.08, PI * 1.25, PI * 1.5, PI * 1.75, PI * 1.92]
+		for a in node_angles:
+			var n_pos := center + Vector2(cos(a), sin(a)) * shield_r
+			draw_circle(n_pos, 3.5, s_col)
+			draw_circle(n_pos, 1.8, Color.WHITE)
+			draw_arc(n_pos, 6.0 + sin(clock * 10.0) * 1.2, 0, TAU, 16, Color(s_col, 0.7), 1.0, true)
+
+		# 7.4 Arcos de pulsação secundários correndo no escudo
+		var run_a: float = PI + fmod(clock * 2.5, PI * 0.7)
+		draw_arc(center, shield_r + 2.0, run_a, run_a + PI * 0.25, 16, Color.WHITE, 2.0, true)
+
+		# 7.5 Status numérico do escudo flutuando sobre o arco
+		text_at("ESCUDO %d / %d" % [roundi(state.shield), roundi(state.max_shield)], center - Vector2(0, shield_r + 8.0), s_col, 9)
+
+	# 8. Identificação Tática e Indicador de Vida (% HP)
+	var hp_pct: int = roundi(float(state.hp) / float(maxi(1, state.max_hp)) * 100.0)
+	var hp_col := base_color if hp_pct > 35 else Color("ff3355")
+	text_at("%d%% HP" % hp_pct, center - Vector2(0, radius * 0.48), hp_col, 10)
+	text_at("BASE // NÚCLEO", center + Vector2(0, 18), Color(base_color, 0.85), 10)

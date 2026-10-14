@@ -7,6 +7,9 @@ signal ended
 signal piece_dropped(kind: int, amount: int, position: Vector2, enemy_id: String, from_elite: bool)
 signal enemy_discovered(enemy_id: String)
 signal enemy_defeated(enemy_id: String, at_wave: int)
+signal achievement_triggered(ach_id: String)
+
+var current_anomaly: Dictionary = {}
 
 const COLORS := GameData.ENEMY_COLORS
 const FAMILY_IDS := GameData.FAMILY_IDS
@@ -37,7 +40,8 @@ func interval_for_module(module_id: String) -> float:
 	elif module_id == "railgun":
 		base = 1.6 * (1.0 - float(research[24]) * 0.04)
 	var haste_bonus: float = float(research[9]) * 0.05 + float(upg_level("tower_haste")) * 0.10
-	return base / (1.0 + haste_bonus)
+	var anom_cadence: float = float(current_anomaly.get("turret_cadence", 1.0))
+	return (base / (1.0 + haste_bonus)) * anom_cadence
 var tower_loadout: Array[String] = ["plasma"]
 var tower_slots: Array[Dictionary] = []
 var gold: int = 0
@@ -237,6 +241,8 @@ func buy_tower_slot(slot_index: int) -> bool:
 	var pos := tower_position(slot_index)
 	var msg := "TORRE #%d ATIVA!" % (slot_index + 1) if next_lvl == 1 else "TORRE #%d Nv.%d" % [slot_index + 1, next_lvl]
 	effect.emit("burst", pos - Vector2(0, 20), COLORS[2], msg)
+	if slot_index > 0 and next_lvl == 1:
+		achievement_triggered.emit("slot_expanded")
 	sound.emit("buy")
 	return true
 
@@ -254,8 +260,29 @@ func active_tower_count() -> int:
 			count += 1
 	return count
 
+func dome_center() -> Vector2:
+	return Vector2(bounds.x * 0.5, bounds.y - 30.0)
+
+func dome_radius() -> float:
+	return clampf(bounds.x * 0.085, 46.0, 72.0)
+
 func tower_position(slot_index: int) -> Vector2:
-	return Vector2(bounds.x * (slot_index + 1.0) / (tower_slots.size() + 1.0), bounds.y - 40)
+	var total_slots: int = maxi(1, tower_slots.size())
+	var center_x: float = bounds.x * 0.5
+	var dome_r: float = dome_radius()
+	var dome_margin: float = 24.0
+	var side_margin: float = clampf(bounds.x * 0.04, 30.0, 48.0)
+	var left_count: int = total_slots / 2
+	var right_count: int = total_slots - left_count
+	var pos_x: float = center_x
+	if slot_index < left_count:
+		var t: float = (float(slot_index) + 0.5) / float(maxi(1, left_count))
+		pos_x = lerp(side_margin, center_x - dome_r - dome_margin, t)
+	else:
+		var right_idx: int = slot_index - left_count
+		var t: float = (float(right_idx) + 0.5) / float(maxi(1, right_count))
+		pos_x = lerp(center_x + dome_r + dome_margin, bounds.x - side_margin, t)
+	return Vector2(pos_x, bounds.y - 40.0)
 
 func configure_research(res_levels: Array) -> void:
 	for i in GameData.RESEARCH_COUNT:
@@ -299,7 +326,8 @@ func multiplier() -> float:
 	return 1 + mini(combo, 60) * combo_bonus
 
 func click_damage() -> int:
-	return roundi((3 + research[0] + levels[0] * 3 + wave * 0.6) * multiplier())
+	var anom_mult: float = float(current_anomaly.get("click_dmg", 1.0))
+	return roundi((3 + research[0] + levels[0] * 3 + wave * 0.6) * multiplier() * anom_mult)
 
 func auto_dps() -> int:
 	var total := 0
@@ -351,6 +379,8 @@ func tap(point: Vector2) -> void:
 			combo += 1
 			combo_timer = 2.2 + float(research[12]) * 0.4 + float(upg_level("combo_drive")) * 0.3
 			max_combo = maxi(max_combo, combo)
+			if combo >= 15:
+				achievement_triggered.emit("combo_15")
 			effect.emit("burst", proj.p, COLORS[1], "INTERCEPTADO!")
 			sound.emit("click")
 			return
@@ -379,6 +409,8 @@ func tap(point: Vector2) -> void:
 	combo += 1
 	combo_timer = 2.2 + float(research[12]) * 0.4 + float(upg_level("combo_drive")) * 0.3
 	max_combo = maxi(max_combo, combo)
+	if combo >= 15:
+		achievement_triggered.emit("combo_15")
 	var target_pos: Vector2 = target.p
 	target.p.y -= 10 if critical else 5
 	effect.emit("hit", point, COLORS[3] if critical else COLORS[1], "")
@@ -403,6 +435,7 @@ func nova() -> bool:
 	var damage := (60 + click_damage() * 12 + wave * 12) * nova_bonus
 	effect.emit("nova", bounds / 2, Color.WHITE, "PULSO NOVA!")
 	sound.emit("bomb")
+	achievement_triggered.emit("nova_blast")
 	for enemy in enemies.duplicate():
 		damage_enemy(enemy, damage * randf_range(0.8, 1.2), false, "nova")
 	return true
@@ -425,13 +458,17 @@ func damage_enemy(enemy: Dictionary, damage: float, critical := false, source :=
 	if enemy.hp > 0:
 		return
 	enemies.erase(enemy)
+	if kills == 0:
+		achievement_triggered.emit("first_kill")
 	kills += 1
 	wave_kills += 1
 	var gold_mult: float = 1.0 + float(research[6]) * 0.08 # Extração Quântica
-	var gain := roundi(enemy.gold * multiplier() * gold_mult)
+	var anom_gold: float = float(current_anomaly.get("gold_mult", 1.0))
+	var anom_score: float = float(current_anomaly.get("score_mult", 1.0))
+	var gain := roundi(enemy.gold * multiplier() * gold_mult * anom_gold)
 	gold += gain
 	total_gold += gain
-	score += roundi(enemy.score * (1 + wave * 0.15) * (1.5 if critical else 1.0))
+	score += roundi(enemy.score * (1 + wave * 0.15) * (1.5 if critical else 1.0) * anom_score)
 	var charge_gains: Array[float] = [
 		3.5, 3.5, 6.0, 30.0, 4.0, 5.0,
 		6.5, 4.5, 8.0, 7.5, 12.0,
@@ -452,6 +489,7 @@ func damage_enemy(enemy: Dictionary, damage: float, critical := false, source :=
 	if enemy.variant == "splitter" and enemy.split_depth == 0:
 		spawn_split_children(enemy)
 	if enemy.type == 3:
+		achievement_triggered.emit("first_boss")
 		var b_id: String = str(enemy.get("boss_id", "boss"))
 		if b_id != "boss":
 			enemy_defeated.emit("boss", wave)
@@ -465,12 +503,17 @@ func roll_piece_drop(enemy: Dictionary, forced_roll := -1.0) -> int:
 func next_wave() -> void:
 	wave += 1
 	wave_kills = 0
+	if wave >= 5:
+		achievement_triggered.emit("wave_5")
+	if wave >= 10:
+		achievement_triggered.emit("wave_10")
 	var bonus := 10 + wave * 6
 	gold += bonus
 	total_gold += bonus
 	score += wave * 250
 	hp = mini(max_hp, hp + 6 + research[14] * 4)
 	if wave % 5 == 0:
+		current_anomaly = {}
 		var boss_idx: int = maxi(0, int(wave / 5) - 1) % BOSS_TYPES.size()
 		var boss_cfg: Dictionary = BOSS_TYPES[boss_idx]
 		banner = "BOSS — " + str(boss_cfg.name)
@@ -478,11 +521,21 @@ func next_wave() -> void:
 		sound.emit("boss")
 		spawn(3)
 	elif wave % 5 == 3 and wave >= 3:
+		current_anomaly = {}
 		sound.emit("boss")
 		var elite_cmd := spawn(-1, "", true, true)
 		banner = "COMANDANTE — " + str(elite_cmd.get("elite_name", "ELITE"))
 		banner_time = 1.9
+	elif wave % 3 == 0:
+		var a_idx: int = randi() % GameData.ANOMALY_KEYS.size()
+		var a_key: String = GameData.ANOMALY_KEYS[a_idx]
+		current_anomaly = GameData.ANOMALIES[a_key]
+		banner = "ANOMALIA — " + str(current_anomaly.name)
+		banner_time = 2.4
+		sound.emit("boss")
+		effect.emit("nova", bounds * Vector2(0.5, 0.4), current_anomaly.color, str(current_anomaly.name))
 	else:
+		current_anomaly = {}
 		banner = "WAVE %d" % wave
 		banner_time = 1.6
 		sound.emit("wave")
@@ -569,6 +622,8 @@ func tick(delta: float) -> void:
 		shield_regen_timer = maxf(0.0, shield_regen_timer - dt)
 		if shield_regen_timer <= 0.0 and shield < max_shield:
 			shield = minf(max_shield, shield + shield_regen_rate() * dt)
+		if shield >= 25.0:
+			achievement_triggered.emit("shield_active")
 	spawn_timer -= dt
 	var max_alive := mini(26, 8 + wave)
 	if spawn_timer <= 0 and enemies.size() < max_alive:
@@ -597,12 +652,23 @@ func tick(delta: float) -> void:
 				auto_attack(target, s_dps * cadence * randf_range(0.85, 1.15), slot.module_id, slot_index)
 	for slot in tower_slots:
 		slot.turret_angle = lerp_angle(slot.turret_angle, slot.turret_target, minf(1, dt * 10))
+	var d_center := dome_center()
+	var d_rad := dome_radius()
+	var has_active_shield: bool = (shield >= 1.0)
+	var effective_dome_r: float = d_rad + (14.0 if has_active_shield else 0.0)
+
 	for proj in enemy_projectiles.duplicate():
 		proj.age = float(proj.get("age", 0.0)) + dt
 		proj.p += Vector2(proj.v) * dt
-		if proj.p.y >= bounds.y - 34.0:
+		var p_rad: float = float(proj.get("radius", 6.0))
+		var hit_dome: bool = (proj.p.distance_to(d_center) <= effective_dome_r + p_rad and proj.p.y <= d_center.y + 6.0)
+		var hit_floor: bool = (proj.p.y >= bounds.y - 34.0)
+		if hit_dome or hit_floor:
 			enemy_projectiles.erase(proj)
-			apply_base_damage(int(proj.damage), proj.p, 0, true)
+			var impact_pos: Vector2 = proj.p
+			if hit_dome:
+				impact_pos = d_center + (proj.p - d_center).normalized() * effective_dome_r
+			apply_base_damage(int(proj.damage), impact_pos, 0, true)
 			if not running:
 				return
 	for enemy in enemies.duplicate():
@@ -612,10 +678,19 @@ func tick(delta: float) -> void:
 		enemy.ghosted = (enemy.variant == "ghost" or enemy.modifiers.has("phase")) and fmod(enemy.age, 3.0) > 2.0
 		if (enemy.variant == "regen" or enemy.modifiers.has("regen")) and enemy.since_hit > 1.5 and enemy.hp < enemy.max_hp:
 			enemy.hp = minf(enemy.max_hp, enemy.hp + enemy.max_hp * 0.035 * dt)
+		# Chefe Multifásico: Transição para Fase 2 (Overload) ao atingir 50% de vida
+		if enemy.type == 3 and enemy.hp <= enemy.max_hp * 0.5 and not enemy.get("overload", false):
+			enemy.overload = true
+			enemy.phase = 2
+			enemy.speed *= 1.25
+			enemy.rot_speed *= 1.8
+			enemy.shoot_timer = 0.35
+			effect.emit("burst", enemy.p, Color("ff007f"), "SOBRECARGA // FASE 2")
+			sound.emit("boss")
 		if enemy.get("can_shoot", false) and enemy.p.y > 10.0 and enemy.p.y < bounds.y - 110.0:
 			enemy.shoot_timer = float(enemy.get("shoot_timer", 2.2)) - dt
 			if enemy.shoot_timer <= 0.0:
-				enemy.shoot_timer = 2.0 if enemy.type == 3 else (2.4 if enemy.type == 19 else 2.2)
+				enemy.shoot_timer = (1.4 if enemy.get("overload", false) else 2.0) if enemy.type == 3 else (2.4 if enemy.type == 19 else 2.2)
 				shoot_from_enemy(enemy)
 		if enemy.get("can_teleport", false) and enemy.p.y > 10.0 and enemy.p.y < bounds.y - 120.0:
 			enemy.teleport_timer = float(enemy.get("teleport_timer", 2.0)) - dt
@@ -633,9 +708,15 @@ func tick(delta: float) -> void:
 		enemy.slow_timer = maxf(0, enemy.slow_timer - dt)
 		enemy.static_timer = maxf(0, enemy.get("static_timer", 0.0) - dt)
 		var berserk_mult: float = 1.35 if (enemy.modifiers.has("berserk") and enemy.hp < enemy.max_hp * 0.6) else 1.0
-		enemy.p.y += enemy.speed * berserk_mult * (1 + play_time * 0.0012) * movement_dt * (0.4 if enemy.age < 0.5 else 1.0)
-		enemy.p.x = clampf(enemy.p.x + cos(enemy.wob) * enemy.wob_amp * movement_dt, enemy.radius * 0.6, bounds.x - enemy.radius * 0.6)
-		if enemy.p.y >= bounds.y - 36:
+		var anom_speed_mult: float = float(current_anomaly.get("enemy_speed", 1.0))
+		enemy.p.y += enemy.speed * berserk_mult * anom_speed_mult * (1 + play_time * 0.0012) * movement_dt * (0.4 if enemy.age < 0.5 else 1.0)
+		var dome_pull: float = (bounds.x * 0.5 - enemy.p.x) * 0.18 * movement_dt if enemy.p.y > bounds.y * 0.45 else 0.0
+		enemy.p.x = clampf(enemy.p.x + cos(enemy.wob) * enemy.wob_amp * movement_dt + dome_pull, enemy.radius * 0.6, bounds.x - enemy.radius * 0.6)
+
+		# Colisão com o arco do domo/escudo ou solo
+		var hit_dome: bool = (enemy.p.distance_to(d_center) <= effective_dome_r + enemy.radius and enemy.p.y <= d_center.y + 6.0)
+		var hit_floor: bool = (enemy.p.y >= bounds.y - 36.0)
+		if hit_dome or hit_floor:
 			enemies.erase(enemy)
 			var stolen := 0
 			if enemy.variant == "thief":
@@ -643,6 +724,9 @@ func tick(delta: float) -> void:
 				stolen = mini(gold, maxi(1, roundi(maxi(10, roundi(gold * 0.15)) * steal_factor)))
 				gold -= stolen
 			combo = maxi(0, combo - 6)
-			apply_base_damage(int(enemy.leak), enemy.p, stolen, false)
+			var impact_pos: Vector2 = enemy.p
+			if hit_dome:
+				impact_pos = d_center + (enemy.p - d_center).normalized() * effective_dome_r
+			apply_base_damage(int(enemy.leak), impact_pos, stolen, false)
 			if not running:
 				break

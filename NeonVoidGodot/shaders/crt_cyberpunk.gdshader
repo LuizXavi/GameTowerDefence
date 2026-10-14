@@ -7,6 +7,7 @@ uniform float vignette_intensity : hint_range(0.0, 2.0) = 0.35;
 uniform float vignette_opacity : hint_range(0.0, 1.0) = 0.5;
 uniform float glitch_intensity : hint_range(0.0, 1.0) = 0.0;
 uniform vec4 tint_color : source_color = vec4(0.05, 0.0, 0.12, 0.0);
+uniform sampler2D screen_texture : hint_screen_texture, filter_linear_mipmap;
 
 void fragment() {
 	vec2 uv = SCREEN_UV;

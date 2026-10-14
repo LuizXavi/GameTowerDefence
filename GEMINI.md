@@ -26,7 +26,7 @@ O repositório possui uma CLI de automação completa na raiz do projeto:
 1. **`neon_director` / `gdscript_architect` (Direção Técnica & Arquitetura)**
    - Planejamento, tipagem estática rigorosa, signals para desacoplamento e conformidade técnica.
 2. **`neon_gameplay_expert` / `progression_balancer` (Engenheiro de Combate & Economia)**
-   - Arquitetura de `VoidState`, `EnemySpawner`, `TowerCombat`, escala exponencial e balanceamento de waves.
+   - Arquitetura de `VoidState` (`scripts/game_state.gd`), `EnemySpawner`, `TowerCombat`, escala exponencial e balanceamento de waves.
 3. **`neon_meta_persistence` (Engenheiro de Meta-Progressão & Saves)**
    - Gerenciamento de `SaveStore`, banco de pesquisas, migrações de esquema (Schema 11+), fragmentos e persistência.
 4. **`neon_ui_vfx_specialist` / `vfx_sound_designer` (Designer de Interface, Shaders & VFX)**
@@ -43,6 +43,7 @@ Ao receber demandas de desenvolvimento, opere de forma autônoma aplicando as se
 - **Para novos inimigos**: utilize desenho vetorial limpo mapeado em `Arena._draw()`, evitando alocações excessivas no loop principal.
 - **Para persistência**: nunca quebre saves legados; sempre mantenha a cadeia sequencial `migrate()` em `SaveStore` e a validação estrita com `valid()`.
 - **Notação Numérica**: todas as exibições de pontuação, ouro e DPS devem ser roteadas por `NumberFormat.format()` ou `NumberFormat.format_int()`.
+- **Identidade Visual e Ícones**: consistência gráfica cyberpunk neon inegociável em todos os elementos. Zero emojis de sistema e zero bitmaps avulsos na interface; todo ícone, aba ou indicador deve ser desenhado proceduralmente via `NeonIcons` (`draw_ui`, `draw_piece_icon`, `draw_tower`, `draw_enemy`).
 
 ---
 
