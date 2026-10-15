@@ -120,7 +120,9 @@ func _ready() -> void:
 	state.enemy_discovered.connect(on_enemy_discovered)
 	state.enemy_defeated.connect(on_enemy_defeated)
 	state.achievement_triggered.connect(store.unlock_achievement)
+	state.perk_draft_requested.connect(show_perk_draft)
 	store.research_completed.connect(on_research_completed)
+
 	store.achievement_unlocked.connect(on_achievement_unlocked)
 	build_game()
 	state.effect.connect(arena.fx)
@@ -911,7 +913,22 @@ func pause_game() -> void:
 	UIFactory.center_label(content, I18n.t("pause.title", "PAUSADO"), 28, Color.WHITE, true)
 	var pts_lbl: String = I18n.t("pause.score_format", "%d PONTOS     W%d     %d OURO")
 	UIFactory.center_label(content, pts_lbl % [state.score, state.wave, state.gold], 14, LIME, true)
+	if not state.active_perks.is_empty():
+		UIFactory.center_label(content, "✦ " + I18n.t("pause.active_perks", "PROTOCOLOS DO VOID ATIVOS") + " ✦", 14, AMBER, true)
+		var perks_flow := HFlowContainer.new()
+		perks_flow.alignment = FlowContainer.ALIGNMENT_CENTER
+		perks_flow.add_theme_constant_override("h_separation", 8)
+		perks_flow.add_theme_constant_override("v_separation", 6)
+		content.add_child(perks_flow)
+		for p_id in state.active_perks:
+			var lvl: int = state.get_perk_level(p_id)
+			var p_cfg: Dictionary = GameData.PERKS.get(p_id, {})
+			var p_name: String = I18n.get_perk_name(p_id)
+			var p_col: Color = p_cfg.get("color", CYAN)
+			var p_badge := UIFactory.badge("%s x%d" % [p_name, lvl], p_col)
+			perks_flow.add_child(p_badge)
 	var resume := UIFactory.button(I18n.t("pause.resume", "▶  CONTINUAR"), pause_game, LIME, true)
+
 	content.add_child(resume)
 	content.add_child(UIFactory.button(I18n.t("pause.restart", "REINICIAR"), start_game))
 	content.add_child(UIFactory.button(I18n.t("pause.menu", "MENU"), show_menu))
@@ -1107,6 +1124,16 @@ func _process(dt: float) -> void:
 				target_cutoff = 1200.0
 			bus_fx.cutoff_hz = lerpf(bus_fx.cutoff_hz, target_cutoff, minf(1.0, dt * 6.0))
 
+func show_perk_draft(choices: Array[Dictionary]) -> void:
+	phase = "perk_draft"
+	PerkDraftScreen.build(self, choices)
+
+func choose_perk(perk_id: String) -> void:
+	state.apply_perk(perk_id)
+	close_overlay()
+	phase = "playing"
+	refresh_hud()
+
 const UPGRADE_ACTIONS := ["upgrade_1", "upgrade_2", "upgrade_3", "upgrade_4"]
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -1124,10 +1151,29 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		close_achievements()
 	elif event.is_action("restart") and phase in ["playing", "paused", "gameover"]:
 		start_game()
-	elif event.is_action("pause"):
+	elif event.is_action("pause") and phase != "perk_draft":
 		pause_game()
 	elif event.is_action("mute"):
 		toggle_mute()
+	elif phase == "perk_draft":
+		if event.is_action("upgrade_1") or event.keycode == KEY_1:
+			var btn1 := overlay.find_child("SelectPerk_1", true, false) as Button if is_instance_valid(overlay) else null
+			if btn1 != null and not btn1.disabled:
+				btn1.pressed.emit()
+				get_viewport().set_input_as_handled()
+				return
+		elif event.is_action("upgrade_2") or event.keycode == KEY_2:
+			var btn2 := overlay.find_child("SelectPerk_2", true, false) as Button if is_instance_valid(overlay) else null
+			if btn2 != null and not btn2.disabled:
+				btn2.pressed.emit()
+				get_viewport().set_input_as_handled()
+				return
+		elif event.is_action("upgrade_3") or event.keycode == KEY_3:
+			var btn3 := overlay.find_child("SelectPerk_3", true, false) as Button if is_instance_valid(overlay) else null
+			if btn3 != null and not btn3.disabled:
+				btn3.pressed.emit()
+				get_viewport().set_input_as_handled()
+				return
 	elif phase == "playing":
 		if event.is_action("nova"):
 			state.nova()

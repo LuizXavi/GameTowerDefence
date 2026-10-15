@@ -658,5 +658,194 @@ const WAVE_EVENTS := {
 	}
 }
 
+# ---------------------------------------------------------------------------
+# Sistema Roguelite de Protocolos/Perks (Draft pós-Boss Waves)
+# ---------------------------------------------------------------------------
+const PERKS := {
+	"crit_surge": {
+		"id": "crit_surge",
+		"name": "Sobrecarga Crítica",
+		"name_en": "Critical Surge",
+		"desc": "+30% Dano Crítico e +6% Chance de Crítico para todas as fontes.",
+		"desc_en": "+30% Critical Damage and +6% Critical Chance for all sources.",
+		"rarity": "common",
+		"color": Color("22e6ff"),
+		"icon": "crit",
+		"max_stacks": 3,
+		"weight": 60
+	},
+	"nano_repair": {
+		"id": "nano_repair",
+		"name": "Nano-Reparo de Emergência",
+		"name_en": "Emergency Nano-Repair",
+		"desc": "+25 HP Máximo imediato e regenera +4 HP/s continuamente.",
+		"desc_en": "+25 immediate Max HP and continuously regenerates +4 HP/s.",
+		"rarity": "common",
+		"color": Color("22e6ff"),
+		"icon": "regen",
+		"max_stacks": 3,
+		"weight": 60
+	},
+	"scrap_magnet": {
+		"id": "scrap_magnet",
+		"name": "Ímã de Sucata",
+		"name_en": "Scrap Magnet",
+		"desc": "+30% de Ouro obtido de todos os inimigos derrotados.",
+		"desc_en": "+30% Gold gained from all defeated enemies.",
+		"rarity": "common",
+		"color": Color("22e6ff"),
+		"icon": "gold",
+		"max_stacks": 3,
+		"weight": 60
+	},
+	"rapid_trigger": {
+		"id": "rapid_trigger",
+		"name": "Gatilho Ultrassônico",
+		"name_en": "Ultrasonic Trigger",
+		"desc": "Reduz o intervalo de disparo de todas as torretas em 12%.",
+		"desc_en": "Reduces fire interval of all turrets by 12%.",
+		"rarity": "common",
+		"color": Color("22e6ff"),
+		"icon": "haste",
+		"max_stacks": 3,
+		"weight": 60
+	},
+	"force_field": {
+		"id": "force_field",
+		"name": "Defletor Cinético",
+		"name_en": "Kinetic Deflector",
+		"desc": "+40 Escudo Energético Máximo e +25% de taxa de recarga de escudo.",
+		"desc_en": "+40 Max Energy Shield and +25% shield recharge rate.",
+		"rarity": "common",
+		"color": Color("22e6ff"),
+		"icon": "shield",
+		"max_stacks": 3,
+		"weight": 60
+	},
+	"plasma_splash": {
+		"id": "plasma_splash",
+		"name": "Fissão de Plasma",
+		"name_en": "Plasma Fission",
+		"desc": "Disparos de Plasma explodem causando 40% de dano em área (raio 75px).",
+		"desc_en": "Plasma shots explode dealing 40% area damage (75px radius).",
+		"rarity": "rare",
+		"color": Color("ff2bd6"),
+		"icon": "splash",
+		"max_stacks": 2,
+		"weight": 30
+	},
+	"cryo_permafrost": {
+		"id": "cryo_permafrost",
+		"name": "Zero Absoluto",
+		"name_en": "Absolute Zero",
+		"desc": "Lentidão Criogênica dura 2.5s e causa dano contínuo a inimigos congelados.",
+		"desc_en": "Cryo slow lasts 2.5s and deals continuous damage to frozen targets.",
+		"rarity": "rare",
+		"color": Color("ff2bd6"),
+		"icon": "freeze",
+		"max_stacks": 2,
+		"weight": 30
+	},
+	"arc_overload": {
+		"id": "arc_overload",
+		"name": "Supercondutor Tesla",
+		"name_en": "Tesla Superconductor",
+		"desc": "Torre de Arco ganha +2 saltos adicionais e causa micro-atordoamento (0.25s).",
+		"desc_en": "Arc Tower gains +2 additional chain jumps and micro-stuns (0.25s).",
+		"rarity": "rare",
+		"color": Color("ff2bd6"),
+		"icon": "chain",
+		"max_stacks": 2,
+		"weight": 30
+	},
+	"seismic_echo": {
+		"id": "seismic_echo",
+		"name": "Ressonância Sísmica",
+		"name_en": "Seismic Resonance",
+		"desc": "Onda Sísmica dispara um eco secundário após 0.4s causando 60% de dano.",
+		"desc_en": "Seismic pulse fires a secondary echo after 0.4s dealing 60% damage.",
+		"rarity": "rare",
+		"color": Color("ff2bd6"),
+		"icon": "echo",
+		"max_stacks": 2,
+		"weight": 30
+	},
+	"laser_rampage": {
+		"id": "laser_rampage",
+		"name": "Lente Hiperfocada",
+		"name_en": "Hyperfocused Lens",
+		"desc": "Laser Antimatéria atinge seu dano máximo 60% mais rápido.",
+		"desc_en": "Antimatter Laser reaches maximum ramp damage 60% faster.",
+		"rarity": "rare",
+		"color": Color("ff2bd6"),
+		"icon": "laser",
+		"max_stacks": 2,
+		"weight": 30
+	},
+	"combustion": {
+		"id": "combustion",
+		"name": "Choque Volátil",
+		"name_en": "Volatile Shock",
+		"desc": "Inimigos abatidos detonam causando 40% de sua vida a inimigos próximos.",
+		"desc_en": "Defeated enemies detonate dealing 40% of their health to nearby foes.",
+		"rarity": "rare",
+		"color": Color("ff2bd6"),
+		"icon": "explosion",
+		"max_stacks": 2,
+		"weight": 30
+	},
+	"glass_cannon": {
+		"id": "glass_cannon",
+		"name": "Canhão de Vidro",
+		"name_en": "Glass Cannon",
+		"desc": "+65% de dano em todas as torretas, mas reduz HP máximo da base em 30%.",
+		"desc_en": "+65% damage for all turrets, but reduces base max HP by 30%.",
+		"rarity": "epic",
+		"color": Color("ffb02e"),
+		"icon": "glass_cannon",
+		"max_stacks": 1,
+		"weight": 10
+	},
+	"quantum_vampirism": {
+		"id": "quantum_vampirism",
+		"name": "Dreno Quântico",
+		"name_en": "Quantum Drain",
+		"desc": "Abater inimigos recupera 1% de Escudo e carrega a Nova 25% mais rápido.",
+		"desc_en": "Defeating enemies restores 1% Shield and charges Nova 25% faster.",
+		"rarity": "epic",
+		"color": Color("ffb02e"),
+		"icon": "vampire",
+		"max_stacks": 1,
+		"weight": 10
+	},
+	"orbital_strike": {
+		"id": "orbital_strike",
+		"name": "Bombardeio Orbital",
+		"name_en": "Orbital Bombardment",
+		"desc": "A cada 10s, feixes orbitais atingem 3 inimigos na tela com 300% de dano.",
+		"desc_en": "Every 10s, orbital beams strike 3 enemies with 300% damage.",
+		"rarity": "epic",
+		"color": Color("ffb02e"),
+		"icon": "orbital",
+		"max_stacks": 1,
+		"weight": 10
+	},
+	"midas_touch": {
+		"id": "midas_touch",
+		"name": "Matriz Áurea",
+		"name_en": "Golden Matrix",
+		"desc": "Cada 100 de Ouro guardado concede +2.5% de dano global (máximo +60%).",
+		"desc_en": "Every 100 Gold banked grants +2.5% global damage (max +60%).",
+		"rarity": "epic",
+		"color": Color("ffb02e"),
+		"icon": "midas",
+		"max_stacks": 1,
+		"weight": 10
+	}
+}
 
-
+const PERK_KEYS := [
+	"crit_surge", "nano_repair", "scrap_magnet", "rapid_trigger", "force_field",
+	"plasma_splash", "cryo_permafrost", "arc_overload", "seismic_echo", "laser_rampage", "combustion",
+	"glass_cannon", "quantum_vampirism", "orbital_strike", "midas_touch"
+]

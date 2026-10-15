@@ -201,7 +201,18 @@ const DICT_PT := {
 	"arena.boss_banner": "BOSS — %s",
 	"arena.commander_banner": "COMANDANTE — %s",
 	"arena.anomaly_banner": "ANOMALIA — %s",
-	"arena.wave_banner": "WAVE %d"
+	"arena.wave_banner": "WAVE %d",
+
+	# Roguelite Perk Draft
+	"draft.title": "ESCOLHA UM PROTOCOLO DO VOID",
+	"draft.subtitle": "Recompensa de Chefe Derrotado • Efeito dura até o fim da partida",
+	"draft.rarity_common": "COMUM",
+	"draft.rarity_rare": "RARO",
+	"draft.rarity_epic": "ÉPICO",
+	"draft.btn_select": "INSTALAR PROTOCOLO [%d]",
+	"draft.stacks": "Nível %d / %d",
+	"draft.max_level": "NÍVEL MÁXIMO",
+	"pause.active_perks": "PROTOCOLOS DO VOID ATIVOS"
 }
 
 # ---------------------------------------------------------------------------
@@ -381,9 +392,20 @@ const DICT_EN := {
 	"arena.boss_overload": "OVERLOAD // PHASE 2",
 	"arena.boss_banner": "BOSS — %s",
 	"arena.commander_banner": "COMMANDER — %s",
-	"arena.anomaly_banner": "ANOMALY — %s",
-	"arena.wave_banner": "WAVE %d"
+	"arena.wave_banner": "WAVE %d",
+
+	# Roguelite Perk Draft
+	"draft.title": "CHOOSE A VOID PROTOCOL",
+	"draft.subtitle": "Boss Defeated Reward • Effect lasts until end of current run",
+	"draft.rarity_common": "COMMON",
+	"draft.rarity_rare": "RARE",
+	"draft.rarity_epic": "EPIC",
+	"draft.btn_select": "INSTALL PROTOCOL [%d]",
+	"draft.stacks": "Level %d / %d",
+	"draft.max_level": "MAX LEVEL",
+	"pause.active_perks": "ACTIVE VOID PROTOCOLS"
 }
+
 
 # ---------------------------------------------------------------------------
 # Traduções em Inglês de Módulos de Torre
@@ -618,4 +640,16 @@ static func get_achievement_desc(ach_id: String, fallback: String = "") -> Strin
 	if is_en() and ACHIEVEMENTS_EN.has(ach_id):
 		return ACHIEVEMENTS_EN[ach_id][1]
 	return fallback
+
+static func get_perk_name(perk_id: String) -> String:
+	var p_data: Dictionary = GameData.PERKS.get(perk_id, {})
+	if is_en() and p_data.has("name_en"):
+		return str(p_data["name_en"])
+	return str(p_data.get("name", perk_id.to_upper()))
+
+static func get_perk_desc(perk_id: String) -> String:
+	var p_data: Dictionary = GameData.PERKS.get(perk_id, {})
+	if is_en() and p_data.has("desc_en"):
+		return str(p_data["desc_en"])
+	return str(p_data.get("desc", ""))
 

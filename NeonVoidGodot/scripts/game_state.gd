@@ -13,10 +13,16 @@ signal range_preview_cleared()
 signal screen_shake_requested(shake_type: String, custom_intensity: float)
 signal boss_defeat_cinematic(boss_pos: Vector2, boss_data: Dictionary)
 signal damage_dealt(target_id: int, pos: Vector2, amount: float, damage_type: String, is_crit: bool, extra: String)
+signal perk_draft_requested(choices: Array[Dictionary])
+signal perk_chosen(perk_id: String)
 
 var current_anomaly: Dictionary = {}
 var current_wave_event: Dictionary = {}
 var waves_since_miniboss: int = 0
+var active_perks: Dictionary = {}
+var orbital_timer: float = 0.0
+var seismic_echo_queue: Array[Dictionary] = []
+var pending_draft: bool = false
 
 const COLORS := GameData.ENEMY_COLORS
 const FAMILY_IDS := GameData.FAMILY_IDS
@@ -47,8 +53,11 @@ func interval_for_module(module_id: String) -> float:
 	elif module_id == "railgun":
 		base = 1.6 * (1.0 - float(research[31]) * 0.04)
 	var haste_bonus: float = float(research[9]) * 0.05 + float(upg_level("tower_haste")) * 0.10
+	if has_perk("rapid_trigger"):
+		haste_bonus += 0.12 * float(get_perk_level("rapid_trigger"))
 	var anom_cadence: float = float(current_anomaly.get("turret_cadence", 1.0))
 	return (base / (1.0 + haste_bonus)) * anom_cadence
+
 var tower_loadout: Array[String] = ["plasma"]
 var tower_slots: Array[Dictionary] = []
 var gold: int = 0
@@ -108,13 +117,23 @@ func _reset_upgrades() -> void:
 	for k in UPGRADE_DEFS:
 		upg_levels[k] = 0
 
+func has_perk(perk_id: String) -> bool:
+	return active_perks.get(perk_id, 0) > 0
+
+func get_perk_level(perk_id: String) -> int:
+	return int(active_perks.get(perk_id, 0))
+
 func shield_unlocked() -> bool:
 	return research.size() > 32 and research[32] > 0
 
 func shield_regen_rate() -> float:
 	if max_shield <= 0.0:
 		return 0.0
-	return 1.5 + float(research[33]) * 1.5 + float(upg_level("shield_regen")) * 2.5
+	var base_regen: float = 1.5 + float(research[33]) * 1.5 + float(upg_level("shield_regen")) * 2.5
+	if has_perk("force_field"):
+		base_regen *= (1.0 + 0.25 * float(get_perk_level("force_field")))
+	return base_regen
+
 
 func upg_level(id: String) -> int:
 	if id == "click_dmg":
@@ -325,6 +344,10 @@ func reset() -> void:
 	banner = "WAVE 1"
 	banner_time = 1.6
 	run_pieces = [0, 0, 0, 0]
+	active_perks.clear()
+	orbital_timer = 0.0
+	seismic_echo_queue.clear()
+	pending_draft = false
 	sound.emit("start")
 
 func multiplier() -> float:
@@ -346,7 +369,9 @@ func auto_attack(target: Dictionary, base_damage: float, module_id: String = "",
 
 func crit_chance() -> float:
 	var res_crit: float = float(research[4]) * 0.02 # Foco Crítico
-	return minf(0.05 + levels[2] * 0.045 + res_crit, 0.75)
+	var perk_crit: float = 0.06 * float(get_perk_level("crit_surge")) if has_perk("crit_surge") else 0.0
+	return minf(0.05 + levels[2] * 0.045 + res_crit + perk_crit, 0.85)
+
 
 func cost(key: int) -> int:
 	if key == 1:
@@ -413,7 +438,10 @@ func tap(point: Vector2) -> void:
 	var damage := click_damage() * randf_range(0.9, 1.1)
 	if critical:
 		var crit_mult: float = 3.0 + levels[2] * 0.25 + float(research[4]) * 0.20 + float(upg_level("crit_mult")) * 0.35
+		if has_perk("crit_surge"):
+			crit_mult += 0.30 * float(get_perk_level("crit_surge"))
 		damage *= crit_mult
+
 	combo += 1
 	combo_timer = 2.2 + float(research[12]) * 0.4 + float(upg_level("combo_drive")) * 0.3
 	max_combo = maxi(max_combo, combo)
@@ -504,7 +532,8 @@ func damage_enemy(enemy: Dictionary, damage: float, critical := false, source :=
 	var gold_mult: float = 1.0 + float(research[6]) * 0.08 # Extração Quântica
 	var anom_gold: float = float(current_anomaly.get("gold_mult", 1.0))
 	var anom_score: float = float(current_anomaly.get("score_mult", 1.0))
-	var gain := roundi(enemy.gold * multiplier() * gold_mult * anom_gold)
+	var perk_gold: float = 1.0 + (0.30 * float(get_perk_level("scrap_magnet")) if has_perk("scrap_magnet") else 0.0)
+	var gain := roundi(enemy.gold * multiplier() * gold_mult * anom_gold * perk_gold)
 	gold += gain
 	total_gold += gain
 	score += roundi(enemy.score * (1 + wave * 0.15) * (1.5 if critical else 1.0) * anom_score)
@@ -516,7 +545,21 @@ func damage_enemy(enemy: Dictionary, damage: float, critical := false, source :=
 		4.0, 5.5, 9.0, 14.0, 20.0,
 		6.0, 6.5, 8.5, 11.0, 14.0
 	]
-	charge = minf(100, charge + (charge_gains[enemy.type] if enemy.type < charge_gains.size() else 10.0))
+	var base_cg: float = charge_gains[enemy.type] if enemy.type < charge_gains.size() else 10.0
+	charge = minf(100, charge + base_cg)
+	if has_perk("quantum_vampirism"):
+		if max_shield > 0.0:
+			shield = minf(max_shield, shield + max_shield * 0.01 * float(get_perk_level("quantum_vampirism")))
+		charge = minf(100.0, charge + base_cg * 0.25 * float(get_perk_level("quantum_vampirism")))
+	if has_perk("combustion"):
+		var exp_radius: float = 80.0
+		var exp_dmg: float = float(enemy.get("max_hp", 10.0)) * 0.40 * float(get_perk_level("combustion"))
+		for other in enemies.duplicate():
+			if other != enemy and other.hp > 0 and not other.ghosted:
+				if enemy.p.distance_to(other.p) <= exp_radius:
+					damage_enemy(other, exp_dmg, false, "burst")
+		effect.emit("burst", enemy.p, Color("ff5500"), "DETONAÇÃO!")
+
 	var burst_color: Color = COLORS[enemy.type] if enemy.type < COLORS.size() else Color.WHITE
 	effect.emit("burst", enemy.p, burst_color, "+%d" % gain)
 	sound.emit("kill")
@@ -550,7 +593,10 @@ func next_wave() -> void:
 	waves_since_miniboss += 1
 	wave += 1
 	wave_kills = 0
+	if wave > 1 and (wave - 1) % 5 == 0:
+		trigger_perk_draft()
 	if wave >= 5:
+
 		achievement_triggered.emit("wave_5")
 	if wave >= 10:
 		achievement_triggered.emit("wave_10")
@@ -626,7 +672,114 @@ func next_wave() -> void:
 				banner_time = 1.6
 				sound.emit("wave")
 
+func trigger_perk_draft() -> void:
+	var choices := generate_perk_choices(3)
+	if not choices.is_empty():
+		pending_draft = true
+		paused = true
+		perk_draft_requested.emit(choices)
+
+func generate_perk_choices(count: int = 3) -> Array[Dictionary]:
+	var available: Array[String] = []
+	var weights: Array[float] = []
+	for key in GameData.PERK_KEYS:
+		var p: Dictionary = GameData.PERKS[key]
+		var cur_lvl: int = get_perk_level(key)
+		var max_s: int = int(p.get("max_stacks", 1))
+		if cur_lvl < max_s:
+			available.append(key)
+			weights.append(float(p.get("weight", 30)))
+	if available.is_empty():
+		return []
+
+	var selected: Array[Dictionary] = []
+	var chosen_keys: Array[String] = []
+	var needed: int = mini(count, available.size())
+
+	while chosen_keys.size() < needed and not available.is_empty():
+		var total_weight: float = 0.0
+		for w in weights:
+			total_weight += w
+		var roll: float = randf() * total_weight
+		var accum: float = 0.0
+		var picked_idx: int = 0
+		for i in available.size():
+			accum += weights[i]
+			if roll <= accum:
+				picked_idx = i
+				break
+		var picked_key: String = available[picked_idx]
+		chosen_keys.append(picked_key)
+		var cfg: Dictionary = GameData.PERKS[picked_key].duplicate(true)
+		cfg["current_level"] = get_perk_level(picked_key)
+		selected.append(cfg)
+		available.remove_at(picked_idx)
+		weights.remove_at(picked_idx)
+
+	return selected
+
+func apply_perk(perk_id: String) -> void:
+	if not GameData.PERKS.has(perk_id):
+		return
+	var cur_lvl: int = get_perk_level(perk_id)
+	var max_s: int = int(GameData.PERKS[perk_id].get("max_stacks", 1))
+	if cur_lvl >= max_s:
+		return
+	active_perks[perk_id] = cur_lvl + 1
+
+	if perk_id == "nano_repair":
+		max_hp += 25
+		hp = mini(max_hp, hp + 25)
+	elif perk_id == "glass_cannon":
+		max_hp = maxi(10, int(float(max_hp) * 0.70))
+		hp = mini(hp, max_hp)
+	elif perk_id == "force_field":
+		max_shield += 40.0
+		shield = minf(max_shield, shield + 40.0)
+
+	sound.emit("buy")
+	effect.emit("burst", bounds * Vector2(0.5, 0.5), Color("ffb02e"), "PROTOCOLO ATIVADO!")
+	perk_chosen.emit(perk_id)
+	pending_draft = false
+	paused = false
+
+func queue_seismic_echo(slot_index: int, echo_damage: float, delay: float) -> void:
+	seismic_echo_queue.append({
+		"slot_index": slot_index,
+		"damage": echo_damage,
+		"delay": delay
+	})
+
+func _fire_orbital_strike() -> void:
+	if enemies.is_empty():
+		return
+	var targets: Array[Dictionary] = enemies.duplicate()
+	targets.sort_custom(func(a, b): return a.hp > b.hp)
+	var count: int = mini(3, targets.size())
+	for i in count:
+		var target: Dictionary = targets[i]
+		if target.hp <= 0 or target.ghosted:
+			continue
+		var strike_dmg: float = float(click_damage()) * 3.0 * float(get_perk_level("orbital_strike"))
+		effect.emit("nova", target.p, Color("ffb02e"), "BOMBARDEIO ORBITAL!")
+		sound.emit("laser")
+		damage_enemy(target, strike_dmg, true, "auto")
+
+func _fire_seismic_echo(slot_index: int, echo_dmg: float) -> void:
+	if slot_index < 0 or slot_index >= tower_slots.size():
+		return
+	var pos: Vector2 = tower_position(slot_index)
+	var ring: float = bounds.x * 0.65
+	effect.emit("burst", pos, Color("70d6ff"), "ECO SÍSMICO")
+	sound.emit("pulse")
+	for enemy in enemies.duplicate():
+		if enemy.hp <= 0 or enemy.ghosted:
+			continue
+		if pos.distance_to(enemy.p) <= ring:
+			damage_enemy(enemy, echo_dmg, false, "auto")
+
 func variant_for(kind: int) -> String:
+
 	return EnemySpawner.variant_for(wave, kind)
 
 func id_for(kind: int, variant: String) -> String:
@@ -699,12 +852,37 @@ func tick(delta: float) -> void:
 		combo = 0
 	var nova_regen_bonus: float = float(research[3]) * 0.3 + float(upg_level("nova_overdrive")) * 0.8
 	charge = minf(100, charge + dt * (1.6 + nova_regen_bonus))
+
+	# Process Seismic Echoes
+	if not seismic_echo_queue.is_empty():
+		for echo in seismic_echo_queue.duplicate():
+			echo.delay -= dt
+			if echo.delay <= 0.0:
+				seismic_echo_queue.erase(echo)
+				_fire_seismic_echo(echo.slot_index, echo.damage)
+
+	# Process Orbital Bombardment
+	if has_perk("orbital_strike") and not enemies.is_empty():
+		orbital_timer += dt
+		if orbital_timer >= 10.0:
+			orbital_timer = 0.0
+			_fire_orbital_strike()
+
+	# Process Nano-Repair Perk
+	if has_perk("nano_repair") and hp < max_hp:
+		hp_regen_acc += dt * float(get_perk_level("nano_repair")) * 4.0
+		if hp_regen_acc >= 1.0:
+			var heal_pts: int = int(floor(hp_regen_acc))
+			hp_regen_acc -= float(heal_pts)
+			hp = mini(max_hp, hp + heal_pts)
+
 	if upg_level("nano_regen") > 0 and hp < max_hp:
 		hp_regen_acc += dt * float(upg_level("nano_regen")) * 1.5
 		if hp_regen_acc >= 1.0:
 			var heal_pts: int = int(floor(hp_regen_acc))
 			hp_regen_acc -= float(heal_pts)
 			hp = mini(max_hp, hp + heal_pts)
+
 	if max_shield > 0.0:
 		shield_regen_timer = maxf(0.0, shield_regen_timer - dt)
 		if shield_regen_timer <= 0.0 and shield < max_shield:

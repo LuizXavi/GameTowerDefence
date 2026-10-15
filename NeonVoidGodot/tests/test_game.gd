@@ -698,6 +698,58 @@ func _init() -> void:
 			DirAccess.remove_absolute(lang_save_path + suffix)
 	i18n.set_language(i18n.LANG_PT)
 
+	# Testes do Sistema Roguelite de Cartas e Perks
+	var roguelite_game := VoidState.new()
+	roguelite_game.reset()
+	var draft_choices := roguelite_game.generate_perk_choices(3)
+	check(draft_choices.size() == 3, "generate_perk_choices returns exactly 3 choices")
+	check(draft_choices[0].id != draft_choices[1].id and draft_choices[1].id != draft_choices[2].id, "Generated perk choices are distinct")
+	check(draft_choices[0].has("name") and draft_choices[0].has("desc") and draft_choices[0].has("rarity"), "Perk choice has name, desc and rarity")
+
+	# Teste de Aplicação de Perks
+	var crit_before: float = roguelite_game.crit_chance()
+	roguelite_game.apply_perk("crit_surge")
+	check(roguelite_game.has_perk("crit_surge") and roguelite_game.get_perk_level("crit_surge") == 1, "Applying crit_surge activates perk and sets level 1")
+	check(is_equal_approx(roguelite_game.crit_chance(), crit_before + 0.06), "crit_surge increases crit chance by exactly 6%")
+
+	# Teste de Nano-Repair (+25 max_hp)
+	var hp_before_perk: int = roguelite_game.max_hp
+	roguelite_game.apply_perk("nano_repair")
+	check(roguelite_game.max_hp == hp_before_perk + 25, "nano_repair expands base max HP by 25")
+
+	# Teste de Rapid Trigger (redução de cadência)
+	var interval_before: float = roguelite_game.interval_for_module("plasma")
+	roguelite_game.apply_perk("rapid_trigger")
+	check(roguelite_game.interval_for_module("plasma") < interval_before, "rapid_trigger reduces turret fire interval")
+
+	# Teste de Force Field (+40 max_shield)
+	var shield_before: float = roguelite_game.max_shield
+	roguelite_game.apply_perk("force_field")
+	check(is_equal_approx(roguelite_game.max_shield, shield_before + 40.0), "force_field expands energy shield capacity by 40")
+
+	# Teste de Glass Cannon (stack máximo = 1)
+	var hp_before_glass: int = roguelite_game.max_hp
+	roguelite_game.apply_perk("glass_cannon")
+	check(roguelite_game.has_perk("glass_cannon") and roguelite_game.max_hp < hp_before_glass, "glass_cannon applies and reduces max HP")
+	roguelite_game.apply_perk("glass_cannon")
+	check(roguelite_game.get_perk_level("glass_cannon") == 1, "glass_cannon respects max_stacks = 1")
+
+	# Teste de Disparo de Draft Pós-Boss (Wave 5 -> 6)
+	var draft_emitted := {"count": 0, "choices": []}
+	roguelite_game.perk_draft_requested.connect(func(choices: Array[Dictionary]):
+		draft_emitted.count += 1
+		draft_emitted.choices = choices
+	)
+	roguelite_game.wave = 5
+	roguelite_game.next_wave()
+	check(roguelite_game.wave == 6 and roguelite_game.pending_draft and roguelite_game.paused, "Completing boss wave 5 enters pending perk draft and pauses")
+	check(draft_emitted.count == 1 and draft_emitted.choices.size() == 3, "perk_draft_requested signal emitted with 3 choices upon completing boss wave")
+
+	# Teste de Limpeza de Perks no Reset
+	roguelite_game.reset()
+	check(roguelite_game.active_perks.is_empty() and not roguelite_game.pending_draft and not roguelite_game.has_perk("crit_surge"), "Resetting game clears all active ephemeral perks")
+
+
 	for suffix in ["", ".bak", ".tmp"]:
 		if FileAccess.file_exists(lab_path + suffix):
 			DirAccess.remove_absolute(lab_path + suffix)

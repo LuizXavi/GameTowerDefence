@@ -169,3 +169,12 @@ static func pieces_bar(parent: Node, values: Array, font_size: int = 15) -> HBox
 	parent.add_child(row)
 	return row
 
+static func badge(words: String, color: Color = CYAN) -> PanelContainer:
+	var container := PanelContainer.new()
+	var style := box(color, Color("140b29"), 6, 8, 8, 3, 3)
+	container.add_theme_stylebox_override("panel", style)
+	var lbl := label(words, 11, color, true)
+	container.add_child(lbl)
+	return container
+
+

@@ -43,6 +43,8 @@ static func auto_attack(state: Object, target: Dictionary, base_damage: float, m
 				enemy.p.y = maxf(enemy.radius + 10, enemy.p.y - knockback)
 				enemy.static_timer = 2.5
 				state.damage_enemy(enemy, pulse_damage, false, "auto")
+		if state.has_method("has_perk") and state.has_perk("seismic_echo"):
+			state.queue_seismic_echo(slot_index, base_damage * 0.60 * float(state.get_perk_level("seismic_echo")), 0.4)
 		return
 
 	if target.is_empty() or target.hp <= 0 or target.ghosted or not state.enemies.has(target):
@@ -56,15 +58,25 @@ static func auto_attack(state: Object, target: Dictionary, base_damage: float, m
 	slot.turret_target = (Vector2(slot.beam_target) - (state.tower_position(slot_index) as Vector2)).angle()
 
 	var damage: float = base_damage
+	if state.has_method("has_perk"):
+		if state.has_perk("glass_cannon"):
+			damage *= (1.0 + 0.65 * float(state.get_perk_level("glass_cannon")))
+		if state.has_perk("midas_touch"):
+			var midas_mult: float = minf(0.60, float(state.gold) / 100.0 * 0.025 * float(state.get_perk_level("midas_touch")))
+			damage *= (1.0 + midas_mult)
 
 	if active_module == "cryo":
 		damage *= 0.75 * (1.0 + float(state.research[20]) * 0.10)
 		target.slow_timer = CRYO_SLOW_DURATION + float(state.research[21]) * 0.25
+		if state.has_method("has_perk") and state.has_perk("cryo_permafrost"):
+			target.slow_timer = 2.5
+			damage += float(target.get("max_hp", 10.0)) * 0.12 * float(state.get_perk_level("cryo_permafrost"))
 	elif active_module == "arc":
 		damage *= 0.65 * (1.0 + float(state.research[22]) * 0.10)
 	elif active_module == "laser":
 		var target_key: String = str(target.get("enemy_id", "")) + "_" + str(target.get("age", 0.0))
-		var ramp_step: float = AUTO_INTERVAL * (1.0 + float(state.research[26]) * 0.15)
+		var ramp_mult: float = 1.0 + (0.60 * float(state.get_perk_level("laser_rampage")) if (state.has_method("has_perk") and state.has_perk("laser_rampage")) else 0.0)
+		var ramp_step: float = AUTO_INTERVAL * (1.0 + float(state.research[26]) * 0.15) * ramp_mult
 		if slot.laser_target_id == target_key:
 			slot.laser_focus_time = minf(2.0, slot.laser_focus_time + ramp_step)
 		else:
@@ -82,6 +94,16 @@ static func auto_attack(state: Object, target: Dictionary, base_damage: float, m
 		if target.get("slow_timer", 0.0) > 0:
 			damage *= (1.45 + float(state.research[19]) * 0.15)
 			state.effect.emit("text", target.p - Vector2(0, target.radius + 18), Color("ff55ff"), "CHOQUE TÉRMICO!")
+		if state.has_method("has_perk") and state.has_perk("plasma_splash"):
+			var splash_radius: float = 75.0
+			var splash_dmg: float = damage * 0.40 * float(state.get_perk_level("plasma_splash"))
+			for other in state.enemies.duplicate():
+				if other == target or other.hp <= 0 or other.ghosted:
+					continue
+				if target.p.distance_to(other.p) <= splash_radius:
+					state.damage_enemy(other, splash_dmg, false, "auto")
+					state.effect.emit("burst", other.p, Color("ff2bd6"), "")
+
 	elif active_module == "vortex":
 		slot.vortex_center = target.p
 		slot.vortex_time = 0.7
@@ -156,8 +178,12 @@ static func auto_attack(state: Object, target: Dictionary, base_damage: float, m
 	var targets: Array[Dictionary] = [target]
 	if active_module == "arc":
 		var max_hops: int = (4 if target.get("static_timer", 0.0) > 0 else 2) + (1 if state.upg_level("tower_range") >= 2 else 0)
+		if state.has_method("has_perk") and state.has_perk("arc_overload"):
+			max_hops += 2 * state.get_perk_level("arc_overload")
+			target.static_timer = 0.25
 		if target.get("static_timer", 0.0) > 0:
 			state.sound.emit("spark")
+
 		var base_arc_radius: float = (ARC_CHAIN_RADIUS + float(state.research[23]) * 18.0) * range_mult
 		var chain_radius: float = base_arc_radius * 1.5 if target.get("static_timer", 0.0) > 0 else base_arc_radius
 		var origin: Vector2 = target.p

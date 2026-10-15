@@ -410,8 +410,130 @@ static func draw_ui(control: Control, icon_id: String, base_radius: float = 12.0
 					center + Vector2(6.0 * s, y_off + 2.0 * s)
 				])
 				control.draw_polyline(chev, Color.WHITE if idx == 0 else color, maxf(1.2, 1.8 * s), true)
+		"crit", "crit_surge":
+			# Estrela crítica hiperenergética
+			for k in 8:
+				var ang: float = k * PI * 0.25 - PI * 0.5
+				var r: float = (8.5 * s) if (k % 2 == 0) else (3.0 * s)
+				control.draw_line(center, center + Vector2.from_angle(ang) * r, color if k % 2 != 0 else Color.WHITE, maxf(1.2, 2.0 * s), true)
+			control.draw_circle(center, maxf(1.5, 2.5 * s), Color.WHITE)
+		"regen", "nano_repair":
+			# Cruz médica cibernética
+			var w: float = 2.8 * s
+			var h: float = 7.5 * s
+			control.draw_rect(Rect2(center - Vector2(w, h), Vector2(w * 2.0, h * 2.0)), color, true)
+			control.draw_rect(Rect2(center - Vector2(h, w), Vector2(h * 2.0, w * 2.0)), color, true)
+			control.draw_circle(center, maxf(1.2, 2.0 * s), Color.WHITE)
+		"gold", "scrap_magnet":
+			# Hexágono de ouro com símbolo de moeda
+			var h_pts := PackedVector2Array()
+			for k in 6:
+				h_pts.append(center + Vector2.from_angle(k * TAU / 6.0) * (7.5 * s))
+			h_pts.append(h_pts[0])
+			control.draw_polyline(h_pts, color, maxf(1.3, 2.0 * s), true)
+			control.draw_circle(center, maxf(1.5, 2.8 * s), Color.WHITE)
+		"haste", "rapid_trigger":
+			# Raio duplo acelerado
+			for side in [-1, 1]:
+				var x_off: float = side * 3.0 * s
+				var r_bolt := PackedVector2Array([
+					center + Vector2(x_off + 1.5 * s, -7.0 * s),
+					center + Vector2(x_off - 2.5 * s, -0.5 * s),
+					center + Vector2(x_off + 2.0 * s, -0.5 * s),
+					center + Vector2(x_off - 1.5 * s, 7.0 * s)
+				])
+				control.draw_polyline(r_bolt, color if side == -1 else Color.WHITE, maxf(1.2, 1.8 * s), true)
+		"shield", "force_field":
+			# Escudo duplo de força
+			control.draw_arc(center, 5.0 * s, 0.0, TAU, 16, Color.WHITE, maxf(1.2, 1.8 * s), true)
+			control.draw_arc(center, 8.5 * s, 0.0, TAU, 20, color, maxf(1.2, 1.8 * s), true)
+		"splash", "plasma_splash":
+			# Impacto de fissão radial
+			for k in 6:
+				var dir := Vector2.from_angle(k * TAU / 6.0)
+				control.draw_line(center + dir * (3.5 * s), center + dir * (8.5 * s), color, maxf(1.2, 2.0 * s), true)
+			control.draw_circle(center, maxf(1.8, 3.0 * s), Color.WHITE)
+		"freeze", "cryo_permafrost":
+			# Cristal de gelo / floco hexagonal
+			for k in 6:
+				var dir := Vector2.from_angle(k * TAU / 6.0)
+				control.draw_line(center, center + dir * (8.0 * s), color, maxf(1.2, 1.8 * s), true)
+				var wing1 := (dir + dir.orthogonal() * 0.7).normalized() * (3.0 * s)
+				var wing2 := (dir - dir.orthogonal() * 0.7).normalized() * (3.0 * s)
+				control.draw_line(center + dir * (5.0 * s), center + dir * (5.0 * s) + wing1, Color.WHITE, 1.2, true)
+				control.draw_line(center + dir * (5.0 * s), center + dir * (5.0 * s) + wing2, Color.WHITE, 1.2, true)
+			control.draw_circle(center, maxf(1.2, 1.8 * s), Color.WHITE)
+		"chain", "arc_overload":
+			# Faísca de arco elétrico bifurcado
+			var spark := PackedVector2Array([
+				center + Vector2(-6.0 * s, -7.0 * s),
+				center + Vector2(0, -2.0 * s),
+				center + Vector2(7.0 * s, -4.0 * s),
+				center + Vector2(2.0 * s, 2.0 * s),
+				center + Vector2(6.0 * s, 7.5 * s)
+			])
+			control.draw_polyline(spark, Color.WHITE, maxf(1.4, 2.2 * s), true)
+			control.draw_circle(center + Vector2(0, -2.0 * s), maxf(1.2, 2.0 * s), color)
+		"echo", "seismic_echo":
+			# Ondas sísmicas concêntricas
+			control.draw_arc(center + Vector2(0, 3.0 * s), 4.0 * s, -PI * 0.85, -PI * 0.15, 12, Color.WHITE, maxf(1.2, 1.8 * s), true)
+			control.draw_arc(center + Vector2(0, 3.0 * s), 7.5 * s, -PI * 0.85, -PI * 0.15, 16, color, maxf(1.3, 2.0 * s), true)
+			control.draw_circle(center + Vector2(0, 3.0 * s), maxf(1.4, 2.2 * s), color)
+		"laser", "laser_rampage":
+			# Prisma laser hiperfocado
+			var prism := PackedVector2Array([
+				center + Vector2(0, -7.5 * s),
+				center + Vector2(6.5 * s, 5.5 * s),
+				center + Vector2(-6.5 * s, 5.5 * s),
+				center + Vector2(0, -7.5 * s)
+			])
+			control.draw_polyline(prism, color, maxf(1.3, 2.0 * s), true)
+			control.draw_line(center + Vector2(0, -7.5 * s), center + Vector2(0, 5.5 * s), Color.WHITE, maxf(1.2, 1.8 * s), true)
+		"explosion", "combustion":
+			# Estrela espinhosa de detonação
+			var exp_pts := PackedVector2Array()
+			for k in 12:
+				var ang: float = k * TAU / 12.0
+				var r: float = (8.5 * s) if (k % 2 == 0) else (4.0 * s)
+				exp_pts.append(center + Vector2.from_angle(ang) * r)
+			exp_pts.append(exp_pts[0])
+			control.draw_colored_polygon(exp_pts.slice(0, 12), Color(color, 0.3))
+			control.draw_polyline(exp_pts, color, maxf(1.2, 1.8 * s), true)
+			control.draw_circle(center, maxf(1.5, 2.2 * s), Color.WHITE)
+		"glass_cannon":
+			# Canhão pontiagudo com fenda de cristal
+			control.draw_line(center + Vector2(0, 7.5 * s), center + Vector2(0, -8.0 * s), Color.WHITE, maxf(1.5, 2.5 * s), true)
+			control.draw_line(center + Vector2(-5.5 * s, 5.0 * s), center + Vector2(0, -8.0 * s), color, maxf(1.2, 1.8 * s), true)
+			control.draw_line(center + Vector2(5.5 * s, 5.0 * s), center + Vector2(0, -8.0 * s), color, maxf(1.2, 1.8 * s), true)
+			control.draw_circle(center + Vector2(0, -8.0 * s), maxf(1.5, 2.5 * s), Color("ff88aa"))
+		"vampire", "quantum_vampirism":
+			# Runa de dreno quântico
+			control.draw_arc(center, 6.5 * s, PI * 0.6, PI * 1.4, 12, color, maxf(1.3, 2.0 * s), true)
+			control.draw_arc(center, 6.5 * s, -PI * 0.4, PI * 0.4, 12, Color.WHITE, maxf(1.3, 2.0 * s), true)
+			control.draw_line(center + Vector2(0, -6.5 * s), center + Vector2(0, 6.5 * s), color, maxf(1.2, 1.8 * s), true)
+		"orbital", "orbital_strike":
+			# Órbitas cruzadas e satélite orbital
+			control.draw_circle(center, maxf(1.8, 3.0 * s), Color.WHITE)
+			control.draw_arc(center, 7.5 * s, 0.0, TAU, 20, Color(color, 0.7), maxf(1.1, 1.6 * s), true)
+			control.draw_circle(center + Vector2(7.5 * s, 0), maxf(1.2, 1.8 * s), Color.WHITE)
+			control.draw_circle(center + Vector2(-5.0 * s, -5.0 * s), maxf(1.0, 1.5 * s), color)
+		"midas", "midas_touch":
+			# Coroa áurea cibernética
+			var crown := PackedVector2Array([
+				center + Vector2(-7.0 * s, 4.5 * s),
+				center + Vector2(-6.0 * s, -4.5 * s),
+				center + Vector2(-2.5 * s, 0.0),
+				center + Vector2(0, -6.5 * s),
+				center + Vector2(2.5 * s, 0.0),
+				center + Vector2(6.0 * s, -4.5 * s),
+				center + Vector2(7.0 * s, 4.5 * s),
+				center + Vector2(-7.0 * s, 4.5 * s)
+			])
+			control.draw_polyline(crown, color, maxf(1.3, 2.0 * s), true)
+			control.draw_circle(center + Vector2(0, -6.5 * s), maxf(1.2, 1.8 * s), Color.WHITE)
 		_:
 			control.draw_circle(center, maxf(2.0, 3.5 * s), Color.WHITE)
+
 
 static func draw_piece_icon(control: Control, kind: int, size: float = 14.0, custom_center: Vector2 = Vector2(-1, -1)) -> void:
 	var center: Vector2 = custom_center if custom_center.x >= 0.0 else control.size * 0.5

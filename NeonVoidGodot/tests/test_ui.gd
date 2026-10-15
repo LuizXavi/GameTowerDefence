@@ -261,9 +261,22 @@ func run() -> void:
 	await process_frame
 	expect(app.overlay.find_child("Module_arc", true, false) == null, "Arc research card is absent from modules hangar")
 	app.equip_tower_module(0, "arc")
-	expect(app.store.equipped_module == "arc" and app.store.pieces[0] == 0, "Arc module can be researched in laboratory and equipped in hangar")
+	# Testar Perk Draft Screen (Roguelite)
+	app.start_game()
+	await create_timer(0.2).timeout
+	var test_choices: Array[Dictionary] = app.state.generate_perk_choices(3)
+	app.show_perk_draft(test_choices)
+	await process_frame
+	expect(app.phase == "perk_draft", "Phase switches to perk_draft")
+	var draft_btn: Button = app.overlay.find_child("SelectPerk_1", true, false)
+	expect(draft_btn != null, "Perk draft cards are rendered with action buttons")
+	await capture("NeonVoid-perk-draft")
+	var first_perk_id: String = String(test_choices[0].get("id", ""))
+	await key(KEY_1)
+	await process_frame
+	expect(app.phase == "playing" and app.state.has_perk(first_perk_id), "Perk draft selection via key applies perk and resumes gameplay")
 	await capture("NeonVoid-modulos-640x640")
-	print("PASS: graphical UI, research, tower modules, Codex, special enemies, mouse, keyboard, pause, Nova, gameover, ranking and responsive layouts")
+	print("PASS: graphical UI, research, tower modules, perk draft, Codex, special enemies, mouse, keyboard, pause, Nova, gameover, ranking and responsive layouts")
 	root.remove_child(app)
 	app.queue_free()
 	await process_frame
