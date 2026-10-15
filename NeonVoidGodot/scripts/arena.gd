@@ -9,10 +9,18 @@ var trauma := 0.0
 var flash := 0.0
 var red := 0.0
 var clock := 0.0
+var preview_tower_id: int = -1
+var preview_pos: Vector2 = Vector2.ZERO
+var preview_radius: float = 0.0
+var hovered_tower_slot: int = -1
 var font = preload("res://assets/fonts/DisplayBold.tres")
 var background: GradientTexture2D
 @onready var hit_particles: CPUParticles2D = get_node_or_null("HitParticles")
 @onready var nova_particles: CPUParticles2D = get_node_or_null("NovaParticles")
+
+var screen_shake := ScreenShake.new()
+var damage_numbers := DamageNumbers.new()
+var boss_defeat_fx := BossDefeatFX.new()
 
 func _ready() -> void:
 	clip_contents = true
@@ -24,11 +32,104 @@ func _ready() -> void:
 	for i in 100:
 		stars.append(Vector3(randf(), randf(), randf_range(0.5, 1.8)))
 	gui_input.connect(_input_arena)
+	mouse_exited.connect(func():
+		hovered_tower_slot = -1
+		if is_instance_valid(state):
+			state.range_preview_cleared.emit()
+	)
+	if Accessibility.instance:
+		screen_shake.set_enabled(not Accessibility.instance.reduce_shake)
+		Accessibility.instance.settings_changed.connect(func():
+			screen_shake.set_enabled(not Accessibility.instance.reduce_shake)
+		)
+	if is_instance_valid(state):
+		_connect_state_preview()
+
+func set_state(new_state: VoidState) -> void:
+	state = new_state
+	if is_instance_valid(state):
+		_connect_state_preview()
+
+func _connect_state_preview() -> void:
+	if not state.is_connected("range_preview_requested", _on_range_preview_requested):
+		state.range_preview_requested.connect(_on_range_preview_requested)
+	if not state.is_connected("range_preview_cleared", _on_range_preview_cleared):
+		state.range_preview_cleared.connect(_on_range_preview_cleared)
+	if not state.is_connected("screen_shake_requested", _on_screen_shake_requested):
+		state.screen_shake_requested.connect(_on_screen_shake_requested)
+	if not state.is_connected("boss_defeat_cinematic", _on_boss_defeat_cinematic):
+		state.boss_defeat_cinematic.connect(_on_boss_defeat_cinematic)
+	if not state.is_connected("damage_dealt", _on_damage_dealt):
+		state.damage_dealt.connect(_on_damage_dealt)
+
+func _on_screen_shake_requested(shake_type: String, custom_intensity: float) -> void:
+	screen_shake.add_event_shake(shake_type, custom_intensity)
+
+func _on_boss_defeat_cinematic(boss_pos: Vector2, _boss_data: Dictionary) -> void:
+	var reduce: bool = false
+	if Accessibility.instance and (Accessibility.instance.reduce_shake or Accessibility.instance.reduce_motion):
+		reduce = true
+	boss_defeat_fx.trigger(boss_pos, reduce)
+
+func _on_damage_dealt(target_id: int, pos: Vector2, amount: float, damage_type: String, is_crit: bool, extra: String) -> void:
+	damage_numbers.spawn_number(target_id, pos, amount, damage_type, is_crit, extra)
+
+func _on_range_preview_requested(tower_id: int, pos: Vector2, radius: float) -> void:
+	preview_tower_id = tower_id
+	preview_pos = pos
+	preview_radius = radius
+	queue_redraw()
+
+func _on_range_preview_cleared() -> void:
+	preview_tower_id = -1
+	preview_radius = 0.0
+	queue_redraw()
 
 func _input_arena(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+	if event is InputEventMouseMotion:
+		_check_tower_hover(event.position)
+	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		state.tap(event.position)
 		accept_event()
+
+func _check_tower_hover(mouse_pos: Vector2) -> void:
+	if state == null or not state.running:
+		return
+	var found_slot := -1
+	for slot_idx in state.tower_slots.size():
+		var pos := state.tower_position(slot_idx)
+		if mouse_pos.distance_to(pos) <= 24.0:
+			found_slot = slot_idx
+			break
+	if found_slot != hovered_tower_slot:
+		hovered_tower_slot = found_slot
+		if hovered_tower_slot >= 0:
+			var slot_pos := state.tower_position(hovered_tower_slot)
+			var r: float = get_tower_attack_range(hovered_tower_slot)
+			state.range_preview_requested.emit(hovered_tower_slot, slot_pos, r)
+		else:
+			state.range_preview_cleared.emit()
+
+func get_tower_attack_range(slot_index: int) -> float:
+	if state == null or slot_index < 0 or slot_index >= state.tower_slots.size():
+		return 180.0
+	var mod_id: String = state.tower_slots[slot_index].module_id
+	var range_mult: float = 1.0 + float(state.upg_level("tower_range")) * 0.15
+	match mod_id:
+		"pulse":
+			return state.bounds.x * 0.75 * range_mult
+		"vortex":
+			return (160.0 + float(state.research[29]) * 12.0) * range_mult
+		"railgun":
+			return state.bounds.y * 1.1 * range_mult
+		"cryo":
+			return 210.0 * range_mult
+		"arc":
+			return (160.0 + float(state.research[23]) * 18.0) * range_mult
+		"laser":
+			return 240.0 * range_mult
+		_:
+			return 200.0 * range_mult
 
 func fx(kind: String, point: Vector2, color: Color, words: String) -> void:
 	if kind != "text":
@@ -64,6 +165,9 @@ func clear_fx() -> void:
 	trauma = 0
 	flash = 0
 	red = 0
+	screen_shake.stop()
+	damage_numbers.clear()
+	boss_defeat_fx.reset()
 
 func _process(dt: float) -> void:
 	if state == null or state.paused:
@@ -73,6 +177,9 @@ func _process(dt: float) -> void:
 	trauma = maxf(0, trauma - dt * 1.6)
 	flash = maxf(0, flash - dt * 2.2)
 	red = maxf(0, red - dt * 1.8)
+	screen_shake.update(dt)
+	damage_numbers.update(dt)
+	boss_defeat_fx.update(dt)
 	for p in particles.duplicate():
 		p.life -= dt
 		p.v.y += 320 * dt
@@ -90,9 +197,19 @@ func _process(dt: float) -> void:
 	queue_redraw()
 
 func glow_line(a: Vector2, b: Vector2, color: Color, width := 2.0) -> void:
-	for w in [14.0, 8.0, 4.0]:
-		draw_line(a, b, Color(color, 0.035), width + w, true)
-	draw_line(a, b, color, width, true)
+	var mapped_color: Color = Accessibility.remap_color(color)
+	if not PerformanceMode.is_enabled():
+		for w in [14.0, 8.0, 4.0]:
+			draw_line(a, b, Color(mapped_color, 0.035), width + w, true)
+	draw_line(a, b, mapped_color, width, true)
+
+func glow_line_circle(center_pos: Vector2, radius: float, color: Color, width := 2.0) -> void:
+	var mapped_color: Color = Accessibility.remap_color(color)
+	if not PerformanceMode.is_enabled():
+		for w in [12.0, 6.0, 3.0]:
+			draw_arc(center_pos, radius, 0, TAU, 48, Color(mapped_color, 0.04), width + w, true)
+	draw_arc(center_pos, radius, 0, TAU, 48, mapped_color, width, true)
+	draw_arc(center_pos, radius, 0, TAU, 48, Color.WHITE, 1.0, true)
 
 func text_at(words: String, point: Vector2, color: Color, font_size: int) -> void:
 	var start := point - Vector2(font.get_string_size(words, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x / 2, 0)
@@ -103,8 +220,11 @@ func _draw() -> void:
 	if state == null or background == null:
 		return
 	draw_texture_rect(background, Rect2(Vector2.ZERO, size), false)
-	var shake := Vector2(randf_range(-1, 1), randf_range(-1, 1)) * trauma * trauma * 22
-	draw_set_transform(shake)
+	var shake_offset: Vector2 = screen_shake.offset + Vector2(randf_range(-1, 1), randf_range(-1, 1)) * trauma * trauma * 22
+	if boss_defeat_fx.active and not is_equal_approx(boss_defeat_fx.current_zoom, 1.0):
+		draw_set_transform_matrix(boss_defeat_fx.get_zoom_transform(size).translated(shake_offset))
+	else:
+		draw_set_transform(shake_offset)
 	for star in stars:
 		draw_circle(Vector2(star.x, star.y) * size, star.z * 0.65, Color(1, 1, 1, 0.25 + 0.5 * (0.5 + 0.5 * sin(clock * star.z + star.x * 70))))
 	for x in range(22, int(size.x), 44):
@@ -211,7 +331,21 @@ func _draw() -> void:
 				_draw_railgun_attack(turret, slot.beam_target, slot.beam_chain, alpha)
 			else:
 				glow_line(turret, slot.beam_target, Color(module_color, alpha), 3.0)
-				draw_line(turret, slot.beam_target, Color.WHITE, 1.0, true)
+	# Preview de Alcance (Hover na torreta ou requisição externa)
+	if preview_radius > 0.0 and preview_tower_id >= 0:
+		var preview_col := Color("22e6ff")
+		if state != null and preview_tower_id < state.tower_slots.size():
+			var slot_mod: String = state.tower_slots[preview_tower_id].module_id
+			preview_col = GameData.MODULE_INFO.get(slot_mod, ["", "", preview_col])[2]
+		var pulse: float = sin(clock * TAU / 0.8) * 0.04
+		var eff_radius: float = preview_radius * (1.0 + pulse)
+		draw_circle(preview_pos, eff_radius, Color(preview_col, 0.08))
+		glow_line_circle(preview_pos, eff_radius, preview_col, 2.0)
+		if state != null and preview_tower_id < state.tower_slots.size():
+			var mid: String = state.tower_slots[preview_tower_id].module_id
+			if mid in ["pulse", "vortex"]:
+				var inner_r: float = eff_radius * 0.45
+				draw_arc(preview_pos, inner_r, 0, TAU, 32, Color(preview_col, 0.6), 1.5, true)
 	for enemy in state.enemies:
 		draw_enemy(enemy)
 	for proj in state.enemy_projectiles:
@@ -222,14 +356,25 @@ func _draw() -> void:
 		draw_arc(ring.p, 6 + (ring.max - 6) * (1 - pow(ring.life / 0.4, 3)), 0, TAU, 64, Color(ring.color, ring.life / 0.4), 2, true)
 	for f in floaters:
 		text_at(f.text, f.p, Color(f.color, minf(1, f.life * 1.8)), f.size)
+	if damage_numbers != null and damage_numbers.enabled:
+		for entry in damage_numbers.pool:
+			if not entry.active:
+				continue
+			var alpha: float = clampf(entry.life / 0.25, 0.0, 1.0)
+			var display_str: String = entry.text
+			if not entry.extra_text.is_empty():
+				display_str += " " + entry.extra_text
+			var font_size: int = roundi(16 * entry.scale) if entry.is_crit else roundi(12 * entry.scale)
+			text_at(display_str, entry.position, Color(entry.color, alpha), font_size)
 	if state.banner_time > 0 and state.running:
 		text_at(state.banner, size * Vector2(0.5, 0.32), Color(0.9, 0.8, 1, minf(1, state.banner_time)), 32)
 	if state.combo >= 5:
-		text_at("x%d   •   x%.2f dano + ouro" % [state.combo, state.multiplier()], Vector2(215, 35), Color("ffb02e"), 14)
+		var combo_str: String = I18n.t("arena.combo_format", "x%d   •   x%.2f dano + ouro")
+		text_at(combo_str % [state.combo, state.multiplier()], Vector2(215, 35), Color("ffb02e"), 14)
 	if state.play_time < 4 and state.kills == 0:
-		text_at("TOQUE NOS INIMIGOS!", size * Vector2(0.5, 0.46), Color("a5f3fc"), 19)
+		text_at(I18n.t("arena.tap_hint", "TOQUE NOS INIMIGOS!"), size * Vector2(0.5, 0.46), Color("a5f3fc"), 19)
 	if state.hp <= state.max_hp * 0.32:
-		text_at("BASE CRÍTICA — PROTEJA O NÚCLEO", Vector2(size.x / 2, 70), Color("ff7799"), 14)
+		text_at(I18n.t("arena.critical_base", "BASE CRÍTICA — PROTEJA O NÚCLEO"), Vector2(size.x / 2, 70), Color("ff7799"), 14)
 	draw_set_transform(Vector2.ZERO)
 	if flash > 0:
 		draw_rect(Rect2(Vector2.ZERO, size), Color(1, 1, 1, flash * 0.45))
@@ -243,6 +388,25 @@ func draw_enemy_projectile(proj: Dictionary) -> void:
 	var p_vel: Vector2 = proj.v
 	var p_col: Color = proj.color
 	var p_rad: float = float(proj.get("radius", 5.0))
+	var is_tele: bool = bool(proj.get("is_telegraphed", false))
+	var tele_t: float = float(proj.get("telegraph_timer", 0.0))
+
+	if is_tele:
+		var target_pos: Vector2 = proj.get("target_pos", p_pos + Vector2(0, 150))
+		if tele_t > 0.0:
+			draw_line(p_pos, target_pos, Color(p_col, 0.40 + 0.35 * sin(clock * 20.0)), 2.0)
+			draw_arc(target_pos, 16.0, 0, TAU, 16, Color(p_col, 0.6 + 0.4 * sin(clock * 16.0)), 2.0, true)
+			draw_arc(p_pos, p_rad + 8.0 * tele_t, 0, TAU, 24, Color.WHITE, 2.0, true)
+			text_at("!", p_pos, Color.WHITE, 13)
+		else:
+			draw_line(p_pos, target_pos, Color(p_col, 0.2), 1.0)
+			draw_arc(target_pos, 14.0, 0, TAU, 16, Color(p_col, 0.4), 1.5, true)
+			draw_arc(p_pos, p_rad + 3.0, 0, TAU, 20, Color(p_col, 0.9), 2.5, true)
+			draw_circle(p_pos, p_rad, p_col)
+			draw_circle(p_pos, p_rad * 0.5, Color.WHITE)
+			text_at("✦", p_pos, Color.WHITE, 11)
+		return
+
 	var dir: Vector2 = p_vel.normalized() if p_vel.length_squared() > 0.01 else Vector2.DOWN
 	var tail_pos: Vector2 = p_pos - dir * (p_rad * 3.6)
 	glow_line(tail_pos, p_pos, Color(p_col, 0.85), p_rad * 1.1)
@@ -429,27 +593,43 @@ func draw_enemy(enemy: Dictionary) -> void:
 		text_at("DUPLICADOR", enemy.p - Vector2(0, radius + 20), Color("ff8bea"), 10)
 	elif enemy.variant == "thief":
 		text_at("LADRÃO", enemy.p - Vector2(0, radius + 20), Color("ffb02e"), 10)
-	if enemy.hp < enemy.max_hp:
-		var width := maxf(30, radius * 1.9)
-		var rect := Rect2(enemy.p.x - width / 2, enemy.p.y - radius - 13, width, 4)
-		draw_rect(rect.grow(1), Color(0, 0, 0, 0.7))
-		rect.size.x *= maxf(0, enemy.hp / enemy.max_hp)
-		draw_rect(rect, color)
-	if enemy.type == 3:
+	var is_boss: bool = (enemy.type == 3)
+	var is_miniboss: bool = bool(enemy.get("is_miniboss", false))
+	if enemy.hp < enemy.max_hp or is_boss or is_miniboss:
+		var width := maxf(74, radius * 2.2) if is_boss else (maxf(48, radius * 2.0) if is_miniboss else maxf(30, radius * 1.9))
+		var rect := Rect2(enemy.p.x - width / 2, enemy.p.y - radius - (16 if is_boss else 13), width, 5 if is_boss else 4)
+		draw_rect(rect.grow(1), Color(0, 0, 0, 0.75))
+		var hp_rect := rect
+		hp_rect.size.x *= maxf(0, enemy.hp / enemy.max_hp)
+		draw_rect(hp_rect, color)
+		if is_boss:
+			var m66_x: float = rect.position.x + width * 0.66
+			var m33_x: float = rect.position.x + width * 0.33
+			draw_line(Vector2(m66_x, rect.position.y - 2), Vector2(m66_x, rect.position.y + rect.size.y + 2), Color.WHITE, 1.5)
+			draw_line(Vector2(m33_x, rect.position.y - 2), Vector2(m33_x, rect.position.y + rect.size.y + 2), Color.WHITE, 1.5)
+
+	if is_boss:
 		draw_arc(enemy.p, radius + 16, -clock * 2, -clock * 2 + TAU * 0.85, 48, Color(color, 0.7 * visual_alpha), 2.5, true)
 		draw_arc(enemy.p, radius + 21, clock * 1.5, clock * 1.5 + TAU * 0.6, 40, Color(color.lightened(0.25), 0.5 * visual_alpha), 2.0, true)
 		var boss_title: String = str(enemy.get("boss_name", "BOSS SUPREMO"))
-		if enemy.get("overload", false):
+		var b_phase: int = int(enemy.get("boss_phase", 1))
+		var invul: float = float(enemy.get("invulnerable_timer", 0.0))
+		if invul > 0.0:
+			draw_arc(enemy.p, radius + 30.0 * (1.0 - invul * 0.5), 0, TAU, 32, Color.WHITE, 3.0, true)
+			text_at("INVULNERÁVEL", enemy.p - Vector2(0, radius + 36), Color.WHITE, 12)
+		if b_phase >= 2:
 			draw_arc(enemy.p, radius + 26, clock * 6.0, clock * 6.0 + TAU, 32, Color("ff007f", 0.9 * visual_alpha), 3.0, true)
 			for spk in 8:
 				var spk_ang: float = clock * 4.0 + float(spk) * TAU / 8.0
 				var p1: Vector2 = enemy.p + Vector2.from_angle(spk_ang) * (radius + 18.0)
 				var p2: Vector2 = enemy.p + Vector2.from_angle(spk_ang) * (radius + 28.0)
 				glow_line(p1, p2, Color("ff007f", visual_alpha), 2.5)
-			text_at("OVERLOAD // FASE 2", enemy.p - Vector2(0, radius + 38), Color("ff007f"), 11)
-			text_at("— " + boss_title + " —", enemy.p - Vector2(0, radius + 24), Color("ff007f").lightened(0.3), 13)
+			text_at("FASE %d // %s" % [b_phase, boss_title], enemy.p - Vector2(0, radius + 24), Color("ff007f").lightened(0.3), 13)
 		else:
-			text_at("— " + boss_title + " —", enemy.p - Vector2(0, radius + 24), color, 13)
+			text_at("FASE 1 // %s" % boss_title, enemy.p - Vector2(0, radius + 24), color, 13)
+	elif is_miniboss:
+		draw_arc(enemy.p, radius + 8.0 + sin(clock * 6.0) * 2.0, 0, TAU, 32, Color("ffb02e", 0.8), 2.0, true)
+		text_at(str(enemy.get("miniboss_name", "MINI-CHEFE")), enemy.p - Vector2(0, radius + 20), Color("ffb02e"), 11)
 
 func _draw_plasma_attack(from: Vector2, to: Vector2, alpha: float) -> void:
 	AttackVFX.draw_plasma(self, from, to, alpha)

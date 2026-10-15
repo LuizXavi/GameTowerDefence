@@ -8,6 +8,7 @@ var path := "user://records_v1.json"
 var scores: Array = []
 var best := 0
 var muted := false
+var language: String = I18n.LANG_PT
 var writable := true
 var pieces: Array[int] = [0, 0, 0, 0]
 var research: Array[int] = GameData.empty_research()
@@ -19,6 +20,10 @@ var highest_wave := 1
 var tower_modules: Dictionary = {"plasma": true, "cryo": false, "arc": false, "pulse": false, "laser": false, "vortex": false, "railgun": false}
 var unlocked_tower_slots := 1
 var tower_loadout: Array[String] = ["plasma", "plasma", "plasma", "plasma", "plasma", "plasma", "plasma"]
+var ui_filters: Dictionary = {"research": {}, "codex": {}}
+var reduce_shake: bool = false
+var reduce_effects: bool = false
+var damage_numbers: bool = true
 var equipped_module: String:
 	get:
 		return tower_loadout[0]
@@ -29,7 +34,7 @@ var equipped_module: String:
 const RESEARCH_MAX := GameData.RESEARCH_MAX
 const RESEARCH_BASE_COSTS := GameData.RESEARCH_BASE_COSTS
 const RESEARCH_PIECE_INDEX := GameData.RESEARCH_PIECE_INDEX
-const SCHEMA_VERSION := 13
+const SCHEMA_VERSION := 14
 const SLOT_WAVES := GameData.SLOT_WAVES
 const SLOT_COSTS := GameData.SLOT_COSTS
 const MODULE_WAVES := GameData.MODULE_WAVES
@@ -120,12 +125,36 @@ func migrate(data: Dictionary) -> Dictionary:
 			migrated["achievements"] = []
 		version = 12
 	if version == 12:
-		migrated["version"] = SCHEMA_VERSION
+		migrated["version"] = 13
 		var cur_res12: Array = migrated.get("research", [])
-		while cur_res12.size() < GameData.RESEARCH_COUNT:
+		while cur_res12.size() < 31:
 			cur_res12.append(0)
 		migrated["research"] = cur_res12
 		version = 13
+	if version == 13:
+		migrated["version"] = SCHEMA_VERSION
+		var old_res: Array = migrated.get("research", [])
+		var new_res: Array = []
+		new_res.resize(GameData.RESEARCH_COUNT)
+		new_res.fill(0)
+		for i in mini(18, old_res.size()):
+			new_res[i] = int(old_res[i])
+		for i in 7:
+			var old_idx: int = 18 + i
+			var old_val: int = int(old_res[old_idx]) if old_idx < old_res.size() else 0
+			var new_base: int = 18 + i * 2
+			new_res[new_base] = old_val
+			new_res[new_base + 1] = old_val
+		for i in 3:
+			var old_idx: int = 25 + i
+			var old_val: int = int(old_res[old_idx]) if old_idx < old_res.size() else 0
+			new_res[32 + i] = old_val
+		for i in 3:
+			var old_idx: int = 28 + i
+			var old_val: int = int(old_res[old_idx]) if old_idx < old_res.size() else 0
+			new_res[35 + i] = old_val
+		migrated["research"] = new_res
+		version = 14
 	return migrated
 
 func valid(data: Variant) -> bool:
@@ -199,6 +228,16 @@ func valid(data: Variant) -> bool:
 	for module_id in loadout:
 		if not module_id is String or not modules.has(module_id) or not modules[module_id]:
 			return false
+	if data.has("language") and not (data.get("language") is String and data.language in [I18n.LANG_PT, I18n.LANG_EN]):
+		return false
+	if data.has("ui_filters") and not data.get("ui_filters") is Dictionary:
+		return false
+	if data.has("reduce_shake") and not data.get("reduce_shake") is bool:
+		return false
+	if data.has("reduce_effects") and not data.get("reduce_effects") is bool:
+		return false
+	if data.has("damage_numbers") and not data.get("damage_numbers") is bool:
+		return false
 	return true
 
 func read_data(file_path: String) -> Variant:
@@ -219,7 +258,7 @@ func is_legacy_schema(data: Variant) -> bool:
 	if not data is Dictionary:
 		return false
 	var version: Variant = data.get("version")
-	return (version is int or version is float) and is_finite(float(version)) and float(version) == floor(float(version)) and int(version) in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+	return (version is int or version is float) and is_finite(float(version)) and float(version) == floor(float(version)) and int(version) in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 
 func load_data() -> void:
 	var data: Variant = read_data(path)
@@ -245,6 +284,12 @@ func load_data() -> void:
 		scores = scores.slice(0, 10)
 		best = int(data.best)
 		muted = data.muted
+		language = str(data.get("language", I18n.LANG_PT))
+		I18n.set_language(language)
+		ui_filters = data.get("ui_filters", {"research": {}, "codex": {}}).duplicate(true)
+		reduce_shake = bool(data.get("reduce_shake", false))
+		reduce_effects = bool(data.get("reduce_effects", false))
+		damage_numbers = bool(data.get("damage_numbers", true))
 		pieces.assign(data.pieces.map(func(value): return int(value)))
 		research.assign(data.research.map(func(value): return int(value)))
 		while research.size() < GameData.RESEARCH_COUNT:
@@ -276,6 +321,11 @@ func save_data() -> bool:
 		"scores": scores,
 		"best": best,
 		"muted": muted,
+		"language": language,
+		"ui_filters": ui_filters,
+		"reduce_shake": reduce_shake,
+		"reduce_effects": reduce_effects,
+		"damage_numbers": damage_numbers,
 		"pieces": pieces,
 		"research": research,
 		"lab_research": lab_research,
@@ -327,6 +377,23 @@ func unlock_achievement(ach_id: String) -> bool:
 func is_achievement_unlocked(ach_id: String) -> bool:
 	return achievements.has(ach_id)
 
+func check_meta_achievements() -> void:
+	if unlocked_tower_slots >= 7:
+		unlock_achievement("all_slots")
+	var all_mods := true
+	for m in GameData.MODULE_IDS:
+		if not tower_modules.get(m, false):
+			all_mods = false
+			break
+	if all_mods:
+		unlock_achievement("all_towers")
+	var disc := 0
+	for eid in enemy_stats:
+		if enemy_stats[eid] is Dictionary and enemy_stats[eid].get("discovered", false):
+			disc += 1
+	if disc >= 10:
+		unlock_achievement("codex_10")
+
 func qualifies(value: int) -> bool:
 	return value > 0 and (scores.size() < 10 or value > scores[-1].score)
 
@@ -362,13 +429,13 @@ func active_research_name() -> String:
 	match type:
 		"research":
 			var idx := int(target)
-			return GameData.RESEARCH_NAMES[idx] if idx >= 0 and idx < GameData.RESEARCH_NAMES.size() else "Pesquisa"
+			return I18n.get_research_name(idx)
 		"lab":
 			var idx := int(target)
-			return GameData.LAB_RESEARCH_NAMES[idx] if idx >= 0 and idx < GameData.LAB_RESEARCH_NAMES.size() else "Laboratório"
+			return I18n.get_lab_research_name(idx)
 		"module":
 			var mid := str(target)
-			return str(GameData.MODULE_INFO.get(mid, ["Módulo", "", Color.WHITE])[0])
+			return str(I18n.get_module_info(mid)[0])
 		"slot":
 			return "Slot %d" % (int(target) + 1)
 	return ""
@@ -508,6 +575,7 @@ func start_module_research(module_id: String, instant := false) -> bool:
 	if instant:
 		tower_modules[module_id] = true
 		apply_resonance_cashback(p_idx)
+		check_meta_achievements()
 		return true
 	active_research = {
 		"type": "module",
@@ -552,6 +620,7 @@ func start_slot_research(index: int, instant := false) -> bool:
 	if instant:
 		unlocked_tower_slots += 1
 		apply_resonance_cashback(p_idx)
+		check_meta_achievements()
 		return true
 	active_research = {
 		"type": "slot",
@@ -603,6 +672,7 @@ func complete_active_research() -> void:
 	var res_name: String = active_research_name()
 	apply_resonance_cashback(p_idx)
 	active_research = {}
+	check_meta_achievements()
 	research_completed.emit(res_name, type)
 
 func equip_module_in_slot(index: int, module_id: String) -> bool:
@@ -621,13 +691,17 @@ func record_seen(enemy_id: String) -> bool:
 	if stats.discovered:
 		return false
 	stats.discovered = true
+	check_meta_achievements()
 	return true
 
 func record_kill(enemy_id: String, at_wave: int) -> void:
 	var stats := ensure_enemy(enemy_id)
+	var was_discovered: bool = stats.discovered
 	stats.discovered = true
 	stats.kills += 1
 	stats.max_wave = maxi(int(stats.max_wave), at_wave)
+	if not was_discovered:
+		check_meta_achievements()
 
 func record_piece(enemy_id: String, amount: int) -> void:
 	var stats := ensure_enemy(enemy_id)

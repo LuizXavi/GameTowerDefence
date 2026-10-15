@@ -36,7 +36,7 @@ static func build(app: Control, content: VBoxContainer) -> void:
 	header_box.add_theme_constant_override("separation", 3)
 	dynamic.add_child(header_box)
 
-	var title := UIFactory.center_label(header_box, "CODEX DOS INIMIGOS", 23, AMBER, true)
+	var title := UIFactory.center_label(header_box, I18n.t("codex.title", "CODEX DOS INIMIGOS"), 23, AMBER, true)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 	var total_known := 0
@@ -44,14 +44,15 @@ static func build(app: Control, content: VBoxContainer) -> void:
 		if app.store.enemy_stats.has(enemy_id) and app.store.enemy_stats[enemy_id].discovered:
 			total_known += 1
 
-	var progress_text := "Descobertas registradas no Void: %d / %d" % [total_known, CODEX_ORDER.size()]
+	var progress_fmt: String = I18n.t("codex.progress", "Descobertas registradas no Void: %d / %d")
+	var progress_text := progress_fmt % [total_known, CODEX_ORDER.size()]
 	var subtitle := UIFactory.center_label(header_box, progress_text, 15, Color("cfc7dd"))
 	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 	append_tab_bar(app, dynamic)
 	append_enemy_cards(app, dynamic)
 
-	var close := UIFactory.button("VOLTAR AO MENU", app.close_codex, AMBER)
+	var close := UIFactory.button(I18n.t("menu.back_to_menu", "VOLTAR AO MENU"), app.close_codex, AMBER)
 	close.name = "CloseCodex"
 	dynamic.add_child(close)
 
@@ -63,7 +64,8 @@ static func append_tab_bar(app: Control, parent: VBoxContainer) -> void:
 	parent.add_child(tabs_row)
 
 	for tab_id in GameData.CODEX_TABS:
-		var label_text: String = str(GameData.CODEX_TAB_LABELS.get(tab_id, tab_id.to_upper()))
+		var default_label: String = str(GameData.CODEX_TAB_LABELS.get(tab_id, tab_id.to_upper()))
+		var label_text: String = I18n.t("codex.tab." + tab_id, default_label)
 		var is_selected: bool = app.codex_tab == tab_id
 		var tab_color: Color = TAB_COLORS.get(tab_id, CYAN)
 		var btn_color: Color = tab_color if is_selected else Color("6e6382")
@@ -87,7 +89,8 @@ static func append_enemy_cards(app: Control, parent: VBoxContainer) -> void:
 		var known: bool = app.store.enemy_stats.has(enemy_id) and app.store.enemy_stats[enemy_id].discovered
 		shown_count += 1
 		if not known:
-			var unknown := UIFactory.button("◇  ???\nContinue avançando pelas waves para descobrir.", func(): pass, Color("42364f"))
+			var unknown_txt: String = I18n.t("codex.unknown_specimen", "◇  ???\nContinue avançando pelas waves para descobrir.")
+			var unknown := UIFactory.button(unknown_txt, func(): pass, Color("42364f"))
 			unknown.disabled = true
 			unknown.custom_minimum_size.y = 62
 			unknown.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -96,7 +99,7 @@ static func append_enemy_cards(app: Control, parent: VBoxContainer) -> void:
 			continue
 
 		discovered_in_tab += 1
-		var info: Array = ENEMY_INFO[enemy_id]
+		var info: Array = I18n.get_enemy_info(enemy_id)
 		var stats: Dictionary = app.store.enemy_stats[enemy_id]
 		var is_special_card: bool = enemy_id.begins_with("elite") or enemy_id.begins_with("boss")
 		var border_color: Color = AMBER if is_special_card else CYAN
@@ -124,20 +127,23 @@ static func append_enemy_cards(app: Control, parent: VBoxContainer) -> void:
 		title_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		text_col.add_child(title_lbl)
 
-		var line1 := "Abates: %d   •   Peças: %d   •   Maior wave: %d" % [stats.kills, stats.pieces, stats.max_wave]
+		var line1_fmt: String = I18n.t("codex.stats_line1", "Abates: %d   •   Peças: %d   •   Maior wave: %d")
+		var line1 := line1_fmt % [stats.kills, stats.pieces, stats.max_wave]
 		var lbl1 := UIFactory.label(line1, 14, Color.WHITE)
 		lbl1.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		text_col.add_child(lbl1)
 
-		var line2 := "Drop: %s   •   Fraqueza: %s" % [info[1], info[2]]
+		var line2_fmt: String = I18n.t("codex.stats_line2", "Drop: %s   •   Fraqueza: %s")
+		var line2 := line2_fmt % [info[1], info[2]]
 		var lbl2 := UIFactory.label(line2, 13, MUTED)
 		lbl2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		text_col.add_child(lbl2)
 
-		var line3 := "%s   •   Pesquisa: %s" % [info[3], info[4]]
+		var line3_fmt: String = I18n.t("codex.stats_line3", "%s   •   Pesquisa: %s")
+		var line3 := line3_fmt % [info[3], info[4]]
 		var lbl3 := UIFactory.label(line3, 13, MUTED)
 		lbl3.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		text_col.add_child(lbl3)
 
 	if shown_count == 0:
-		UIFactory.center_label(parent, "Nenhum espécime cadastrado nesta categoria.", 15, MUTED)
+		UIFactory.center_label(parent, I18n.t("codex.no_specimens", "Nenhum espécime cadastrado nesta categoria."), 15, MUTED)

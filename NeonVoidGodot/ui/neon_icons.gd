@@ -349,7 +349,7 @@ static func draw_ui(control: Control, icon_id: String, base_radius: float = 12.0
 				var dir := Vector2.from_angle(i * PI * 0.5)
 				control.draw_line(center, center + dir * (7.5 * s), color, maxf(1.4, 2.2 * s), true)
 			control.draw_circle(center, maxf(1.8, 2.5 * s), Color.WHITE)
-		"codex_bosses", "bosses":
+		"codex_bosses", "bosses", "boss":
 			# Coroa cibernética / brasão supremo de chefes
 			var crown := PackedVector2Array([
 				center + Vector2(-7.0 * s, -5.5 * s),
@@ -364,6 +364,52 @@ static func draw_ui(control: Control, icon_id: String, base_radius: float = 12.0
 			control.draw_colored_polygon(crown.slice(0, 7), Color(color, 0.25))
 			control.draw_polyline(crown, color, maxf(1.3, 2.0 * s), true)
 			control.draw_circle(center + Vector2(0, -1.0 * s), maxf(1.5, 2.2 * s), Color.WHITE)
+		"trophy", "achievement":
+			# Cálice/Troféu Cibernético com corpo facetado, alças e estrela
+			var cup := PackedVector2Array([
+				center + Vector2(-6.5 * s, -6.5 * s),
+				center + Vector2(6.5 * s, -6.5 * s),
+				center + Vector2(4.5 * s, 0.5 * s),
+				center + Vector2(-4.5 * s, 0.5 * s),
+				center + Vector2(-6.5 * s, -6.5 * s)
+			])
+			control.draw_colored_polygon(cup.slice(0, 4), Color(color, 0.25))
+			control.draw_polyline(cup, color, maxf(1.3, 2.0 * s), true)
+			control.draw_line(center + Vector2(0, 0.5 * s), center + Vector2(0, 5.5 * s), color, maxf(1.4, 2.2 * s), true)
+			var base_pts := PackedVector2Array([
+				center + Vector2(-5.5 * s, 5.5 * s),
+				center + Vector2(5.5 * s, 5.5 * s),
+				center + Vector2(7.0 * s, 8.0 * s),
+				center + Vector2(-7.0 * s, 8.0 * s),
+				center + Vector2(-5.5 * s, 5.5 * s)
+			])
+			control.draw_colored_polygon(base_pts.slice(0, 4), Color(color, 0.35))
+			control.draw_polyline(base_pts, color, maxf(1.2, 1.8 * s), true)
+			var left_handle := PackedVector2Array([
+				center + Vector2(-6.5 * s, -5.0 * s),
+				center + Vector2(-9.5 * s, -3.0 * s),
+				center + Vector2(-9.5 * s, -0.5 * s),
+				center + Vector2(-4.5 * s, 0.0)
+			])
+			control.draw_polyline(left_handle, color, maxf(1.2, 1.8 * s), true)
+			var right_handle := PackedVector2Array([
+				center + Vector2(6.5 * s, -5.0 * s),
+				center + Vector2(9.5 * s, -3.0 * s),
+				center + Vector2(9.5 * s, -0.5 * s),
+				center + Vector2(4.5 * s, 0.0)
+			])
+			control.draw_polyline(right_handle, color, maxf(1.2, 1.8 * s), true)
+			control.draw_circle(center + Vector2(0, -3.0 * s), maxf(1.4, 2.2 * s), Color.WHITE)
+		"progression":
+			# Chevrons cibernéticos ascendentes de avanço de ondas
+			for idx in [-1, 0, 1]:
+				var y_off: float = idx * 4.0 * s
+				var chev := PackedVector2Array([
+					center + Vector2(-6.0 * s, y_off + 2.0 * s),
+					center + Vector2(0, y_off - 3.0 * s),
+					center + Vector2(6.0 * s, y_off + 2.0 * s)
+				])
+				control.draw_polyline(chev, Color.WHITE if idx == 0 else color, maxf(1.2, 1.8 * s), true)
 		_:
 			control.draw_circle(center, maxf(2.0, 3.5 * s), Color.WHITE)
 

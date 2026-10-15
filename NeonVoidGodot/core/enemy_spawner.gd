@@ -177,7 +177,17 @@ static func spawn(state: RefCounted, kind: int = -1, forced_variant := "", force
 		enemy.shoot_timer = 2.2
 		enemy.teleport_timer = 3.2
 		enemy.summon_timer = 3.4
+		enemy.boss_phase = 1
+		enemy.boss_max_phases = 3
+		enemy.invulnerable_timer = 0.0
+		enemy.telegraph_timer = 2.5
 
+	if state.get("current_wave_event") is Dictionary and not state.current_wave_event.is_empty():
+		var evt: Dictionary = state.current_wave_event
+		if evt.has("speed_mult"):
+			enemy.speed *= float(evt.speed_mult)
+		if evt.has("gold_mult"):
+			enemy.gold = roundi(enemy.gold * float(evt.gold_mult))
 	if variant == "armored":
 		enemy.max_hp = roundi(enemy.max_hp * 1.6)
 		enemy.hp = float(enemy.max_hp)
@@ -332,3 +342,52 @@ static func spawn_split_children(state: RefCounted, parent: Dictionary) -> void:
 		child.leak = 3
 		child.speed = parent.speed * 1.25
 		child.p = parent.p + Vector2(direction * 14, 0)
+
+static func apply_miniboss(enemy: Dictionary, state: RefCounted) -> void:
+	enemy.is_miniboss = true
+	var cfg: Dictionary = GameData.MINI_BOSS_CONFIG if "MINI_BOSS_CONFIG" in GameData else {}
+	var hp_mult: float = float(cfg.get("hp_multiplier", 3.8))
+	var scale_mult: float = float(cfg.get("scale_multiplier", 1.45))
+	var gold_mult: float = float(cfg.get("bounty_gold_multiplier", 3.5))
+
+	enemy.max_hp = roundi(enemy.max_hp * hp_mult)
+	enemy.hp = float(enemy.max_hp)
+	enemy.radius = roundf(enemy.radius * scale_mult)
+	enemy.gold = roundi(enemy.gold * gold_mult)
+	enemy.score = roundi(enemy.score * gold_mult)
+	enemy.leak = roundi(enemy.leak * 2.0)
+	enemy.miniboss_name = "MINI-CHEFE // " + str(enemy.get("enemy_id", "ALVO")).to_upper()
+	if not enemy.modifiers.has("miniboss"):
+		enemy.modifiers.append("miniboss")
+
+static func shoot_telegraphed_from_boss(state: RefCounted, boss: Dictionary) -> void:
+	if not state.running or state.paused:
+		return
+	var phase: int = int(boss.get("boss_phase", 1))
+	var p_color: Color = boss.get("boss_color", COLORS[3])
+	var target_x: float = clampf(boss.p.x + randf_range(-60.0, 60.0), 40.0, state.bounds.x - 40.0)
+	var target_pos := Vector2(target_x, state.bounds.y - 30.0)
+	var dir: Vector2 = (target_pos - boss.p).normalized()
+
+	var count := 1 if phase == 2 else 3
+	for i in count:
+		var offset_ang: float = 0.0
+		if count > 1:
+			offset_ang = (float(i) - 1.0) * 0.25
+		var shot_dir: Vector2 = dir.rotated(offset_ang)
+		var proj_target: Vector2 = target_pos + Vector2((float(i) - 1.0) * 50.0, 0)
+		state.enemy_projectiles.append({
+			"p": boss.p + shot_dir * (boss.radius + 10.0),
+			"v": shot_dir * 175.0,
+			"target_pos": proj_target,
+			"radius": 13.0,
+			"damage": 12 + state.wave * 2,
+			"color": p_color,
+			"age": 0.0,
+			"is_telegraphed": true,
+			"telegraph_timer": 1.0
+		})
+	state.effect.emit("ring", boss.p, p_color, "ATAQUE TELEGRAFADO!")
+	if state.has_signal("screen_shake_requested"):
+		state.screen_shake_requested.emit("critical", 3.0)
+

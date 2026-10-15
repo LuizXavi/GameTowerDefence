@@ -21,6 +21,9 @@ busses/default_bus_layout="res://default_bus_layout.tres"
 [autoload]
 
 _mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
+Accessibility="*res://core/accessibility.gd"
+PerformanceMode="*res://core/performance_mode.gd"
+InputRouter="*res://core/input_router.gd"
 
 [display]
 

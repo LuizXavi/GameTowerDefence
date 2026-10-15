@@ -46,7 +46,7 @@ static func build(app: Control, initial_focus := false) -> void:
 
 	append_module_status(app, dynamic)
 
-	var close := UIFactory.button("VOLTAR AO MENU", app.close_research, CYAN)
+	var close := UIFactory.button(I18n.t("btn.back_menu"), app.close_research, CYAN)
 	close.name = "CloseResearch"
 	dynamic.add_child(close)
 
@@ -61,8 +61,16 @@ static func append_tab_bar(app: Control, parent: VBoxContainer) -> void:
 	tabs_row.add_theme_constant_override("separation", 6)
 	parent.add_child(tabs_row)
 
+	var tab_labels := {
+		"lab": I18n.t("lab.tab_lab"),
+		"attack": I18n.t("lab.tab_attack"),
+		"defense": I18n.t("lab.tab_defense"),
+		"economy": I18n.t("lab.tab_economy"),
+		"towers": I18n.t("lab.tab_towers")
+	}
+
 	for tab_id in GameData.RESEARCH_TABS:
-		var label_text: String = str(GameData.RESEARCH_TAB_LABELS.get(tab_id, tab_id.to_upper()))
+		var label_text: String = str(tab_labels.get(tab_id, tab_id.to_upper()))
 		var is_selected: bool = app.research_tab == tab_id
 		var tab_color: Color = CYAN if is_selected else Color("6e6382")
 		var tab_btn := UIFactory.tab_button(label_text, func(): app.select_research_tab(tab_id), tab_color, is_selected, 32)
@@ -91,7 +99,7 @@ static func append_active_research_banner(app: Control, parent: VBoxContainer) -
 	icon.draw.connect(func(): NeonIcons.draw_ui(icon, "tower_haste", 10.0, Vector2(14, 14), LIME))
 	header_row.add_child(icon)
 
-	var title := UIFactory.label("SÍNTESE EM ANDAMENTO: %s" % app.store.active_research_name(), 16, LIME, true)
+	var title := UIFactory.label(I18n.t("lab.active_synthesis") % app.store.active_research_name(), 16, LIME, true)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header_row.add_child(title)
 
@@ -104,7 +112,7 @@ static func append_active_research_banner(app: Control, parent: VBoxContainer) -
 	progress_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	banner.add_child(progress_bar)
 
-	var time_lbl := UIFactory.label("%.1fs restantes (%d%%)" % [app.store.active_research_remaining(), int(app.store.active_research_progress() * 100.0)], 14, CYAN)
+	var time_lbl := UIFactory.label(I18n.t("lab.remaining_time") % [app.store.active_research_remaining(), int(app.store.active_research_progress() * 100.0)], 14, CYAN)
 	time_lbl.name = "ActiveResearchTime"
 	banner.add_child(time_lbl)
 
@@ -115,10 +123,151 @@ static func update_progress(app: Control) -> void:
 	var lbl: Label = app.research_content.find_child("ActiveResearchTime", true, false)
 	if bar != null and lbl != null and app.store.is_researching():
 		bar.value = app.store.active_research_progress() * 100.0
-		lbl.text = "%.1fs restantes (%d%%)" % [app.store.active_research_remaining(), int(app.store.active_research_progress() * 100.0)]
+		lbl.text = I18n.t("lab.remaining_time") % [app.store.active_research_remaining(), int(app.store.active_research_progress() * 100.0)]
+
+static func build_research_card_button(
+	btn_name: String,
+	title_text: String,
+	desc_text: String,
+	piece_index: int,
+	cost: int,
+	duration: float,
+	current_pieces: int,
+	level: int,
+	maximum: int,
+	is_active: bool,
+	remaining_time: float,
+	is_busy: bool,
+	can_buy: bool,
+	border_color: Color,
+	icon_name: String,
+	is_tower_icon: bool,
+	callback: Callable
+) -> Button:
+	var btn := Button.new()
+	btn.name = btn_name
+	btn.text = ""
+	btn.custom_minimum_size.y = 92
+	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	btn.disabled = not can_buy
+
+	var normal_box := UIFactory.box(border_color, Color("140b29"), 12, 14, 14, 8, 8)
+	btn.add_theme_stylebox_override("normal", normal_box)
+	var hover_box := UIFactory.box(border_color, Color("281448"), 12, 14, 14, 8, 8)
+	hover_box.border_color = border_color
+	hover_box.shadow_color = Color(border_color, 0.25)
+	hover_box.shadow_size = 10
+	btn.add_theme_stylebox_override("hover", hover_box)
+	btn.add_theme_stylebox_override("pressed", UIFactory.box(border_color, Color("38204d"), 12, 14, 14, 8, 8))
+	btn.add_theme_stylebox_override("focus", UIFactory.box(border_color, Color(0, 0, 0, 0), 12, 14, 14, 8, 8))
+	btn.add_theme_stylebox_override("disabled", UIFactory.box(Color("42364f"), Color("100a20"), 12, 14, 14, 8, 8))
+
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.add_theme_constant_override("margin_left", 14)
+	margin.add_theme_constant_override("margin_right", 14)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_bottom", 8)
+	btn.add_child(margin)
+
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 12)
+	margin.add_child(row)
+
+	var text_col := VBoxContainer.new()
+	text_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text_col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	text_col.add_theme_constant_override("separation", 3)
+	row.add_child(text_col)
+
+	# Linha 1: Ícone Neon da Peça + Título + Nível
+	var head_row := HBoxContainer.new()
+	head_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head_row.add_theme_constant_override("separation", 7)
+	text_col.add_child(head_row)
+
+	var head_p_icon := Control.new()
+	head_p_icon.custom_minimum_size = Vector2(16, 16)
+	head_p_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head_p_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head_p_icon.draw.connect(func(): NeonIcons.draw_piece_icon(head_p_icon, piece_index, 14.0, Vector2(8, 8)))
+	head_row.add_child(head_p_icon)
+
+	var title_lbl := UIFactory.label("%s  •  Nv.%d/%d" % [title_text, level, maximum], 15, Color.WHITE, true)
+	title_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head_row.add_child(title_lbl)
+
+	# Linha 2: Descrição
+	var desc_lbl := UIFactory.label(desc_text, 14, Color("d4cee0"))
+	desc_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	text_col.add_child(desc_lbl)
+
+	# Linha 3: Requisitos com Ícones Procedurais Neon das Peças
+	var req_row := HBoxContainer.new()
+	req_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	req_row.add_theme_constant_override("separation", 5)
+	text_col.add_child(req_row)
+
+	if is_active:
+		var act_lbl := UIFactory.label(I18n.t("lab.in_synthesis") % remaining_time, 13, LIME, true)
+		act_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		req_row.add_child(act_lbl)
+	elif level >= maximum:
+		var max_lbl := UIFactory.label(I18n.t("lab.completed"), 13, LIME, true)
+		max_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		req_row.add_child(max_lbl)
+	elif is_busy:
+		var busy_lbl := UIFactory.label(I18n.t("lab.busy") % cost, 13, MUTED)
+		busy_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		req_row.add_child(busy_lbl)
+		var busy_icon := Control.new()
+		busy_icon.custom_minimum_size = Vector2(14, 14)
+		busy_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		busy_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		busy_icon.draw.connect(func(): NeonIcons.draw_piece_icon(busy_icon, piece_index, 13.0, Vector2(7, 7)))
+		req_row.add_child(busy_icon)
+	else:
+		var cost_lbl := UIFactory.label(I18n.t("lab.cost") % cost, 13, Color("cfc7dd"))
+		cost_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		req_row.add_child(cost_lbl)
+
+		var cost_icon := Control.new()
+		cost_icon.custom_minimum_size = Vector2(14, 14)
+		cost_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		cost_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cost_icon.draw.connect(func(): NeonIcons.draw_piece_icon(cost_icon, piece_index, 13.0, Vector2(7, 7)))
+		req_row.add_child(cost_icon)
+
+		var time_lbl := UIFactory.label(I18n.t("lab.time_have") % [int(duration), current_pieces], 13, Color("cfc7dd"))
+		time_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		req_row.add_child(time_lbl)
+
+		var have_icon := Control.new()
+		have_icon.custom_minimum_size = Vector2(14, 14)
+		have_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		have_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		have_icon.draw.connect(func(): NeonIcons.draw_piece_icon(have_icon, piece_index, 13.0, Vector2(7, 7)))
+		req_row.add_child(have_icon)
+
+	# Coluna da Direita: Ícone do Módulo ou Pesquisa
+	var icon_ctrl := Control.new()
+	icon_ctrl.custom_minimum_size = Vector2(38, 38)
+	icon_ctrl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	icon_ctrl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if is_tower_icon:
+		icon_ctrl.draw.connect(func(): NeonIcons.draw_tower(icon_ctrl, icon_name, 12.0, Vector2(19, 19)))
+	else:
+		icon_ctrl.draw.connect(func(): NeonIcons.draw_ui(icon_ctrl, icon_name, 12.0, Vector2(19, 19), border_color))
+	row.add_child(icon_ctrl)
+
+	btn.pressed.connect(callback)
+	return btn
 
 static func append_lab_tab(app: Control, parent: VBoxContainer) -> void:
-	app.section_header_with_icon(parent, "MELHORIAS DO LABORATÓRIO", "lab", AMBER)
+	app.section_header_with_icon(parent, I18n.t("lab.header_lab", "MELHORIAS DO LABORATÓRIO"), "lab", AMBER)
 	var shown := 0
 	for i in GameData.LAB_RESEARCH_COUNT:
 		var level: int = app.store.lab_research[i]
@@ -133,54 +282,58 @@ static func append_lab_tab(app: Control, parent: VBoxContainer) -> void:
 		var is_busy: bool = app.store.is_researching() and not is_active
 		var can_buy: bool = app.store.can_lab_research(i) and not is_busy
 
-		var words := "%s  %s  •  Nv.%d/%d\n%s\n" % [PIECE_SHORT[p_idx], GameData.LAB_RESEARCH_NAMES[i], level, maximum, GameData.LAB_RESEARCH_DESCS[i]]
-		if is_active:
-			words += "⚡ EM SÍNTESE  •  %.1fs restantes" % app.store.active_research_remaining()
-		elif level >= maximum:
-			words += "✓ UPGRADE CONCLUÍDO"
-		elif is_busy:
-			words += "LABORATÓRIO OCUPADO  •  Custo: %d %s" % [cost, PIECE_SHORT[p_idx]]
-		else:
-			words += "Custo: %d %s  •  Tempo: %ds  •  Você tem: %d" % [cost, PIECE_SHORT[p_idx], int(duration), app.store.pieces[p_idx]]
-
 		var btn_color: Color = COLORS[p_idx]
-		var btn := UIFactory.card_button(words, func(): app.buy_lab_research(i), btn_color, "right", 58)
-		btn.name = "LabResearch%d" % (i + 1)
-		btn.custom_minimum_size.y = 82
-		btn.disabled = not can_buy
 		var icon_name: String = GameData.LAB_RESEARCH_ICONS[i]
-		btn.draw.connect(func(): NeonIcons.draw_ui(btn, icon_name, 12.5, Vector2(btn.size.x - 29.0, btn.size.y * 0.5), btn_color))
+		var btn := build_research_card_button(
+			"LabResearch%d" % (i + 1),
+			I18n.get_lab_research_name(i),
+			I18n.get_lab_research_desc(i),
+			p_idx,
+			cost,
+			duration,
+			app.store.pieces[p_idx],
+			level,
+			maximum,
+			is_active,
+			app.store.active_research_remaining(),
+			is_busy,
+			can_buy,
+			btn_color,
+			icon_name,
+			false,
+			func(): app.buy_lab_research(i)
+		)
 		parent.add_child(btn)
 
 	if shown == 0 and app.hide_completed_research:
-		UIFactory.center_label(parent, "✓ Todas as melhorias do laboratório foram concluídas.", 15, LIME)
+		UIFactory.center_label(parent, I18n.t("lab.all_lab_done", "✓ Todas as melhorias do laboratório foram concluídas."), 15, LIME)
 
 static func append_attack_tab(app: Control, parent: VBoxContainer) -> void:
-	app.section_header_with_icon(parent, "PESQUISAS DE ATAQUE E COMBATE", "attack", PINK)
+	app.section_header_with_icon(parent, I18n.t("lab.header_attack", "PESQUISAS DE ATAQUE E COMBATE"), "attack", PINK)
 	var shown := 0
 	for i in GameData.RESEARCH_TAB_INDICES["attack"]:
 		if append_research_card(app, parent, i):
 			shown += 1
 	if shown == 0 and app.hide_completed_research:
-		UIFactory.center_label(parent, "✓ Todas as pesquisas ofensivas foram concluídas.", 15, LIME)
+		UIFactory.center_label(parent, I18n.t("lab.all_attack_done", "✓ Todas as pesquisas ofensivas foram concluídas."), 15, LIME)
 
 static func append_defense_tab(app: Control, parent: VBoxContainer) -> void:
-	app.section_header_with_icon(parent, "PESQUISAS DE DEFESA E ESCUDOS", "defense", CYAN)
+	app.section_header_with_icon(parent, I18n.t("lab.header_defense", "PESQUISAS DE DEFESA E ESCUDOS"), "defense", CYAN)
 	var shown := 0
 	for i in GameData.RESEARCH_TAB_INDICES["defense"]:
 		if append_research_card(app, parent, i):
 			shown += 1
 	if shown == 0 and app.hide_completed_research:
-		UIFactory.center_label(parent, "✓ Todas as pesquisas defensivas foram concluídas.", 15, LIME)
+		UIFactory.center_label(parent, I18n.t("lab.all_defense_done", "✓ Todas as pesquisas defensivas foram concluídas."), 15, LIME)
 
 static func append_economy_tab(app: Control, parent: VBoxContainer) -> void:
-	app.section_header_with_icon(parent, "PESQUISAS DE ECONOMIA E FRAGMENTOS", "economy", LIME)
+	app.section_header_with_icon(parent, I18n.t("lab.header_economy", "PESQUISAS DE ECONOMIA E FRAGMENTOS"), "economy", LIME)
 	var shown := 0
 	for i in GameData.RESEARCH_TAB_INDICES["economy"]:
 		if append_research_card(app, parent, i):
 			shown += 1
 	if shown == 0 and app.hide_completed_research:
-		UIFactory.center_label(parent, "✓ Todas as pesquisas de economia foram concluídas.", 15, LIME)
+		UIFactory.center_label(parent, I18n.t("lab.all_economy_done", "✓ Todas as pesquisas de economia foram concluídas."), 15, LIME)
 
 static func append_research_card(app: Control, parent: VBoxContainer, i: int) -> bool:
 	var level: int = app.store.research[i]
@@ -195,34 +348,35 @@ static func append_research_card(app: Control, parent: VBoxContainer, i: int) ->
 	var is_busy: bool = app.store.is_researching() and not is_active
 	var can_buy: bool = app.store.can_research(i) and not is_busy
 
-	var words := "%s  %s  •  Nv.%d/%d\n%s\n" % [PIECE_SHORT[p_idx], RESEARCH_NAMES[i], level, maximum, RESEARCH_DESCS[i]]
-	if is_active:
-		words += "⚡ EM SÍNTESE  •  %.1fs restantes" % app.store.active_research_remaining()
-	elif level >= maximum:
-		words += "✓ PESQUISA CONCLUÍDA"
-	elif is_busy:
-		words += "LABORATÓRIO OCUPADO  •  Custo: %d %s" % [cost, PIECE_SHORT[p_idx]]
-	else:
-		words += "Custo: %d %s  •  Tempo: %ds  •  Você tem: %d" % [cost, PIECE_SHORT[p_idx], int(duration), app.store.pieces[p_idx]]
+	var is_tower_res: bool = (i >= 18 and i < 32)
+	var tower_mod_idx: int = (i - 18) / 2
+	var btn_color: Color = MODULE_INFO[MODULE_IDS[tower_mod_idx]][2] if is_tower_res else COLORS[p_idx]
+	var icon_name: String = MODULE_IDS[tower_mod_idx] if is_tower_res else GameData.research_icon(i)
 
-	var btn_color: Color = MODULE_INFO[MODULE_IDS[i - 18]][2] if (i >= 18 and i < 25) else COLORS[p_idx]
-	var research_button := UIFactory.card_button(words, func(): app.buy_research(i), btn_color, "right", 58)
-	research_button.name = "Research%d" % (i + 1)
-	research_button.custom_minimum_size.y = 82
-	research_button.disabled = not can_buy
-
-	if i >= 18 and i < 25:
-		var tower_mod_id: String = MODULE_IDS[i - 18]
-		research_button.draw.connect(func(): NeonIcons.draw_tower(research_button, tower_mod_id, 12.0, Vector2(research_button.size.x - 29.0, research_button.size.y * 0.5)))
-	else:
-		var r_icon: String = GameData.research_icon(i)
-		research_button.draw.connect(func(): NeonIcons.draw_ui(research_button, r_icon, 12.0, Vector2(research_button.size.x - 29.0, research_button.size.y * 0.5), btn_color))
-
+	var research_button := build_research_card_button(
+		"Research%d" % (i + 1),
+		I18n.get_research_name(i),
+		I18n.get_research_desc(i),
+		p_idx,
+		cost,
+		duration,
+		app.store.pieces[p_idx],
+		level,
+		maximum,
+		is_active,
+		app.store.active_research_remaining(),
+		is_busy,
+		can_buy,
+		btn_color,
+		icon_name,
+		is_tower_res,
+		func(): app.buy_research(i)
+	)
 	parent.add_child(research_button)
 	return true
 
 static func append_towers_tab(app: Control, parent: VBoxContainer) -> void:
-	app.section_header_with_icon(parent, "DESBLOQUEIO DE MÓDULOS DE TORRE", "towers", PINK)
+	app.section_header_with_icon(parent, I18n.t("lab.header_towers", "DESBLOQUEIO DE MÓDULOS DE TORRE"), "towers", PINK)
 	var shown_modules := 0
 	var undiscovered := false
 	for module_id in MODULE_IDS:
@@ -231,7 +385,7 @@ static func append_towers_tab(app: Control, parent: VBoxContainer) -> void:
 		if not app.store.module_visible(module_id):
 			undiscovered = true
 			continue
-		var info: Array = MODULE_INFO[module_id]
+		var info: Array = I18n.get_module_info(module_id)
 		var unlocked: bool = app.store.module_unlocked(module_id)
 		if app.hide_completed_research and unlocked:
 			continue
@@ -260,7 +414,7 @@ static func append_towers_tab(app: Control, parent: VBoxContainer) -> void:
 		text_col.add_child(desc)
 
 		if unlocked:
-			var status := UIFactory.label("✓ DESBLOQUEADO • disponível no hangar", 15, LIME)
+			var status := UIFactory.label(I18n.t("lab.unlocked_status", "✓ DESBLOQUEADO • disponível no hangar"), 15, LIME)
 			status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			card.add_child(status)
 		else:
@@ -271,17 +425,37 @@ static func append_towers_tab(app: Control, parent: VBoxContainer) -> void:
 			var is_busy: bool = app.store.is_researching() and not is_active
 			var can_buy: bool = app.store.can_research_module(module_id) and not is_busy
 
-			var btn_text := "PESQUISAR (%ds)" % int(duration)
+			var btn_text := "PESQUISAR (%ds)" % int(duration) if not I18n.is_en() else "RESEARCH (%ds)" % int(duration)
 			if is_active:
-				btn_text = "⚡ EM SÍNTESE • %.1fs" % app.store.active_research_remaining()
+				btn_text = I18n.t("modules.btn_in_synthesis") % app.store.active_research_remaining()
 			elif is_busy:
-				btn_text = "LABORATÓRIO OCUPADO"
+				btn_text = I18n.t("modules.btn_lab_busy")
 			elif not app.store.can_research_module(module_id):
-				btn_text = "PEÇAS INSUFICIENTES"
+				btn_text = I18n.t("modules.btn_no_pieces")
 
-			var costs := UIFactory.label("Custo: %d %s  •  Tempo: %ds  •  Você tem: %d" % [int(cost.amount), PIECE_SHORT[p_idx], int(duration), app.store.pieces[p_idx]], 15, MUTED)
-			costs.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			card.add_child(costs)
+			var costs_row := HBoxContainer.new()
+			costs_row.add_theme_constant_override("separation", 4)
+			card.add_child(costs_row)
+
+			var cost_lbl := UIFactory.label(I18n.t("lab.cost") % int(cost.amount), 15, MUTED)
+			costs_row.add_child(cost_lbl)
+
+			var cost_p_icon := Control.new()
+			cost_p_icon.custom_minimum_size = Vector2(16, 16)
+			cost_p_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			cost_p_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			cost_p_icon.draw.connect(func(): NeonIcons.draw_piece_icon(cost_p_icon, p_idx, 14.0, Vector2(8, 8)))
+			costs_row.add_child(cost_p_icon)
+
+			var time_have_lbl := UIFactory.label(I18n.t("lab.time_have") % [int(duration), app.store.pieces[p_idx]], 15, MUTED)
+			costs_row.add_child(time_have_lbl)
+
+			var have_p_icon := Control.new()
+			have_p_icon.custom_minimum_size = Vector2(16, 16)
+			have_p_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			have_p_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			have_p_icon.draw.connect(func(): NeonIcons.draw_piece_icon(have_p_icon, p_idx, 14.0, Vector2(8, 8)))
+			costs_row.add_child(have_p_icon)
 
 			var action := UIFactory.button(btn_text, func(): app.buy_tower_module(module_id), info[2])
 			action.name = "Module_" + module_id
@@ -289,14 +463,14 @@ static func append_towers_tab(app: Control, parent: VBoxContainer) -> void:
 			card.add_child(action)
 
 	if shown_modules == 0 and app.hide_completed_research:
-		UIFactory.center_label(parent, "✓ Todos os módulos de torre foram desbloqueados.", 15, LIME)
+		UIFactory.center_label(parent, I18n.t("lab.all_unlocked"), 15, LIME)
 	if undiscovered:
 		var next_wave := 5
 		for mid in MODULE_IDS:
 			if not app.store.module_visible(mid):
 				next_wave = int(app.store.MODULE_WAVES[mid])
 				break
-		var hint := UIFactory.label("◇ Novo módulo de torre: alcance a wave %d para descobrir." % next_wave, 16, MUTED)
+		var hint := UIFactory.label(I18n.t("lab.next_module_hint") % next_wave, 16, MUTED)
 		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		parent.add_child(hint)
 

@@ -8,8 +8,15 @@ signal piece_dropped(kind: int, amount: int, position: Vector2, enemy_id: String
 signal enemy_discovered(enemy_id: String)
 signal enemy_defeated(enemy_id: String, at_wave: int)
 signal achievement_triggered(ach_id: String)
+signal range_preview_requested(tower_id: int, position: Vector2, radius: float)
+signal range_preview_cleared()
+signal screen_shake_requested(shake_type: String, custom_intensity: float)
+signal boss_defeat_cinematic(boss_pos: Vector2, boss_data: Dictionary)
+signal damage_dealt(target_id: int, pos: Vector2, amount: float, damage_type: String, is_crit: bool, extra: String)
 
 var current_anomaly: Dictionary = {}
+var current_wave_event: Dictionary = {}
+var waves_since_miniboss: int = 0
 
 const COLORS := GameData.ENEMY_COLORS
 const FAMILY_IDS := GameData.FAMILY_IDS
@@ -38,7 +45,7 @@ func interval_for_module(module_id: String) -> float:
 	elif module_id == "vortex":
 		base = 1.4
 	elif module_id == "railgun":
-		base = 1.6 * (1.0 - float(research[24]) * 0.04)
+		base = 1.6 * (1.0 - float(research[31]) * 0.04)
 	var haste_bonus: float = float(research[9]) * 0.05 + float(upg_level("tower_haste")) * 0.10
 	var anom_cadence: float = float(current_anomaly.get("turret_cadence", 1.0))
 	return (base / (1.0 + haste_bonus)) * anom_cadence
@@ -102,12 +109,12 @@ func _reset_upgrades() -> void:
 		upg_levels[k] = 0
 
 func shield_unlocked() -> bool:
-	return research.size() > 25 and research[25] > 0
+	return research.size() > 32 and research[32] > 0
 
 func shield_regen_rate() -> float:
 	if max_shield <= 0.0:
 		return 0.0
-	return 1.5 + float(research[26]) * 1.5 + float(upg_level("shield_regen")) * 2.5
+	return 1.5 + float(research[33]) * 1.5 + float(upg_level("shield_regen")) * 2.5
 
 func upg_level(id: String) -> int:
 	if id == "click_dmg":
@@ -248,10 +255,9 @@ func buy_tower_slot(slot_index: int) -> bool:
 
 func slot_dps(slot_index: int) -> int:
 	var lvl: int = tower_slot_level(slot_index)
-	if lvl <= 0:
-		return 0
-	var syn_mult: float = 1.0 + float(upg_level("tower_synergy")) * 0.12
-	return roundi(lvl * (5.0 + wave * 1.4 + lvl * 1.6) * (1.0 + research[1] * 0.08) * syn_mult)
+	var syn_lvl: int = upg_level("tower_synergy")
+	var res_routing: int = research[1] if research.size() > 1 else 0
+	return TowerCombat.calculate_slot_dps(lvl, wave, res_routing, syn_lvl)
 
 func active_tower_count() -> int:
 	var count := 0
@@ -299,7 +305,7 @@ func reset() -> void:
 	max_hp = 100
 	max_hp += research[2] * 10
 	hp = max_hp
-	max_shield = float(research[25] * 25) if shield_unlocked() else 0.0
+	max_shield = float(research[32] * 25) if shield_unlocked() else 0.0
 	shield = max_shield
 	shield_regen_timer = 0.0
 	hp_regen_acc = 0.0
@@ -381,6 +387,8 @@ func tap(point: Vector2) -> void:
 			max_combo = maxi(max_combo, combo)
 			if combo >= 15:
 				achievement_triggered.emit("combo_15")
+			if combo >= 30:
+				achievement_triggered.emit("combo_30")
 			effect.emit("burst", proj.p, COLORS[1], "INTERCEPTADO!")
 			sound.emit("click")
 			return
@@ -411,6 +419,8 @@ func tap(point: Vector2) -> void:
 	max_combo = maxi(max_combo, combo)
 	if combo >= 15:
 		achievement_triggered.emit("combo_15")
+	if combo >= 30:
+		achievement_triggered.emit("combo_30")
 	var target_pos: Vector2 = target.p
 	target.p.y -= 10 if critical else 5
 	effect.emit("hit", point, COLORS[3] if critical else COLORS[1], "")
@@ -422,6 +432,8 @@ func tap(point: Vector2) -> void:
 			if other != target and other.hp > 0 and not other.ghosted and other.p.distance_to(target_pos) <= 95.0 + splash_lvl * 15.0:
 				damage_enemy(other, splash_dmg, false, "click")
 	sound.emit("crit" if critical else "click")
+	if critical:
+		screen_shake_requested.emit("critical", -1.0)
 	if combo % 15 == 0:
 		charge = minf(100, charge + 12)
 		effect.emit("text", point - Vector2(0, 50), COLORS[2], "COMBO x%d!" % combo)
@@ -434,6 +446,7 @@ func nova() -> bool:
 	var nova_bonus: float = 1.0 + float(research[7]) * 0.25 + float(upg_level("nova_overdrive")) * 0.25
 	var damage := (60 + click_damage() * 12 + wave * 12) * nova_bonus
 	effect.emit("nova", bounds / 2, Color.WHITE, "PULSO NOVA!")
+	screen_shake_requested.emit("nova", -1.0)
 	sound.emit("bomb")
 	achievement_triggered.emit("nova_blast")
 	for enemy in enemies.duplicate():
@@ -442,6 +455,9 @@ func nova() -> bool:
 
 func damage_enemy(enemy: Dictionary, damage: float, critical := false, source := "click") -> void:
 	if enemy.hp <= 0 or enemy.ghosted:
+		return
+	if enemy.type == 3 and enemy.get("invulnerable_timer", 0.0) > 0.0:
+		effect.emit("ring", enemy.p, Color.WHITE, "INVULNERÁVEL")
 		return
 	var pierce_bonus: float = float(upg_level("tower_pierce")) * 0.18 if source == "auto" else 0.0
 	if enemy.variant == "armored" or enemy.modifiers.has("armor"):
@@ -454,9 +470,31 @@ func damage_enemy(enemy: Dictionary, damage: float, critical := false, source :=
 	enemy.hit = 0.09
 	enemy.since_hit = 0.0
 	enemy.last_hit_crit = critical
+
+	var target_uid: int = int(enemy.get("uid", roundi(enemy.p.x * 100.0 + enemy.p.y)))
+	damage_dealt.emit(target_uid, enemy.p, damage, source, critical, "")
+
 	if source != "nova":
 		effect.emit("text", enemy.p - Vector2(0, enemy.radius + 8), COLORS[3] if critical else Color.WHITE, str(roundi(damage)) + ("!" if critical else ""))
 	if enemy.hp > 0:
+		if enemy.type == 3:
+			var ratio: float = enemy.hp / float(enemy.max_hp)
+			var cur_p: int = int(enemy.get("boss_phase", 1))
+			if cur_p == 1 and ratio <= GameData.BOSS_PHASE_THRESHOLDS[0]:
+				enemy.boss_phase = 2
+				enemy.overload = true
+				enemy.speed *= 1.25
+				enemy.rot_speed *= 1.8
+				enemy.invulnerable_timer = GameData.BOSS_PHASE_INVULNERABILITY_TIME
+				effect.emit("nova", enemy.p, Color.WHITE, "FASE 2 // SOBRECARGA!")
+				screen_shake_requested.emit("critical", 4.5)
+			elif cur_p == 2 and ratio <= GameData.BOSS_PHASE_THRESHOLDS[1]:
+				enemy.boss_phase = 3
+				enemy.speed *= 1.25
+				enemy.rot_speed *= 1.5
+				enemy.invulnerable_timer = GameData.BOSS_PHASE_INVULNERABILITY_TIME
+				effect.emit("nova", enemy.p, Color("ff007f"), "FASE 3 // MODO FÚRIA!")
+				screen_shake_requested.emit("nova", 7.0)
 		return
 	enemies.erase(enemy)
 	if kills == 0:
@@ -470,6 +508,8 @@ func damage_enemy(enemy: Dictionary, damage: float, critical := false, source :=
 	gold += gain
 	total_gold += gain
 	score += roundi(enemy.score * (1 + wave * 0.15) * (1.5 if critical else 1.0) * anom_score)
+	if score >= 1000000:
+		achievement_triggered.emit("million_points")
 	var charge_gains: Array[float] = [
 		3.5, 3.5, 6.0, 30.0, 4.0, 5.0,
 		6.5, 4.5, 8.0, 7.5, 12.0,
@@ -492,9 +532,13 @@ func damage_enemy(enemy: Dictionary, damage: float, critical := false, source :=
 	if enemy.type == 3:
 		achievement_triggered.emit("first_boss")
 		var b_id: String = str(enemy.get("boss_id", "boss"))
+		if b_id == "boss_omega":
+			achievement_triggered.emit("boss_omega")
 		if b_id != "boss":
 			enemy_defeated.emit("boss", wave)
 		effect.emit("nova", bounds * Vector2(0.5, 0.35), enemy.get("boss_color", COLORS[3]), str(enemy.get("boss_name", "BOSS")) + " DESTRUÍDO!")
+		screen_shake_requested.emit("boss_defeat", -1.0)
+		boss_defeat_cinematic.emit(enemy.p, enemy)
 	if wave_kills >= quota():
 		next_wave()
 
@@ -502,22 +546,31 @@ func roll_piece_drop(enemy: Dictionary, forced_roll := -1.0, forced_double_roll 
 	return TowerCombat.roll_piece_drop(self, enemy, forced_roll, forced_double_roll)
 
 func next_wave() -> void:
+	current_wave_event = {}
+	waves_since_miniboss += 1
 	wave += 1
 	wave_kills = 0
 	if wave >= 5:
 		achievement_triggered.emit("wave_5")
 	if wave >= 10:
 		achievement_triggered.emit("wave_10")
+	if wave >= 20:
+		achievement_triggered.emit("wave_20")
+	if wave >= 30:
+		achievement_triggered.emit("wave_30")
 	var bonus := 10 + wave * 6
 	gold += bonus
 	total_gold += bonus
 	score += wave * 250
+	if score >= 1000000:
+		achievement_triggered.emit("million_points")
 	hp = mini(max_hp, hp + 6 + research[14] * 4)
 	if wave % 5 == 0:
 		current_anomaly = {}
 		var boss_idx: int = maxi(0, int(wave / 5) - 1) % BOSS_TYPES.size()
 		var boss_cfg: Dictionary = BOSS_TYPES[boss_idx]
-		banner = "BOSS — " + str(boss_cfg.name)
+		var b_fmt: String = I18n.t("arena.boss_banner", "BOSS — %s")
+		banner = b_fmt % str(boss_cfg.name)
 		banner_time = 2.2
 		sound.emit("boss")
 		spawn(3)
@@ -525,21 +578,53 @@ func next_wave() -> void:
 		current_anomaly = {}
 		sound.emit("boss")
 		var elite_cmd := spawn(-1, "", true, true)
-		banner = "COMANDANTE — " + str(elite_cmd.get("elite_name", "ELITE"))
+		var c_fmt: String = I18n.t("arena.commander_banner", "COMANDANTE — %s")
+		banner = c_fmt % str(elite_cmd.get("elite_name", "ELITE"))
 		banner_time = 1.9
-	elif wave % 3 == 0:
-		var a_idx: int = randi() % GameData.ANOMALY_KEYS.size()
-		var a_key: String = GameData.ANOMALY_KEYS[a_idx]
-		current_anomaly = GameData.ANOMALIES[a_key]
-		banner = "ANOMALIA — " + str(current_anomaly.name)
-		banner_time = 2.4
-		sound.emit("boss")
-		effect.emit("nova", bounds * Vector2(0.5, 0.4), current_anomaly.color, str(current_anomaly.name))
 	else:
-		current_anomaly = {}
-		banner = "WAVE %d" % wave
-		banner_time = 1.6
-		sound.emit("wave")
+		var mb_cfg: Dictionary = GameData.MINI_BOSS_CONFIG if "MINI_BOSS_CONFIG" in GameData else {}
+		var mb_chance: float = float(mb_cfg.get("chance", 0.35))
+		var mb_min_int: int = int(mb_cfg.get("min_interval", 3))
+		var can_miniboss: bool = waves_since_miniboss >= mb_min_int and wave >= 2
+		if can_miniboss and randf() < mb_chance:
+			waves_since_miniboss = 0
+			current_anomaly = {}
+			var mb := spawn()
+			EnemySpawner.apply_miniboss(mb, self)
+			banner = "ALERTA // " + str(mb.miniboss_name)
+			banner_time = 2.0
+			sound.emit("boss")
+		else:
+			var event_keys: Array = GameData.WAVE_EVENTS.keys() if "WAVE_EVENTS" in GameData else []
+			var chosen_event: Dictionary = {}
+			for k in event_keys:
+				var e_info: Dictionary = GameData.WAVE_EVENTS[k]
+				if randf() < float(e_info.get("chance", 0.15)):
+					chosen_event = e_info.duplicate(true)
+					break
+			if not chosen_event.is_empty():
+				current_wave_event = chosen_event
+				current_anomaly = {}
+				var evt_name: String = str(current_wave_event.name)
+				banner = "EVENTO // %s" % evt_name.to_upper()
+				banner_time = 2.4
+				sound.emit("wave")
+				effect.emit("nova", bounds * Vector2(0.5, 0.4), current_wave_event.color, evt_name)
+			elif wave % 3 == 0:
+				var a_idx: int = randi() % GameData.ANOMALY_KEYS.size()
+				var a_key: String = GameData.ANOMALY_KEYS[a_idx]
+				current_anomaly = GameData.ANOMALIES[a_key]
+				var a_fmt: String = I18n.t("arena.anomaly_banner", "ANOMALIA — %s")
+				banner = a_fmt % str(current_anomaly.name)
+				banner_time = 2.4
+				sound.emit("boss")
+				effect.emit("nova", bounds * Vector2(0.5, 0.4), current_anomaly.color, str(current_anomaly.name))
+			else:
+				current_anomaly = {}
+				var w_fmt: String = I18n.t("arena.wave_banner", "WAVE %d")
+				banner = w_fmt % wave
+				banner_time = 1.6
+				sound.emit("wave")
 
 func variant_for(kind: int) -> String:
 	return EnemySpawner.variant_for(wave, kind)
@@ -570,15 +655,15 @@ func apply_base_damage(raw_dmg: int, hit_pos: Vector2, stolen := 0, is_proj := f
 	var dmg: int = maxi(1, raw_dmg - (armor_red / 2 if is_proj else armor_red))
 	var absorbed := 0
 	if shield >= 1.0:
-		if research[27] > 0:
-			dmg = maxi(1, roundi(float(dmg) * maxf(0.4, 1.0 - float(research[27]) * 0.08)))
+		if research[34] > 0:
+			dmg = maxi(1, roundi(float(dmg) * maxf(0.4, 1.0 - float(research[34]) * 0.08)))
 		absorbed = mini(int(floor(shield)), dmg)
 		shield = maxf(0.0, shield - float(absorbed))
 		dmg -= absorbed
-		shield_regen_timer = maxf(1.0, 3.2 - float(research[26]) * 0.3 - float(upg_level("shield_regen")) * 0.25)
-		if research[27] > 0 or upg_level("shield_pulse") > 0:
+		shield_regen_timer = maxf(1.0, 3.2 - float(research[33]) * 0.3 - float(upg_level("shield_regen")) * 0.25)
+		if research[34] > 0 or upg_level("shield_pulse") > 0:
 			var pulse_lvl: int = upg_level("shield_pulse")
-			var ref_dmg: float = float(absorbed * (2 + research[27] * 2 + pulse_lvl * 3))
+			var ref_dmg: float = float(absorbed * (2 + research[34] * 2 + pulse_lvl * 3))
 			for other in enemies.duplicate():
 				if other.hp > 0 and not other.ghosted and other.p.y >= bounds.y - 240.0:
 					if pulse_lvl > 0:
@@ -593,6 +678,7 @@ func apply_base_damage(raw_dmg: int, hit_pos: Vector2, stolen := 0, is_proj := f
 		var msg := ("-%d HP  -%d OURO" % [dmg, stolen]) if stolen > 0 else ("-%d TIRO" % dmg if is_proj else "-%d" % dmg)
 		effect.emit("hit" if is_proj else "leak", hit_pos, Color("ff3355"), msg)
 		sound.emit("leak")
+		screen_shake_requested.emit("base_hit", -1.0)
 	if hp == 0:
 		running = false
 		sound.emit("gameover")
@@ -660,6 +746,10 @@ func tick(delta: float) -> void:
 
 	for proj in enemy_projectiles.duplicate():
 		proj.age = float(proj.get("age", 0.0)) + dt
+		var tele_t: float = float(proj.get("telegraph_timer", 0.0))
+		if tele_t > 0.0:
+			proj.telegraph_timer = maxf(0.0, tele_t - dt)
+			continue
 		proj.p += Vector2(proj.v) * dt
 		var p_rad: float = float(proj.get("radius", 6.0))
 		var hit_dome: bool = (proj.p.distance_to(d_center) <= effective_dome_r + p_rad and proj.p.y <= d_center.y + 6.0)
@@ -676,18 +766,26 @@ func tick(delta: float) -> void:
 		enemy.age += dt
 		enemy.since_hit += dt
 		enemy.hit = maxf(0, enemy.hit - dt)
-		enemy.ghosted = (enemy.variant == "ghost" or enemy.modifiers.has("phase")) and fmod(enemy.age, 3.0) > 2.0
+		if enemy.get("invulnerable_timer", 0.0) > 0.0:
+			enemy.invulnerable_timer = maxf(0.0, float(enemy.invulnerable_timer) - dt)
+
+		var is_phantom_wave: bool = current_wave_event.get("intangible_interval", 0.0) > 0.0
+		if is_phantom_wave:
+			var p_interval: float = float(current_wave_event.get("intangible_interval", 2.2))
+			var p_dur: float = float(current_wave_event.get("intangible_duration", 0.8))
+			enemy.ghosted = fmod(enemy.age, p_interval) > (p_interval - p_dur)
+		else:
+			enemy.ghosted = (enemy.variant == "ghost" or enemy.modifiers.has("phase")) and fmod(enemy.age, 3.0) > 2.0
+
 		if (enemy.variant == "regen" or enemy.modifiers.has("regen")) and enemy.since_hit > 1.5 and enemy.hp < enemy.max_hp:
 			enemy.hp = minf(enemy.max_hp, enemy.hp + enemy.max_hp * 0.035 * dt)
-		# Chefe Multifásico: Transição para Fase 2 (Overload) ao atingir 50% de vida
-		if enemy.type == 3 and enemy.hp <= enemy.max_hp * 0.5 and not enemy.get("overload", false):
-			enemy.overload = true
-			enemy.phase = 2
-			enemy.speed *= 1.25
-			enemy.rot_speed *= 1.8
-			enemy.shoot_timer = 0.35
-			effect.emit("burst", enemy.p, Color("ff007f"), "SOBRECARGA // FASE 2")
-			sound.emit("boss")
+
+		var b_phase: int = int(enemy.get("boss_phase", 1))
+		if enemy.type == 3 and b_phase >= 2:
+			enemy.telegraph_timer = float(enemy.get("telegraph_timer", 2.5)) - dt
+			if enemy.telegraph_timer <= 0.0:
+				enemy.telegraph_timer = 2.4 if b_phase == 2 else 1.8
+				EnemySpawner.shoot_telegraphed_from_boss(self, enemy)
 		if enemy.get("can_shoot", false) and enemy.p.y > 10.0 and enemy.p.y < bounds.y - 110.0:
 			enemy.shoot_timer = float(enemy.get("shoot_timer", 2.2)) - dt
 			if enemy.shoot_timer <= 0.0:

@@ -6,6 +6,7 @@ const MenuScreen = preload("res://ui/screens/menu_screen.gd")
 const ModulesScreen = preload("res://ui/screens/modules_screen.gd")
 const ResearchScreen = preload("res://ui/screens/research_screen.gd")
 const CodexScreen = preload("res://ui/screens/codex_screen.gd")
+const AchievementsScreen = preload("res://ui/screens/achievements_screen.gd")
 const ShopView = preload("res://ui/hud/shop_view.gd")
 const DISPLAY = preload("res://assets/fonts/DisplayBold.tres")
 const BODY = preload("res://assets/fonts/Rajdhani.ttf")
@@ -50,6 +51,7 @@ var mini_stats: Label
 var nova_button: Button
 var upgrades: Array[Button] = []
 var mute_buttons: Array[Button] = []
+var lang_buttons: Array[Button] = []
 var sfx: Dictionary = {}
 var saved := false
 var save_status: Label
@@ -68,6 +70,8 @@ var hide_completed_research := false
 var research_tab: String = "lab"
 var codex_tab: String = "all"
 var codex_content: VBoxContainer
+var achievements_tab: String = "all"
+var achievements_content: VBoxContainer
 var toast_panel: PanelContainer
 var toast_label: Label
 var toast_title: Label
@@ -681,6 +685,24 @@ func close_codex() -> void:
 	close_overlay()
 	focus_menu_button("Codex")
 
+func show_achievements() -> void:
+	phase = "achievements"
+	achievements_content = modal()
+	AchievementsScreen.build(self, achievements_content)
+
+func select_achievements_tab(tab_id: String) -> void:
+	achievements_tab = tab_id
+	play_sound("click")
+	if phase == "achievements" and is_instance_valid(achievements_content):
+		var saved_scroll := get_modal_scroll_v()
+		AchievementsScreen.build(self, achievements_content)
+		restore_modal_scroll_v(saved_scroll, "Tab_ach_" + tab_id)
+
+func close_achievements() -> void:
+	phase = "menu"
+	close_overlay()
+	focus_menu_button("Achievements")
+
 func on_piece_dropped(kind: int, amount: int, position: Vector2, enemy_id: String, from_elite: bool) -> void:
 	store.pieces[kind] += amount
 	store.record_piece(enemy_id, amount)
@@ -787,11 +809,23 @@ func show_research_notification(res_name: String, _res_type: String = "") -> voi
 	var toast_width: float = toast_panel.size.x
 	toast_panel.position = Vector2(maxf(16.0, parent_width - toast_width - 24.0), 16.0)
 
-func on_achievement_unlocked(_ach_id: String, ach_title: String, _ach_desc: String) -> void:
+func on_achievement_unlocked(ach_id: String, ach_title: String, _ach_desc: String) -> void:
 	play_sound("wave")
 	show_achievement_notification(ach_title)
-	if phase == "playing" and is_instance_valid(arena):
-		arena.fx("nova", arena.size * Vector2(0.5, 0.25), AMBER, "CONQUISTA: " + ach_title.to_upper())
+	if phase == "playing":
+		for info in GameData.ACHIEVEMENTS:
+			if str(info.get("id", "")) == ach_id:
+				var g_rew: int = int(info.get("reward_gold", 0))
+				if g_rew > 0:
+					state.gold += g_rew
+					state.total_gold += g_rew
+				break
+		if is_instance_valid(arena):
+			arena.fx("nova", arena.size * Vector2(0.5, 0.25), AMBER, "CONQUISTA: " + ach_title.to_upper())
+	elif phase == "achievements" and is_instance_valid(achievements_content):
+		var saved_scroll := get_modal_scroll_v()
+		AchievementsScreen.build(self, achievements_content)
+		restore_modal_scroll_v(saved_scroll)
 
 func show_achievement_notification(ach_title: String) -> void:
 	if not is_instance_valid(toast_panel) or not is_instance_valid(toast_label):
@@ -874,13 +908,14 @@ func pause_game() -> void:
 	state.paused = true
 	var content := modal()
 	UIFactory.center_label(content, "Ⅱ", 38, CYAN, true)
-	UIFactory.center_label(content, "PAUSADO", 28, Color.WHITE, true)
-	UIFactory.center_label(content, "%d PONTOS     W%d     %d OURO" % [state.score, state.wave, state.gold], 14, LIME, true)
-	var resume := UIFactory.button("▶  CONTINUAR", pause_game, LIME, true)
+	UIFactory.center_label(content, I18n.t("pause.title", "PAUSADO"), 28, Color.WHITE, true)
+	var pts_lbl: String = I18n.t("pause.score_format", "%d PONTOS     W%d     %d OURO")
+	UIFactory.center_label(content, pts_lbl % [state.score, state.wave, state.gold], 14, LIME, true)
+	var resume := UIFactory.button(I18n.t("pause.resume", "▶  CONTINUAR"), pause_game, LIME, true)
 	content.add_child(resume)
-	content.add_child(UIFactory.button("REINICIAR", start_game))
-	content.add_child(UIFactory.button("MENU", show_menu))
-	UIFactory.center_label(content, "P / ESC para continuar • R reinicia", 16, MUTED)
+	content.add_child(UIFactory.button(I18n.t("pause.restart", "REINICIAR"), start_game))
+	content.add_child(UIFactory.button(I18n.t("pause.menu", "MENU"), show_menu))
+	UIFactory.center_label(content, I18n.t("pause.tip", "P / ESC para continuar • R reinicia"), 16, MUTED)
 	resume.grab_focus()
 
 func game_over() -> void:
@@ -890,28 +925,29 @@ func game_over() -> void:
 	store.best = maxi(store.best, state.score)
 	var persisted: bool = true if test_mode else store.save_data()
 	var content := modal()
-	UIFactory.center_label(content, "BASE DESTRUÍDA", 27, Color("ff5577"), true)
+	UIFactory.center_label(content, I18n.t("gameover.title", "BASE DESTRUÍDA"), 27, Color("ff5577"), true)
 	if record:
-		UIFactory.center_label(content, "♛  NOVO RECORDE!", 14, AMBER, true)
+		UIFactory.center_label(content, I18n.t("gameover.new_record", "♛  NOVO RECORDE!"), 14, AMBER, true)
 	UIFactory.center_label(content, str(state.score), 48, Color.WHITE, true)
-	UIFactory.center_label(content, "P O N T U A Ç Ã O  F I N A L", 12, MUTED)
-	UIFactory.center_label(content, "W%d     %d ABATES     %d OURO\nx%d COMBO     %s" % [state.wave, state.kills, state.total_gold, state.max_combo, time_text(state.play_time)], 17, CYAN)
-	UIFactory.center_label(content, "PEÇAS COLETADAS   " + pieces_text(state.run_pieces), 14, AMBER, true)
+	UIFactory.center_label(content, I18n.t("gameover.final_score", "P O N T U A Ç Ã O  F I N A L"), 12, MUTED)
+	var summary_fmt: String = I18n.t("gameover.summary", "W%d     %d ABATES     %d OURO\nx%d COMBO     %s")
+	UIFactory.center_label(content, summary_fmt % [state.wave, state.kills, state.total_gold, state.max_combo, time_text(state.play_time)], 17, CYAN)
+	UIFactory.center_label(content, I18n.t("gameover.pieces_collected", "PEÇAS COLETADAS   ") + pieces_text(state.run_pieces), 14, AMBER, true)
 	if store.qualifies(state.score):
-		UIFactory.center_label(content, "TOP 10 — REGISTRE SEU NOME", 12, AMBER, true)
+		UIFactory.center_label(content, I18n.t("gameover.top_10", "TOP 10 — REGISTRE SEU NOME"), 12, AMBER, true)
 		player_name = LineEdit.new()
-		player_name.placeholder_text = "SEU NOME"
+		player_name.placeholder_text = I18n.t("gameover.name_placeholder", "SEU NOME")
 		player_name.max_length = 10
 		player_name.custom_minimum_size.y = 42
 		content.add_child(player_name)
-		var save_button := UIFactory.button("SALVAR", submit_score, AMBER, true)
+		var save_button := UIFactory.button(I18n.t("gameover.save_score", "SALVAR"), submit_score, AMBER, true)
 		save_button.name = "SaveScore"
 		content.add_child(save_button)
 		player_name.text_submitted.connect(func(_text): submit_score())
 		player_name.grab_focus()
-	save_status = UIFactory.center_label(content, "" if persisted else "Não foi possível salvar o recorde no disco.", 15, AMBER)
-	content.add_child(UIFactory.button("JOGAR NOVAMENTE", start_game, PINK, true))
-	content.add_child(UIFactory.button("VOLTAR AO MENU", show_menu))
+	save_status = UIFactory.center_label(content, "" if persisted else I18n.t("gameover.save_failed", "Não foi possível salvar o recorde no disco."), 15, AMBER)
+	content.add_child(UIFactory.button(I18n.t("gameover.play_again", "JOGAR NOVAMENTE"), start_game, PINK, true))
+	content.add_child(UIFactory.button(I18n.t("menu.back_to_menu", "VOLTAR AO MENU"), show_menu))
 	final_ranking = ranking(content)
 
 func submit_score() -> void:
@@ -919,18 +955,18 @@ func submit_score() -> void:
 		return
 	var nickname := player_name.text.strip_edges().to_upper()
 	if nickname.is_empty():
-		nickname = "JOGADOR"
+		nickname = I18n.t("gameover.default_player", "JOGADOR")
 	var previous: Array = store.scores.duplicate(true)
 	store.scores.append({"name": nickname, "score": state.score, "wave": state.wave, "kills": state.kills, "gold": state.total_gold, "max_combo": state.max_combo})
 	store.scores.sort_custom(func(a, b): return a.score > b.score)
 	store.scores = store.scores.slice(0, 10)
 	if not test_mode and not store.save_data():
 		store.scores = previous
-		save_status.text = "Falha ao salvar. Tente novamente."
+		save_status.text = I18n.t("gameover.save_failed_retry", "Falha ao salvar. Tente novamente.")
 		return
 	saved = true
 	player_name.editable = false
-	save_status.text = "✓ Pontuação salva no ranking!"
+	save_status.text = I18n.t("gameover.score_saved", "✓ Pontuação salva no ranking!")
 	save_status.add_theme_color_override("font_color", LIME)
 	var content := save_status.get_parent()
 	content.get_node("SaveScore").disabled = true
@@ -946,9 +982,63 @@ func toggle_mute() -> void:
 			player.stop()
 	for b in mute_buttons:
 		if is_instance_valid(b):
-			b.text = "Som: OFF" if store.muted else "Som: ON"
+			b.text = (I18n.t("menu.sound", "SOM") + ": OFF") if store.muted else (I18n.t("menu.sound", "SOM") + ": ON")
 	if not test_mode and not store.save_data():
 		push_warning("Não foi possível salvar a preferência de som.")
+
+func toggle_language() -> void:
+	var next_lang: String = I18n.LANG_EN if store.language == I18n.LANG_PT else I18n.LANG_PT
+	store.language = next_lang
+	I18n.set_language(next_lang)
+	for b in lang_buttons:
+		if is_instance_valid(b):
+			b.text = I18n.t("menu.lang_button", "IDIOMA: PT")
+	for b in mute_buttons:
+		if is_instance_valid(b):
+			b.text = (I18n.t("menu.sound", "SOM") + ": OFF") if store.muted else (I18n.t("menu.sound", "SOM") + ": ON")
+	if not test_mode and not store.save_data():
+		push_warning("Não foi possível salvar a preferência de idioma.")
+	if phase == "menu":
+		build_menu()
+	elif phase == "playing":
+		ShopView.style_tabs(shop_tabs_row, shop_tab)
+		rebuild_shop_cards()
+		refresh_hud()
+	elif phase == "modules":
+		build_module_cards(false)
+	elif phase == "research":
+		build_research_cards(false)
+	elif phase == "codex" and is_instance_valid(codex_content):
+		CodexScreen.build(self, codex_content)
+	elif phase == "achievements" and is_instance_valid(achievements_content):
+		AchievementsScreen.build(self, achievements_content)
+
+func toggle_reduce_shake() -> void:
+	store.reduce_shake = not store.reduce_shake
+	if Accessibility.instance:
+		Accessibility.instance.reduce_shake = store.reduce_shake
+	if is_instance_valid(arena):
+		arena.screen_shake.set_enabled(not store.reduce_shake)
+	if not test_mode and not store.save_data():
+		push_warning("Não foi possível salvar a preferência de tremores.")
+	if phase == "menu":
+		build_menu()
+
+func toggle_reduce_effects() -> void:
+	store.reduce_effects = not store.reduce_effects
+	if not test_mode and not store.save_data():
+		push_warning("Não foi possível salvar a preferência de efeitos.")
+	if phase == "menu":
+		build_menu()
+
+func toggle_damage_numbers() -> void:
+	store.damage_numbers = not store.damage_numbers
+	if is_instance_valid(arena):
+		arena.damage_numbers.enabled = store.damage_numbers
+	if not test_mode and not store.save_data():
+		push_warning("Não foi possível salvar a preferência de números de dano.")
+	if phase == "menu":
+		build_menu()
 
 func play_sound(kind: String) -> void:
 	if kind == "wave":
@@ -966,7 +1056,7 @@ func time_text(seconds: float) -> String:
 
 func refresh_hud() -> void:
 	record_wave_progress()
-	hud_score.text = "PONTOS\n%s" % NumberFormat.format_int(state.score)
+	hud_score.text = "%s\n%s" % [I18n.t("hud.score", "PONTOS"), NumberFormat.format_int(state.score)]
 	hud_gold.text = "◈ %s" % NumberFormat.format(float(state.gold), 1)
 	hud_pieces.text = pieces_text(state.run_pieces)
 	if not state.current_anomaly.is_empty():
@@ -977,11 +1067,14 @@ func refresh_hud() -> void:
 	else:
 		hud_wave.text = "WAVE %d\n%d/%d" % [state.wave, state.wave_kills, state.quota()]
 		hud_wave.add_theme_color_override("font_color", PINK)
-	hud_hp.text = "%d  +%d ESC" % [state.hp, int(floor(state.shield))] if state.max_shield > 0 else str(state.hp)
+	var esc_label: String = I18n.t("hud.shield_short", "ESC")
+	hud_hp.text = "%d  +%d %s" % [state.hp, int(floor(state.shield)), esc_label] if state.max_shield > 0 else str(state.hp)
 	hp_bar.value = state.hp * 100.0 / state.max_hp
 	wave_bar.value = state.wave_kills * 100.0 / state.quota()
-	mini_stats.text = "%s abates   |   %s   |   %s dmg   |   %s/s" % [NumberFormat.format_int(state.kills), time_text(state.play_time), NumberFormat.format_int(state.click_damage()), NumberFormat.format_int(state.auto_dps())]
-	nova_button.text = "NOVA!\nESPAÇO" if state.charge >= 100 else "NOVA\n%d%%" % state.charge
+	var kills_word: String = I18n.t("hud.kills_word", "abates")
+	mini_stats.text = "%s %s   |   %s   |   %s dmg   |   %s/s" % [NumberFormat.format_int(state.kills), kills_word, time_text(state.play_time), NumberFormat.format_int(state.click_damage()), NumberFormat.format_int(state.auto_dps())]
+	var nova_rdy_txt: String = I18n.t("hud.nova_ready", "NOVA!\nESPAÇO")
+	nova_button.text = nova_rdy_txt if state.charge >= 100 else "NOVA\n%d%%" % state.charge
 	nova_button.disabled = state.charge < 100
 	ShopView.refresh_items(self)
 
@@ -1027,6 +1120,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		close_modules()
 	elif event.is_action("cancel") and phase == "codex":
 		close_codex()
+	elif event.is_action("cancel") and phase == "achievements":
+		close_achievements()
 	elif event.is_action("restart") and phase in ["playing", "paused", "gameover"]:
 		start_game()
 	elif event.is_action("pause"):

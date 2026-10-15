@@ -8,6 +8,12 @@ const CRYO_SLOW_DURATION := 1.5
 const PULSE_KNOCKBACK_FORCE := 38.0
 const AUTO_INTERVAL := 0.28
 
+static func calculate_slot_dps(level: int, wave: int, research_routing: int = 0, synergy_level: int = 0) -> int:
+	if level <= 0:
+		return 0
+	var syn_mult: float = 1.0 + float(synergy_level) * 0.12
+	return roundi(level * (5.0 + wave * 1.4 + level * 1.6) * (1.0 + research_routing * 0.08) * syn_mult)
+
 static func auto_attack(state: Object, target: Dictionary, base_damage: float, module_id: String = "", slot_index: int = 0) -> void:
 	if not state.running or state.paused:
 		return
@@ -24,8 +30,8 @@ static func auto_attack(state: Object, target: Dictionary, base_damage: float, m
 		slot.pulse_ring = state.bounds.x * 0.75 * range_mult
 		state.effect.emit("burst", state.tower_position(slot_index), Color("b6ff2e"), "ONDA SÍSMICA")
 		state.sound.emit("pulse")
-		var pulse_damage: float = base_damage * 1.8 * (1.0 + float(state.research[21]) * 0.12)
-		var knockback: float = (PULSE_KNOCKBACK_FORCE + float(state.research[21]) * 6.0) * range_mult
+		var pulse_damage: float = base_damage * 1.8 * (1.0 + float(state.research[24]) * 0.12)
+		var knockback: float = (PULSE_KNOCKBACK_FORCE + float(state.research[25]) * 6.0) * range_mult
 		for proj in state.enemy_projectiles.duplicate():
 			if (state.tower_position(slot_index) as Vector2).distance_to(proj.p) < slot.pulse_ring:
 				state.enemy_projectiles.erase(proj)
@@ -52,21 +58,21 @@ static func auto_attack(state: Object, target: Dictionary, base_damage: float, m
 	var damage: float = base_damage
 
 	if active_module == "cryo":
-		damage *= 0.75 * (1.0 + float(state.research[19]) * 0.10)
-		target.slow_timer = CRYO_SLOW_DURATION + float(state.research[19]) * 0.25
+		damage *= 0.75 * (1.0 + float(state.research[20]) * 0.10)
+		target.slow_timer = CRYO_SLOW_DURATION + float(state.research[21]) * 0.25
 	elif active_module == "arc":
-		damage *= 0.65 * (1.0 + float(state.research[20]) * 0.10)
+		damage *= 0.65 * (1.0 + float(state.research[22]) * 0.10)
 	elif active_module == "laser":
 		var target_key: String = str(target.get("enemy_id", "")) + "_" + str(target.get("age", 0.0))
-		var ramp_step: float = AUTO_INTERVAL * (1.0 + float(state.research[22]) * 0.15)
+		var ramp_step: float = AUTO_INTERVAL * (1.0 + float(state.research[26]) * 0.15)
 		if slot.laser_target_id == target_key:
 			slot.laser_focus_time = minf(2.0, slot.laser_focus_time + ramp_step)
 		else:
 			slot.laser_target_id = target_key
 			slot.laser_focus_time = 0.0
-		var max_ramp_add: float = 3.0 + float(state.research[22]) * 0.3
+		var max_ramp_add: float = 3.0 + float(state.research[27]) * 0.3
 		var ramp: float = 0.5 + (float(slot.laser_focus_time) / 2.0) * max_ramp_add
-		damage *= ramp * (1.0 + float(state.research[22]) * 0.08)
+		damage *= ramp * (1.0 + float(state.research[27]) * 0.08)
 		state.sound.emit("laser")
 		if target.get("slow_timer", 0.0) > 0:
 			damage *= 1.35
@@ -74,7 +80,7 @@ static func auto_attack(state: Object, target: Dictionary, base_damage: float, m
 	elif active_module == "plasma":
 		damage *= (1.0 + float(state.research[18]) * 0.12)
 		if target.get("slow_timer", 0.0) > 0:
-			damage *= (1.45 + float(state.research[18]) * 0.15)
+			damage *= (1.45 + float(state.research[19]) * 0.15)
 			state.effect.emit("text", target.p - Vector2(0, target.radius + 18), Color("ff55ff"), "CHOQUE TÉRMICO!")
 	elif active_module == "vortex":
 		slot.vortex_center = target.p
@@ -83,7 +89,7 @@ static func auto_attack(state: Object, target: Dictionary, base_damage: float, m
 		slot.beam_time = 0.22
 		state.sound.emit("vortex")
 		state.effect.emit("burst", target.p, Color("9933ff"), "VÓRTICE!")
-		var vortex_radius: float = (160.0 + float(state.research[23]) * 12.0) * range_mult
+		var vortex_radius: float = (160.0 + float(state.research[29]) * 12.0) * range_mult
 		for enemy in state.enemies.duplicate():
 			if enemy.hp <= 0 or enemy.ghosted:
 				continue
@@ -93,7 +99,7 @@ static func auto_attack(state: Object, target: Dictionary, base_damage: float, m
 				if dist > 6.0:
 					enemy.p += diff.normalized() * minf(dist - 5.0, 48.0 * range_mult)
 				enemy.vortex_timer = 2.0
-				var v_dmg: float = base_damage * 1.25 * (1.0 + float(state.research[23]) * 0.12)
+				var v_dmg: float = base_damage * 1.25 * (1.0 + float(state.research[28]) * 0.12)
 				if enemy.get("slow_timer", 0.0) > 0 or enemy.get("static_timer", 0.0) > 0:
 					v_dmg *= 1.5
 					state.effect.emit("text", enemy.p - Vector2(0, enemy.radius + 18), Color("9933ff"), "IMPLOSÃO!")
@@ -144,7 +150,7 @@ static func auto_attack(state: Object, target: Dictionary, base_damage: float, m
 			if d1 < enemy.radius + 14.0 or d2 < enemy.radius + 14.0:
 				var tag: String = "PERFURADO!" if d1 < enemy.radius + 14.0 else "RICOCHETE!"
 				state.effect.emit("text", enemy.p - Vector2(0, enemy.radius + 16), Color("33ffcc"), tag)
-				state.damage_enemy(enemy, base_damage * 1.6 * (1.0 + float(state.research[24]) * 0.14), false, "auto")
+				state.damage_enemy(enemy, base_damage * 1.6 * (1.0 + float(state.research[30]) * 0.14), false, "auto")
 		return
 
 	var targets: Array[Dictionary] = [target]
@@ -152,7 +158,7 @@ static func auto_attack(state: Object, target: Dictionary, base_damage: float, m
 		var max_hops: int = (4 if target.get("static_timer", 0.0) > 0 else 2) + (1 if state.upg_level("tower_range") >= 2 else 0)
 		if target.get("static_timer", 0.0) > 0:
 			state.sound.emit("spark")
-		var base_arc_radius: float = (ARC_CHAIN_RADIUS + float(state.research[20]) * 18.0) * range_mult
+		var base_arc_radius: float = (ARC_CHAIN_RADIUS + float(state.research[23]) * 18.0) * range_mult
 		var chain_radius: float = base_arc_radius * 1.5 if target.get("static_timer", 0.0) > 0 else base_arc_radius
 		var origin: Vector2 = target.p
 		for hop in max_hops:
@@ -196,21 +202,21 @@ static func roll_piece_drop(state: Object, enemy: Dictionary, forced_roll := -1.
 	if state.research.size() > 17:
 		chance += float(state.research[17]) * 0.03
 
-	# Pesquisa 28: Sintonia de Espólios (+3% por nível para Quadrados e Triângulos)
-	if state.research.size() > 28 and piece_kind in [0, 1]:
-		chance += float(state.research[28]) * 0.03
+	# Pesquisa 35: Sintonia de Espólios (+3% por nível para Quadrados e Triângulos)
+	if state.research.size() > 35 and piece_kind in [0, 1]:
+		chance += float(state.research[35]) * 0.03
 
-	# Pesquisa 29: Filtro de Matéria Rara (+5% por nível para Hexágonos e +10% em Elites)
-	if state.research.size() > 29:
+	# Pesquisa 36: Filtro de Matéria Rara (+5% por nível para Hexágonos e +10% em Elites)
+	if state.research.size() > 36:
 		if piece_kind == 2:
-			chance += float(state.research[29]) * 0.05
+			chance += float(state.research[36]) * 0.05
 		if enemy.elite:
-			chance += float(state.research[29]) * 0.10
+			chance += float(state.research[36]) * 0.10
 
-	# Pesquisa 30: Sobrecarga de Extração (+4% com Crítico ou Combo >= 10)
+	# Pesquisa 37: Sobrecarga de Extração (+4% com Crítico ou Combo >= 10)
 	var overdrive_active: bool = bool(enemy.get("last_hit_crit", false)) or int(state.combo) >= 10
-	if state.research.size() > 30 and overdrive_active:
-		chance += float(state.research[30]) * 0.04
+	if state.research.size() > 37 and overdrive_active:
+		chance += float(state.research[37]) * 0.04
 
 	chance = minf(1.0, chance)
 	if enemy.elite:
@@ -222,9 +228,9 @@ static func roll_piece_drop(state: Object, enemy: Dictionary, forced_roll := -1.
 	if enemy.elite:
 		amount += 1
 
-	# Pesquisa 30: Chance de drop duplo (+25% por nível quando abate com Crítico ou Combo >= 10)
-	if state.research.size() > 30 and state.research[30] > 0 and overdrive_active:
-		var double_chance: float = float(state.research[30]) * 0.25
+	# Pesquisa 37: Chance de drop duplo (+25% por nível quando abate com Crítico ou Combo >= 10)
+	if state.research.size() > 37 and state.research[37] > 0 and overdrive_active:
+		var double_chance: float = float(state.research[37]) * 0.25
 		var d_roll: float = randf() if forced_double_roll < 0 else forced_double_roll
 		if d_roll < double_chance:
 			amount += 1

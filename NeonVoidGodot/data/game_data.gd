@@ -42,13 +42,19 @@ enum Research {
 	KINETIC_PIERCE, FIRE_RATE, RELENTLESS_EXECUTION, TITAN_HUNTER,
 	COMBO_STABILIZER, REACTIVE_ARMOR, WAVE_NANOREPAIR, QUANTUM_VAULT,
 	EMERGENCY_GENERATOR, FRAGMENT_MAGNETISM,
-	TOWER_PLASMA, TOWER_CRYO, TOWER_ARC, TOWER_PULSE, TOWER_LASER, TOWER_VORTEX, TOWER_RAILGUN,
+	TOWER_PLASMA_DMG, TOWER_PLASMA_THERMAL,
+	TOWER_CRYO_DMG, TOWER_CRYO_SLOW,
+	TOWER_ARC_DMG, TOWER_ARC_CHAIN,
+	TOWER_PULSE_DMG, TOWER_PULSE_KNOCKBACK,
+	TOWER_LASER_RAMP, TOWER_LASER_DMG,
+	TOWER_VORTEX_DMG, TOWER_VORTEX_RADIUS,
+	TOWER_RAILGUN_DMG, TOWER_RAILGUN_SPEED,
 	SHIELD_GENERATOR, SHIELD_RECHARGE, SHIELD_REFLECT,
 	LOOT_TUNING, RARE_MATTER_FILTER, EXTRACTION_OVERDRIVE,
 }
-const RESEARCH_COUNT := 31
+const RESEARCH_COUNT := 38
 const RESEARCH_COMBAT_END := 18   # primeiro índice das especializações de torre
-const RESEARCH_TOWER_END := 25    # primeiro índice das pesquisas de escudo
+const RESEARCH_TOWER_END := 32    # primeiro índice das pesquisas de escudo
 
 const RESEARCH_NAMES := [
 	"Análise de Plasma", "Roteamento Autônomo", "Liga da Base", "Reator Nova",
@@ -56,8 +62,13 @@ const RESEARCH_NAMES := [
 	"Perfuração Cinética", "Acelerador de Cadência", "Execução Implacável", "Caçador de Titãs",
 	"Estabilizador de Combo", "Blindagem Reativa", "Nanorreparo de Onda", "Cofre Quântico",
 	"Gerador de Emergência", "Magnetismo de Fragmentos",
-	"Superaquecimento de Plasma", "Zero Absoluto", "Condutores de Alta Tensão",
-	"Ressonância Tectônica", "Lente de Antimatéria", "Horizonte de Eventos", "Capacitores Hiperfônicos",
+	"Superaquecimento de Plasma", "Sobrecarga Térmica",
+	"Zero Absoluto", "Hipotermia Profunda",
+	"Condutores de Alta Tensão", "Malha Condutiva de Arco",
+	"Ressonância Tectônica", "Onda de Choque Sísmica",
+	"Focalizador de Aceleração", "Lente de Antimatéria",
+	"Horizonte de Eventos", "Vórtice Colapsante",
+	"Capacitores Hiperfônicos", "Bobinas de Recarga Fotônica",
 	"Gerador de Escudo Quântico", "Recarga Harmônica de Escudo", "Barreira Reflexiva de Plasma",
 	"Sintonia de Espólios", "Filtro de Matéria Rara", "Sobrecarga de Extração"
 ]
@@ -67,13 +78,20 @@ const RESEARCH_DESCS := [
 	"+12% dano contra inimigos blindados", "+5% cadência de tiro de todas as torretas", "+10% dano contra inimigos abaixo de 40% HP", "+12% dano contra Elites e Bosses",
 	"+0,4s duração do combo e reduz perda ao errar", "-1 dano recebido na base por vazamento (mín. 1)", "+4 vida recuperada na base ao concluir cada wave", "+20 ouro inicial e -12% roubo de Ladrões",
 	"+10 carga inicial da Nova e +4 cura do Escudo", "+3% chance geral de drop de peças por nível",
-	"[Torre Plasma] +12% dano direto e +15% bônus de Choque Térmico",
-	"[Torre Criogênica] +10% dano e +0,25s duração de lentidão",
-	"[Torre de Arco] +10% dano e +18px alcance dos saltos elétricos",
-	"[Torre Sísmica] +12% dano radial e +6px força de empurrão",
-	"[Laser Antimatéria] +15% velocidade de rampa e +0,3x dano máximo",
-	"[Vórtice Gravitacional] +12% dano de implosão e +12px raio de atração",
-	"[Railgun Fotônico] +14% dano perfurante e recarga 4% mais rápida",
+	"[Torre Plasma] +12% de dano direto por nível",
+	"[Torre Plasma] +15% de bônus de dano de Choque Térmico",
+	"[Torre Criogênica] +10% de dano por nível",
+	"[Torre Criogênica] +0,25s de duração da lentidão",
+	"[Torre de Arco] +10% de dano por nível",
+	"[Torre de Arco] +18px de alcance dos saltos elétricos",
+	"[Torre Sísmica] +12% de dano radial por nível",
+	"[Torre Sísmica] +6px de força de empurrão vertical",
+	"[Laser Antimatéria] +15% de velocidade de rampa do feixe",
+	"[Laser Antimatéria] +0,3x de multiplicador de dano máximo",
+	"[Vórtice Gravitacional] +12% de dano de implosão por nível",
+	"[Vórtice Gravitacional] +12px de raio de atração do vórtice",
+	"[Railgun Fotônico] +14% de dano perfurante e ricochete",
+	"[Railgun Fotônico] Recarga e disparo 4% mais rápidos",
 	"[Escudo] Desbloqueia Escudo de Energia na base (+25 Escudo Máx inicial/nv)",
 	"[Escudo] +1,5/s regeneração de escudo e -0,3s atraso de recarga",
 	"[Escudo] Reduz dano recebido no escudo em 8%/nv e reflete dano em área",
@@ -84,41 +102,59 @@ const RESEARCH_DESCS := [
 const RESEARCH_MAX := [
 	5, 5, 5, 3, 5, 5, 5, 3,
 	5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-	5, 5, 5, 5, 5, 5, 5,
+	5, 5,
+	5, 5,
+	5, 5,
+	5, 5,
+	5, 5,
+	5, 5,
+	5, 5,
 	5, 5, 5,
 	5, 5, 3
 ]
 const RESEARCH_BASE_COSTS := [
 	5, 5, 4, 2, 8, 8, 7, 3,
 	6, 6, 7, 3, 5, 6, 5, 6, 6, 4,
-	6, 6, 7, 7, 3, 8, 4,
+	6, 6,
+	6, 6,
+	7, 7,
+	7, 7,
+	3, 3,
+	8, 8,
+	4, 4,
 	4, 5, 3,
 	5, 6, 3
 ]
 const RESEARCH_PIECE_INDEX := [
 	0, 1, 2, 3, 0, 1, 2, 3,
 	0, 1, 0, 3, 1, 2, 2, 1, 2, 3,
-	0, 1, 0, 2, 3, 2, 3,
+	0, 0,
+	1, 1,
+	0, 0,
+	2, 2,
+	3, 3,
+	2, 2,
+	3, 3,
 	2, 1, 3,
 	0, 2, 3
 ]
 ## Ícone neon (ver NeonIcons) exibido em cada card de pesquisa não-torre.
 const RESEARCH_ICONS := {
-	0: "click_dmg", 8: "click_dmg", 28: "click_dmg",
+	0: "click_dmg", 8: "click_dmg", 35: "click_dmg",
 	1: "tower_haste",
 	2: "base_hull", 11: "base_hull",
 	3: "combo_drive", 7: "combo_drive", 17: "combo_drive",
 	4: "crit_chance",
-	5: "crit_mult", 30: "crit_mult",
+	5: "crit_mult", 37: "crit_mult",
 	6: "nova_overdrive", 16: "nova_overdrive",
 	9: "tower_pierce",
-	10: "tower_synergy", 29: "tower_synergy",
+	10: "tower_synergy", 36: "tower_synergy",
 	12: "nano_regen",
 	13: "reactive_plating", 14: "reactive_plating",
 	15: "hull_vitality",
-	25: "shield_cap",
-	26: "shield_regen",
-	27: "shield_pulse",
+	32: "shield_cap",
+	33: "shield_regen",
+	34: "shield_pulse",
 }
 
 # ---------------------------------------------------------------------------
@@ -150,8 +186,13 @@ const RESEARCH_BASE_TIMES := [
 	14.0, 15.0, 16.0, 18.0,
 	12.0, 14.0, 15.0, 16.0,
 	18.0, 20.0,
-	16.0, 18.0, 18.0,
-	20.0, 22.0, 24.0, 26.0,
+	16.0, 16.0,
+	18.0, 18.0,
+	18.0, 18.0,
+	20.0, 20.0,
+	22.0, 22.0,
+	24.0, 24.0,
+	26.0, 26.0,
 	20.0, 22.0, 25.0,
 	16.0, 20.0, 24.0
 ]
@@ -178,9 +219,9 @@ const RESEARCH_TAB_LABELS := {
 	"towers": "    TORRES"
 }
 const RESEARCH_TAB_INDICES := {
-	"attack": [0, 4, 8, 9, 10, 11, 18, 19, 20, 21, 22, 23, 24],
-	"defense": [2, 13, 14, 25, 26, 27],
-	"economy": [1, 3, 5, 6, 7, 12, 15, 16, 17, 28, 29, 30]
+	"attack": [0, 4, 8, 9, 10, 11, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31],
+	"defense": [2, 13, 14, 32, 33, 34],
+	"economy": [1, 3, 5, 6, 7, 12, 15, 16, 17, 35, 36, 37]
 }
 
 # ---------------------------------------------------------------------------
@@ -487,13 +528,135 @@ const ANOMALY_KEYS := ["emp", "supernova", "warp", "eclipse"]
 # Conquistas Cyberpunk (Achievements)
 # ---------------------------------------------------------------------------
 const ACHIEVEMENTS := [
-	{"id": "first_kill", "title": "PRIMEIRO CONTATO", "desc": "Abata seu primeiro invasor do Vazio", "reward_pieces": 2, "reward_gold": 25},
-	{"id": "wave_5", "title": "SOBREVIVENTE", "desc": "Alcance a Wave 5", "reward_pieces": 4, "reward_gold": 50},
-	{"id": "wave_10", "title": "VETERANO DO VOID", "desc": "Alcance a Wave 10", "reward_pieces": 8, "reward_gold": 150},
-	{"id": "first_boss", "title": "DESTRUIDOR DE TITÃS", "desc": "Derrote seu primeiro Boss", "reward_pieces": 6, "reward_gold": 100},
-	{"id": "combo_15", "title": "FLUXO HIPERCRÍTICO", "desc": "Atinja um Combo de x15", "reward_pieces": 5, "reward_gold": 60},
-	{"id": "shield_active", "title": "BASTIÃO DEFENSIVO", "desc": "Ative o Escudo Energético no Laboratório", "reward_pieces": 6, "reward_gold": 80},
-	{"id": "nova_blast", "title": "PULSO TOTAL", "desc": "Dispare a Super-Habilidade Nova", "reward_pieces": 4, "reward_gold": 40},
-	{"id": "slot_expanded", "title": "ENGENHEIRO TÁTICO", "desc": "Desbloqueie um slot extra de torre", "reward_pieces": 5, "reward_gold": 75}
+	{"id": "first_kill", "title": "PRIMEIRO CONTATO", "desc": "Abata seu primeiro invasor do Vazio", "reward_pieces": 2, "reward_gold": 25, "category": "combat", "icon": "attack"},
+	{"id": "wave_5", "title": "SOBREVIVENTE", "desc": "Alcance a Wave 5", "reward_pieces": 4, "reward_gold": 50, "category": "progression", "icon": "progression"},
+	{"id": "wave_10", "title": "VETERANO DO VOID", "desc": "Alcance a Wave 10", "reward_pieces": 8, "reward_gold": 150, "category": "progression", "icon": "progression"},
+	{"id": "first_boss", "title": "DESTRUIDOR DE TITÃS", "desc": "Derrote seu primeiro Boss", "reward_pieces": 6, "reward_gold": 100, "category": "combat", "icon": "boss"},
+	{"id": "combo_15", "title": "FLUXO HIPERCRÍTICO", "desc": "Atinja um Combo de x15", "reward_pieces": 5, "reward_gold": 60, "category": "combat", "icon": "combo_drive"},
+	{"id": "shield_active", "title": "BASTIÃO DEFENSIVO", "desc": "Ative o Escudo Energético no Laboratório", "reward_pieces": 6, "reward_gold": 80, "category": "progression", "icon": "defense"},
+	{"id": "nova_blast", "title": "PULSO TOTAL", "desc": "Dispare a Super-Habilidade Nova", "reward_pieces": 4, "reward_gold": 40, "category": "combat", "icon": "nova_overdrive"},
+	{"id": "slot_expanded", "title": "ENGENHEIRO TÁTICO", "desc": "Desbloqueie um slot extra de torre", "reward_pieces": 5, "reward_gold": 75, "category": "progression", "icon": "towers"},
+	{"id": "wave_20", "title": "EXPLORADOR DO ABISSO", "desc": "Alcance a Wave 20", "reward_pieces": 10, "reward_gold": 250, "category": "progression", "icon": "progression"},
+	{"id": "wave_30", "title": "MESTRE DO VAZIO", "desc": "Alcance a Wave 30", "reward_pieces": 15, "reward_gold": 500, "category": "progression", "icon": "progression"},
+	{"id": "combo_30", "title": "TEMPESTADE HIPERCRÍTICA", "desc": "Atinja um Combo de x30", "reward_pieces": 8, "reward_gold": 150, "category": "combat", "icon": "combo_drive"},
+	{"id": "boss_omega", "title": "FIM DO ARQUITETO", "desc": "Derrote o Arquiteto Ômega (Wave 30+)", "reward_pieces": 20, "reward_gold": 600, "category": "combat", "icon": "boss"},
+	{"id": "all_towers", "title": "ARSENAL CIBERNÉTICO", "desc": "Desbloqueie todos os 7 módulos de torre", "reward_pieces": 12, "reward_gold": 300, "category": "progression", "icon": "towers"},
+	{"id": "all_slots", "title": "BATERIA TOTAL", "desc": "Desbloqueie todos os 7 slots do Hangar", "reward_pieces": 12, "reward_gold": 300, "category": "progression", "icon": "towers"},
+	{"id": "codex_10", "title": "ARQUIVISTA DO VOID", "desc": "Descubra ao menos 10 inimigos no Codex", "reward_pieces": 6, "reward_gold": 120, "category": "special", "icon": "codex"},
+	{"id": "million_points", "title": "ASSINATURA CIBERNÉTICA", "desc": "Atinja 1.000.000 pontos em uma única partida", "reward_pieces": 16, "reward_gold": 500, "category": "special", "icon": "crit_chance"}
 ]
+
+const ACHIEVEMENT_TABS := ["all", "combat", "progression", "special", "unlocked"]
+const ACHIEVEMENT_TAB_LABELS := {
+	"all": "TODAS",
+	"combat": "COMBATE",
+	"progression": "PROGRESSO",
+	"special": "DESAFIOS",
+	"unlocked": "OBTIDAS"
+}
+
+# ---------------------------------------------------------------------------
+# Configurações de Screen Shake e Impacto Visual
+# ---------------------------------------------------------------------------
+const SCREEN_SHAKE_CONFIG := {
+	"critical": {"intensity": 2.5, "duration": 0.15},
+	"nova": {"intensity": 10.0, "duration": 0.45},
+	"boss_defeat": {"intensity": 14.0, "duration": 0.60},
+	"base_hit": {"intensity": 5.0, "duration": 0.25},
+	"max_intensity": 18.0,
+	"decay_rate": 20.0
+}
+
+# ---------------------------------------------------------------------------
+# Configurações de Boss Defeat Hit-Stop & Zoom
+# ---------------------------------------------------------------------------
+const BOSS_DEFEAT_VFX := {
+	"hit_stop_duration": 0.05,
+	"slowmo_time_scale": 0.35,
+	"slowmo_duration": 0.45,
+	"zoom_scale": 1.08,
+	"zoom_duration": 0.50
+}
+
+# ---------------------------------------------------------------------------
+# Números de Dano Flutuantes
+# ---------------------------------------------------------------------------
+const DAMAGE_NUMBER_CONFIG := {
+	"max_active": 45,
+	"float_distance": 32.0,
+	"duration": 0.70,
+	"aggregation_window": 0.08,
+	"colors": {
+		"plasma": Color("22e6ff"),
+		"click": Color("22e6ff"),
+		"cryo": Color("70d6ff"),
+		"arc": Color("ffd166"),
+		"seismic": Color("b6ff2e"),
+		"laser": Color("ff2bd6"),
+		"vortex": Color("c77dff"),
+		"railgun": Color("ffffff"),
+		"nova": Color("ffffff"),
+		"default": Color("ffffff")
+	}
+}
+
+# ---------------------------------------------------------------------------
+# Mecânicas de Chefe em Fases
+# ---------------------------------------------------------------------------
+const BOSS_PHASE_THRESHOLDS := [0.66, 0.33]
+const BOSS_PHASE_INVULNERABILITY_TIME := 1.0
+const BOSS_TELEGRAPH_TIME_RANGE := [0.8, 1.5]
+
+# ---------------------------------------------------------------------------
+# Mini-Chefes Aleatórios
+# ---------------------------------------------------------------------------
+const MINI_BOSS_CONFIG := {
+	"chance": 0.35,
+	"min_interval": 3,
+	"hp_multiplier": 3.8,
+	"scale_multiplier": 1.45,
+	"bounty_gold_multiplier": 3.5,
+	"rare_piece_chance": 0.40
+}
+
+# ---------------------------------------------------------------------------
+# Eventos Dinâmicos de Wave
+# ---------------------------------------------------------------------------
+const WAVE_EVENTS := {
+	"void_storm": {
+		"name": "Tempestade de Vazio",
+		"name_en": "Void Storm",
+		"desc": "Inimigos +35% velozes, relâmpagos neon atingem o campo",
+		"desc_en": "Enemies +35% faster, neon lightning strikes the arena",
+		"color": Color("22e6ff"),
+		"chance": 0.18,
+		"speed_mult": 1.35,
+		"gold_mult": 1.4,
+		"lightning": true
+	},
+	"golden_wave": {
+		"name": "Wave Dourada",
+		"name_en": "Golden Wave",
+		"desc": "Apenas Ladrões de Ouro! Drops e recompensas triplicadas",
+		"desc_en": "Only Gold Thieves! Triple drops and rewards",
+		"color": Color("ffb02e"),
+		"chance": 0.12,
+		"gold_mult": 3.0,
+		"spawn_override": "thief",
+		"piece_drop_mult": 2.5
+	},
+	"phantom_wave": {
+		"name": "Wave Fantasma",
+		"name_en": "Phantom Wave",
+		"desc": "Inimigos com intangibilidade intermitente (pisca 0.8s)",
+		"desc_en": "Enemies with intermittent intangibility (flicker 0.8s)",
+		"color": Color("c77dff"),
+		"chance": 0.15,
+		"gold_mult": 1.6,
+		"intangible_interval": 2.2,
+		"intangible_duration": 0.8
+	}
+}
+
+
 

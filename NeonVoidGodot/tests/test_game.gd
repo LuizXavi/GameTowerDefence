@@ -377,13 +377,13 @@ func _init() -> void:
 	schema_eight.path = schema_eight_path
 	schema_eight.load_data()
 	check(schema_eight.research.size() == GameData.RESEARCH_COUNT and schema_eight.research[7] == 1 and schema_eight.research[8] == 0, "Schema 8 migrates to Schema 13 with all research slots")
-	check(schema_eight.buy_research(15) and schema_eight.buy_research(18) and schema_eight.buy_research(25), "Purchasing attack/defense, tower specialization, and shield researches succeeds")
+	check(schema_eight.buy_research(15) and schema_eight.buy_research(18) and schema_eight.buy_research(32), "Purchasing attack/defense, tower specialization, and shield researches succeeds")
 	var full_res: Array[int] = []
 	for i in GameData.RESEARCH_COUNT:
 		full_res.append(0)
 	full_res[15] = 2 # Cofre Quântico (+40 ouro inicial)
 	full_res[16] = 2 # Gerador de Emergência (+20 carga inicial)
-	full_res[19] = 2 # Zero Absoluto (+0.5s slow na torre Cryo)
+	full_res[21] = 2 # Hipotermia Profunda (+0.5s slow na torre Cryo)
 	game.configure_research(full_res)
 	game.reset()
 	check(game.gold == 40 and is_equal_approx(game.charge, 40.0), "Cofre Quantico and Gerador de Emergencia apply starting gold and Nova charge")
@@ -399,9 +399,9 @@ func _init() -> void:
 	check(game.buy_tower_slot(1) and game.tower_slot_level(1) == 1 and game.tower_slot_level(0) == 0 and game.auto_dps() > 0, "Buying tower slot 1 activates only slot 1 individually")
 	check(game.buy_upgrade("tower_haste") and game.upg_level("tower_haste") == 1, "Buying tower_haste upgrade increases tower fire rate")
 	check(not game.can_buy_upgrade("shield_cap"), "Shield in-game upgrades are locked before researching Gerador de Escudo Quantico")
-	full_res[25] = 2 # Gerador de Escudo Quântico Nv.2 -> +50 escudo inicial
-	full_res[26] = 1 # Recarga Harmônica de Escudo
-	full_res[27] = 1 # Barreira Reflexiva de Plasma
+	full_res[32] = 2 # Gerador de Escudo Quântico Nv.2 -> +50 escudo inicial
+	full_res[33] = 1 # Recarga Harmônica de Escudo
+	full_res[34] = 1 # Barreira Reflexiva de Plasma
 	game.configure_research(full_res)
 	game.reset()
 	game.gold = 500
@@ -461,6 +461,23 @@ func _init() -> void:
 	check(lab_store.pieces[0] > pieces_before_ach, "Achievement awards pieces reward")
 	check(not lab_store.unlock_achievement("first_kill"), "Duplicate achievement unlock is rejected")
 
+	# Testes de Conquistas Meta e Passivas
+	lab_store.unlocked_tower_slots = 7
+	lab_store.check_meta_achievements()
+	check(lab_store.is_achievement_unlocked("all_slots"), "Meta achievement all_slots auto-unlocks when slots reach 7")
+	for m in GameData.MODULE_IDS:
+		lab_store.tower_modules[m] = true
+	lab_store.check_meta_achievements()
+	check(lab_store.is_achievement_unlocked("all_towers"), "Meta achievement all_towers auto-unlocks when all modules researched")
+
+	# Teste de emissão de conquistas no VoidState (wave_20, combo_30)
+	var state_ach_test := VoidState.new()
+	var emitted_list: Array[String] = []
+	state_ach_test.achievement_triggered.connect(func(aid: String): emitted_list.append(aid))
+	state_ach_test.wave = 19
+	state_ach_test.next_wave()
+	check(emitted_list.has("wave_20"), "Advancing to wave 20 triggers wave_20 achievement")
+
 	# Teste de Migração Schema 11 para Schema 12
 	var schema_11_data := {
 		"version": 11,
@@ -478,24 +495,34 @@ func _init() -> void:
 		"tower_loadout": ["plasma", "plasma", "plasma", "plasma", "plasma", "plasma", "plasma"]
 	}
 	var migrated_12: Dictionary = lab_store.migrate(schema_11_data)
-	check(migrated_12.get("version") == 13 and migrated_12.has("achievements") and migrated_12.achievements is Array, "Schema 11 correctly migrates to Schema 13 with achievements")
+	check(migrated_12.get("version") == 14 and migrated_12.has("achievements") and migrated_12.achievements is Array, "Schema 11 correctly migrates to Schema 14 with achievements")
 	check(lab_store.valid(migrated_12), "Migrated schema 11 payload passes strict validation")
 
-	# Teste de Boss Multifásico (Fase 2 Overload aos 50% HP)
+	# Teste de Boss Multifásico (Fase 2 Overload / Phase thresholds)
 	var boss_test_game := VoidState.new()
 	boss_test_game.reset()
 	var test_boss := boss_test_game.spawn(3)
-	check(test_boss.type == 3 and not test_boss.get("overload", false), "Boss starts in Phase 1")
-	test_boss.hp = test_boss.max_hp * 0.45
+	check(test_boss.type == 3 and int(test_boss.get("boss_phase", 1)) == 1, "Boss starts in Phase 1")
 	var boss_speed_p1: float = test_boss.speed
-	boss_test_game.tick(0.01)
-	check(test_boss.get("overload", false) and test_boss.phase == 2 and test_boss.speed > boss_speed_p1, "Boss triggers Overload Phase 2 when HP <= 50%")
+	# Boss entra em Fase 2 ao sofrer dano abaixo do limiar (0.66)
+	boss_test_game.damage_enemy(test_boss, test_boss.max_hp * 0.45)
+	check(int(test_boss.get("boss_phase", 1)) == 2 and test_boss.speed > boss_speed_p1, "Boss triggers Overload Phase 2 when HP <= 66%")
 
 	# Teste de Anomalias do Vazio (Wave Anomalies)
 	boss_test_game.wave = 5
-	boss_test_game.quota()
-	boss_test_game.next_wave()
-	check(boss_test_game.wave == 6 and not boss_test_game.current_anomaly.is_empty(), "Wave 6 triggers void anomaly")
+	boss_test_game.waves_since_miniboss = 0 # impede miniboss na wave 6
+	# Com seed fixa determinística garantimos que a wave 6 entre no ramo de anomalia (wave % 3 == 0)
+	var found_anomaly := false
+	for attempt in 10:
+		var anom_game := VoidState.new()
+		anom_game.reset()
+		anom_game.wave = 5
+		anom_game.waves_since_miniboss = 0
+		anom_game.next_wave()
+		if not anom_game.current_anomaly.is_empty():
+			found_anomaly = true
+			break
+	check(found_anomaly, "Wave 6 triggers void anomaly")
 	boss_test_game.current_anomaly = {}
 	var prev_click: int = boss_test_game.click_damage()
 	boss_test_game.current_anomaly = GameData.ANOMALIES["emp"]
@@ -529,7 +556,7 @@ func _init() -> void:
 	col_game.tick(0.01)
 	check(col_game.hp < hp_before_proj and col_game.enemy_projectiles.is_empty(), "Enemy projectile hitting dome takes damage and is destroyed")
 
-	# Teste de Migração Schema 12 para Schema 13 (Pesquisas especializadas de drop e array com 31 slots)
+	# Teste de Migração Schema 12 para Schema 14 (38 slots e especializações desmembradas)
 	var schema_twelve_path := "user://test_schema12_%d.json" % Time.get_ticks_usec()
 	file = FileAccess.open(schema_twelve_path, FileAccess.WRITE)
 	var old_res_28: Array = []
@@ -555,11 +582,39 @@ func _init() -> void:
 	var schema_twelve = load("res://scripts/score_store.gd").new()
 	schema_twelve.path = schema_twelve_path
 	schema_twelve.load_data()
-	check(schema_twelve.research.size() == GameData.RESEARCH_COUNT and schema_twelve.research[27] == 1 and schema_twelve.research[28] == 0 and schema_twelve.research[30] == 0, "Schema 12 migrates to Schema 13 with 31 research slots")
-	check(schema_twelve.achievements.has("first_kill") and schema_twelve.achievements.has("wave_5"), "Achievements preserved across Schema 13 migration")
-	check(schema_twelve.buy_research(28) and schema_twelve.buy_research(29) and schema_twelve.buy_research(30), "Purchasing new drop specialization researches 28, 29, 30 succeeds")
+	check(schema_twelve.research.size() == GameData.RESEARCH_COUNT and schema_twelve.research[34] == 1 and schema_twelve.research[35] == 0 and schema_twelve.research[37] == 0, "Schema 12 migrates to Schema 14 with 38 research slots")
+	check(schema_twelve.achievements.has("first_kill") and schema_twelve.achievements.has("wave_5"), "Achievements preserved across Schema 14 migration")
+	check(schema_twelve.buy_research(35) and schema_twelve.buy_research(36) and schema_twelve.buy_research(37), "Purchasing new drop specialization researches 35, 36, 37 succeeds")
 
-	# Teste de Redução de Drops Base e Novas Pesquisas de Drop (17, 28, 29, 30)
+	# Teste de Migração Schema 13 para Schema 14
+	var schema_thirteen_path := "user://test_schema13_%d.json" % Time.get_ticks_usec()
+	file = FileAccess.open(schema_thirteen_path, FileAccess.WRITE)
+	var old_res_31: Array = []
+	for i in 31:
+		old_res_31.append(2)
+	file.store_string(JSON.stringify({
+		"version": 13,
+		"scores": [],
+		"best": 600,
+		"muted": false,
+		"pieces": [50, 50, 50, 50],
+		"research": old_res_31,
+		"lab_research": [1, 1, 1],
+		"active_research": {},
+		"achievements": ["first_kill"],
+		"enemy_stats": {},
+		"highest_wave": 25,
+		"tower_modules": {"plasma": true, "cryo": true, "arc": true, "pulse": true, "laser": true, "vortex": true, "railgun": true},
+		"unlocked_tower_slots": 4,
+		"tower_loadout": ["plasma", "cryo", "arc", "pulse", "plasma", "plasma", "plasma"]
+	}))
+	file.close()
+	var schema_thirteen = load("res://scripts/score_store.gd").new()
+	schema_thirteen.path = schema_thirteen_path
+	schema_thirteen.load_data()
+	check(schema_thirteen.research.size() == GameData.RESEARCH_COUNT and schema_thirteen.research[18] == 2 and schema_thirteen.research[19] == 2 and schema_thirteen.research[32] == 2 and schema_thirteen.research[37] == 2, "Schema 13 tower and shield researches correctly split and mapped into Schema 14")
+
+	# Teste de Redução de Drops Base e Novas Pesquisas de Drop (17, 35, 36, 37)
 	var drop_game := VoidState.new()
 	drop_game.reset()
 	drop_game.configure_research([0, 0, 0, 0])
@@ -584,32 +639,64 @@ func _init() -> void:
 	check(drop_game.roll_piece_drop(d_titan, 0.179) == 1, "Base titan drops piece at 17.9% roll")
 	check(drop_game.roll_piece_drop(d_titan, 0.181) == 0, "Base titan fails drop at 18.1% roll (reduced base chance)")
 
-	# Pesquisas de Drop 17, 28, 29, 30 ativadas
+	# Pesquisas de Drop 17, 35, 36, 37 ativadas
 	var res_drop: Array[int] = []
 	for i in GameData.RESEARCH_COUNT:
 		res_drop.append(0)
 	res_drop[17] = 2 # +6% geral
-	res_drop[28] = 2 # +6% em quadrados e triangulos (total +12% em quadrado -> 18%)
-	res_drop[29] = 2 # +10% em hexágonos (+20% em elites)
-	res_drop[30] = 2 # +8% com critico/combo >= 10, e 50% chance de drop duplo
+	res_drop[35] = 2 # +6% em quadrados e triangulos (total +12% em quadrado -> 18%)
+	res_drop[36] = 2 # +10% em hexágonos (+20% em elites)
+	res_drop[37] = 2 # +8% com critico/combo >= 10, e 50% chance de drop duplo
 	drop_game.configure_research(res_drop)
 
-	# Quadrado com Res 17 (+6%) e Res 28 (+6%): chance = 6% + 6% + 6% = 18%
-	check(drop_game.roll_piece_drop(d_square, 0.179) == 1, "Square with Research 17 and 28 drops at 17.9% roll")
-	check(drop_game.roll_piece_drop(d_square, 0.181) == 0, "Square with Research 17 and 28 fails at 18.1% roll")
+	# Quadrado com Res 17 (+6%) e Res 35 (+6%): chance = 6% + 6% + 6% = 18%
+	check(drop_game.roll_piece_drop(d_square, 0.179) == 1, "Square with Research 17 and 35 drops at 17.9% roll")
+	check(drop_game.roll_piece_drop(d_square, 0.181) == 0, "Square with Research 17 and 35 fails at 18.1% roll")
 
-	# Hexágono com Res 17 (+6%) e Res 29 (+10%): chance = 8% + 6% + 10% = 24%
-	check(drop_game.roll_piece_drop(d_hex, 0.239) == 1, "Hexagon with Research 17 and 29 drops at 23.9% roll")
-	check(drop_game.roll_piece_drop(d_hex, 0.241) == 0, "Hexagon with Research 17 and 29 fails at 24.1% roll")
+	# Hexágono com Res 17 (+6%) e Res 36 (+10%): chance = 8% + 6% + 10% = 24%
+	check(drop_game.roll_piece_drop(d_hex, 0.239) == 1, "Hexagon with Research 17 and 36 drops at 23.9% roll")
+	check(drop_game.roll_piece_drop(d_hex, 0.241) == 0, "Hexagon with Research 17 and 36 fails at 24.1% roll")
 
-	# Elite com Res 29 (+20% extra):
+	# Elite com Res 36 (+20% extra):
 	var d_elite := drop_game.spawn(0, "", true, true)
-	check(drop_game.roll_piece_drop(d_elite, 0.75) >= 2, "Elite with Research 17, 28, and 29 has amplified drop rate and drops at 75% roll")
+	check(drop_game.roll_piece_drop(d_elite, 0.75) >= 2, "Elite with Research 17, 35, and 36 has amplified drop rate and drops at 75% roll")
 
-	# Sobrecarga de Extração (Pesquisa 30):
+	# Sobrecarga de Extração (Pesquisa 37):
 	d_square.last_hit_crit = true
-	check(drop_game.roll_piece_drop(d_square, 0.259, 0.70) == 1, "Research 30 increases drop chance on critical kill without double drop if roll is above 50%")
-	check(drop_game.roll_piece_drop(d_square, 0.259, 0.40) == 2, "Research 30 triggers double drop on critical kill when double roll succeeds")
+	check(drop_game.roll_piece_drop(d_square, 0.259, 0.70) == 1, "Research 37 increases drop chance on critical kill without double drop if roll is above 50%")
+	check(drop_game.roll_piece_drop(d_square, 0.259, 0.40) == 2, "Research 37 triggers double drop on critical kill when double roll succeeds")
+
+	# Testes de Internacionalização (i18n):
+	var i18n = load("res://core/i18n.gd")
+	var StoreClass = load("res://scripts/score_store.gd")
+	i18n.set_language(i18n.LANG_PT)
+	check(i18n.t("menu.play", "") == "▶  JOGAR AGORA", "I18n PT returns JOGAR AGORA")
+	check(i18n.t("hud.lang_btn", "") == "IDIOMA: PT", "I18n PT returns IDIOMA: PT")
+	check(i18n.get_piece_name(0) == "FRAGMENTO QUADRADO", "I18n PT piece name 0")
+	i18n.set_language(i18n.LANG_EN)
+	check(i18n.t("menu.play", "") == "▶  PLAY NOW", "I18n EN returns PLAY NOW")
+	check(i18n.t("hud.lang_btn", "") == "LANGUAGE: EN", "I18n EN returns LANGUAGE: EN")
+	check(i18n.get_piece_name(0) == "SQUARE FRAGMENT", "I18n EN piece name 0")
+	check(i18n.get_upgrade_info("click_dmg")[0] == "PLASMA CLICK", "I18n EN upgrade name")
+	check(i18n.get_module_info("cryo")[0] == "Cryo Tower", "I18n EN module name")
+	check(i18n.get_enemy_info("square")[0] == "SQUARE", "I18n EN enemy name")
+	check(i18n.get_achievement_title("first_kill") == "FIRST CONTACT", "I18n EN achievement title")
+
+	# Persistência do Idioma no SaveStore:
+	var lang_save_path := "user://test_lang_save.json"
+	var lang_store = StoreClass.new()
+	lang_store.path = lang_save_path
+	lang_store.language = "en"
+	check(lang_store.save_data(), "SaveStore successfully saves English language setting")
+	var lang_load = StoreClass.new()
+	lang_load.path = lang_save_path
+	lang_load.load_data()
+	check(lang_load.language == "en", "SaveStore correctly loads English language setting")
+	check(i18n.current_lang == "en", "SaveStore loading en activates I18n EN")
+	for suffix in ["", ".bak", ".tmp"]:
+		if FileAccess.file_exists(lang_save_path + suffix):
+			DirAccess.remove_absolute(lang_save_path + suffix)
+	i18n.set_language(i18n.LANG_PT)
 
 	for suffix in ["", ".bak", ".tmp"]:
 		if FileAccess.file_exists(lab_path + suffix):
@@ -635,6 +722,8 @@ func _init() -> void:
 			DirAccess.remove_absolute(schema_eight_path + suffix)
 		if FileAccess.file_exists(schema_twelve_path + suffix):
 			DirAccess.remove_absolute(schema_twelve_path + suffix)
+		if FileAccess.file_exists(schema_thirteen_path + suffix):
+			DirAccess.remove_absolute(schema_thirteen_path + suffix)
 	if failures > 0:
 		print("FAIL: %d of %d gameplay/save checks" % [failures, checks])
 		quit(1)

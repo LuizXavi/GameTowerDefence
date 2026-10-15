@@ -209,6 +209,22 @@ func run() -> void:
 	await capture("NeonVoid-codex")
 	await key(KEY_ESCAPE)
 	expect(app.phase == "menu", "Escape closes Codex")
+	expect(app.menu.find_child("Achievements", true, false) != null, "Achievements button exists on menu")
+	app.show_achievements()
+	await process_frame
+	expect(app.overlay.find_child("Tab_ach_all", true, false) != null, "Achievements All tab exists")
+	expect(app.overlay.find_child("Tab_ach_combat", true, false) != null, "Achievements Combat tab exists")
+	expect(app.overlay.find_child("Tab_ach_progression", true, false) != null, "Achievements Progression tab exists")
+	expect(app.overlay.find_child("Tab_ach_special", true, false) != null, "Achievements Special tab exists")
+	expect(app.overlay.find_child("Tab_ach_unlocked", true, false) != null, "Achievements Unlocked tab exists")
+	app.select_achievements_tab("combat")
+	await process_frame
+	expect(app.achievements_tab == "combat", "Selecting achievements combat tab switches category")
+	app.select_achievements_tab("all")
+	await process_frame
+	await capture("NeonVoid-conquistas")
+	await key(KEY_ESCAPE)
+	expect(app.phase == "menu", "Escape closes Achievements screen")
 	root.content_scale_size = Vector2i(800, 900)
 	root.size = Vector2i(800, 900)
 	await create_timer(0.2).timeout
